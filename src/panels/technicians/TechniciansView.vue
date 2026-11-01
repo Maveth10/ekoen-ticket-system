@@ -6,7 +6,7 @@
       subtitle="Lista pracowników, uprawnienia, pojazdy i przypisane strefy."
       :views="[]"
       activeView=""
-      :activeTabId="store.activeTabId"
+      :activeTabs="store.activeTabs"
       :tabs="store.kpiTabs"
       :tabCounts="tabCounts"
       @select-tab="setActiveTab"
@@ -96,6 +96,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useTechniciansStore } from '../../stores/useTechniciansStore'
+import { useSmartKpiFilters } from '../../composables/useSmartKpiFilters'
 
 import UniversalKpi from '../../common/UniversalKpi.vue'
 import UniversalSearch from '../../common/UniversalSearch.vue'
@@ -122,7 +123,7 @@ const getExpiryStatus = (dateString) => {
 }
 
 const checkTechSearch = (tech, queryObj) => {
-  const q = queryObj.text.toLowerCase().trim()
+  const q = String(queryObj?.text || queryObj).toLowerCase().trim()
   if (!q) return true
   return (tech.name && String(tech.name).toLowerCase().includes(q)) || 
          (tech.phone && String(tech.phone).toLowerCase().includes(q)) || 
@@ -130,19 +131,35 @@ const checkTechSearch = (tech, queryObj) => {
          (tech.shortcut_key && String(tech.shortcut_key).toLowerCase().includes(q))
 }
 
-const evaluateQueries = (tech, queries) => {
-  const validSearch = queries?.filter(q => q.text.trim() !== '') || []
-  if (validSearch.length === 0) return true
-  let match = checkTechSearch(tech, validSearch[0])
-  if (validSearch[0].logic === 'NOT') match = !match
-  for (let i = 1; i < validSearch.length; i++) {
-    const cMet = checkTechSearch(tech, validSearch[i])
-    if (validSearch[i].logic === 'AND') match = match && cMet
-    else if (validSearch[i].logic === 'OR') match = match || cMet
-    else if (validSearch[i].logic === 'NOT') match = match && !cMet
+const evaluateTechTab = (t, tab) => {
+  if (tab.filter === 'ALL') return true
+  if (tab.id === 'SEP_ALERT') return getExpiryStatus(t.sep_expiry).isExpired
+  if (tab.id === 'CONTRACT_ALERT') {
+    const status = getExpiryStatus(t.contract_expiry)
+    return status.isExpired || status.isExpiring
   }
-  return match
+  
+  if (tab.customQueries) {
+    const validSearch = tab.customQueries.filter(q => q.text.trim() !== '')
+    if (validSearch.length === 0) return true
+    
+    let match = checkTechSearch(t, validSearch[0])
+    if (validSearch[0].logic === 'NOT') match = !match
+    for (let i = 1; i < validSearch.length; i++) {
+      const cMet = checkTechSearch(t, validSearch[i])
+      if (validSearch[i].logic === 'AND') match = match && cMet
+      else if (validSearch[i].logic === 'OR') match = match || cMet
+      else if (validSearch[i].logic === 'NOT') match = match && !cMet
+    }
+    return match
+  }
+  return true
 }
+
+// --- WPIĘCIE LOGIKI USE-SMART-KPI-FILTERS ---
+store.getBaseList = () => store.technicians
+store.duplicateIds = []
+const { evaluateQueries } = useSmartKpiFilters(store, checkTechSearch)
 
 const currentPage = ref(1)
 const selectedIds = ref([])
@@ -156,46 +173,43 @@ const confirmModal = ref({ show: false, message: "", onConfirm: null })
 const showAddTechModal = ref(false)
 const operationTech = ref(null)
 
+// --- LOGIKA MULTI-SELECT (ZLICZANIE CYFEREK) ---
 const tabCounts = computed(() => {
   const counts = {}
   if (!store.kpiTabs) return counts
+  
+  let searchFilteredBase = store.technicians
+  const validSearch = store.searchQueriesMain.filter(q => q.text.trim() !== '')
+  
+  if (validSearch.length > 0) {
+    searchFilteredBase = searchFilteredBase.filter(t => evaluateQueries(t, store.searchQueriesMain))
+  }
+
   store.kpiTabs.forEach(tab => {
-    if (tab.id === 'ALL') {
-      counts[tab.id] = store.technicians.length
-    } else if (tab.id === 'SEP_ALERT') {
-      counts[tab.id] = store.technicians.filter(t => getExpiryStatus(t.sep_expiry).isExpired).length
-    } else if (tab.id === 'CONTRACT_ALERT') {
-      counts[tab.id] = store.technicians.filter(t => {
-        const status = getExpiryStatus(t.contract_expiry)
-        return status.isExpired || status.isExpiring
-      }).length
-    } else if (tab.customQueries) {
-      counts[tab.id] = store.technicians.filter(t => evaluateQueries(t, tab.customQueries)).length
-    } else {
-      counts[tab.id] = 0
-    }
+     counts[tab.id] = searchFilteredBase.filter(t => evaluateTechTab(t, tab)).length
   })
+  
   return counts
 })
 
+
+// --- LOGIKA MULTI-SELECT (FILTROWANIE GŁÓWNE) ---
 const filteredTechs = computed(() => {
   let base = store.technicians
-  const activeTab = store.kpiTabs.find(t => t.id === store.activeTabId)
+  const activeTabsIds = store.activeTabs || ['ALL']
   
-  if (activeTab) {
-    if (activeTab.id === 'SEP_ALERT') {
-      base = base.filter(t => getExpiryStatus(t.sep_expiry).isExpired)
-    } else if (activeTab.id === 'CONTRACT_ALERT') {
+  // Krzyżowanie kafelków ("LUB" / "ORAZ")
+  if (!activeTabsIds.includes('ALL')) {
+      const activeTabObjs = activeTabsIds.map(id => store.kpiTabs.find(t => t.id === id)).filter(Boolean)
+      
       base = base.filter(t => {
-        const status = getExpiryStatus(t.contract_expiry)
-        return status.isExpired || status.isExpiring
+          return activeTabObjs.every(tab => evaluateTechTab(t, tab))
       })
-    } else if (activeTab.id !== 'ALL' && activeTab.customQueries) {
-      base = base.filter(t => evaluateQueries(t, activeTab.customQueries))
-    }
   }
 
-  if (store.searchQueriesMain.some(q => q.text.trim() !== '')) {
+  // Wyszukiwarka tekstowa
+  const validSearch = store.searchQueriesMain.filter(q => q.text.trim() !== '')
+  if (validSearch.length > 0) {
     base = base.filter(t => evaluateQueries(t, store.searchQueriesMain))
   }
   return base
@@ -260,8 +274,28 @@ const massDelete = () => {
 
 const closeAllDropdowns = () => {}
 
-const setActiveTab = (id) => {
-  store.activeTabId = store.activeTabId === id && id !== 'ALL' && id !== 'SEP_ALERT' && id !== 'CONTRACT_ALERT' ? 'ALL' : id
+
+// --- PANCERNE ODKLIKIWANIE ZAKŁADEK (MULTI-SELECT) ---
+const setActiveTab = (filterId) => {
+  let current = Array.isArray(store.activeTabs) ? [...store.activeTabs] : ['ALL']
+
+  if (filterId === 'ALL') {
+    current = ['ALL']
+  } else {
+    current = current.filter(id => id !== 'ALL')
+    
+    const index = current.indexOf(filterId)
+    if (index !== -1) {
+      current.splice(index, 1)
+      if (current.length === 0) {
+        current = ['ALL']
+      }
+    } else {
+      current.push(filterId)
+    }
+  }
+  
+  store.activeTabs = current
   currentPage.value = 1
   saveUserConfig()
 }
@@ -286,7 +320,10 @@ const confirmDeleteTab = (id) => {
     show: true, message: "Usunąć ten filtr (zakładkę)?",
     onConfirm: () => {
       store.kpiTabs = store.kpiTabs.filter(t => t.id !== id)
-      if (store.activeTabId === id) store.activeTabId = 'ALL'
+      if (store.activeTabs && store.activeTabs.includes(id)) {
+          store.activeTabs = store.activeTabs.filter(tabId => tabId !== id);
+          if (store.activeTabs.length === 0) store.activeTabs = ['ALL']; 
+      }
       saveUserConfig()
     }
   }
@@ -299,7 +336,7 @@ const saveTab = ({ form, queries }) => {
     if (tab) { tab.name = form.name; tab.color = form.color; tab.icon = form.iconPreviewBase64; tab.customQueries = JSON.parse(JSON.stringify(validQ)) }
   } else {
     store.kpiTabs.push({ id: "TAB_" + Date.now(), name: form.name, filter: "CUSTOM", color: form.color, icon: form.iconPreviewBase64, customQueries: JSON.parse(JSON.stringify(validQ)) })
-    store.activeTabId = store.kpiTabs[store.kpiTabs.length - 1].id
+    store.activeTabs = [store.kpiTabs[store.kpiTabs.length - 1].id]
   }
   saveUserConfig()
   showTabModal.value = false

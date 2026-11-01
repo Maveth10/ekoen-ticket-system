@@ -8,7 +8,7 @@
         subtitle="Kalkulacje usług, roboczogodzin i weryfikacja cenników."
         :views="[]"
         activeView=""
-        :activeTabId="store.activeTabId"
+        :activeTabs="store.activeTabs"
         :tabs="store.kpiTabs"
         :tabCounts="tabCounts"
         @select-tab="setActiveTab"
@@ -119,6 +119,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useBillingsStore } from '../../stores/useBillingsStore'
 import { useSearchFilters } from '../../composables/useSearchFilters'
+import { useSmartKpiFilters } from '../../composables/useSmartKpiFilters'
 
 import UniversalKpi from '../../common/UniversalKpi.vue'
 import UniversalSearch from '../../common/UniversalSearch.vue'
@@ -163,54 +164,17 @@ const columns = ref([
 
 const visibleColumns = computed(() => columns.value.filter(c => c.visible))
 
-// --- OBLICZENIA I FILTROWANIE (Zoptymalizowane DRY) ---
+// --- UŻYCIE NOWEGO, INTELIGENTNEGO COMPOSABLE ---
+store.getBaseList = () => store.billings
+store.duplicateIds = [] // Brak pojęcia duplikatów w bilingach
 
-// Zunifikowana funkcja oceniająca filtry AND/OR/NOT
-const evaluateQueries = (item, queries) => {
-  const validSearch = queries?.filter(q => q.text.trim() !== '') || []
-  if (validSearch.length === 0) return true
+const { filteredBaseList, tabCounts } = useSmartKpiFilters(store, checkBillingSearch)
 
-  let match = checkBillingSearch(item, validSearch[0].text)
-  if (validSearch[0].logic === 'NOT') match = !match
-  
-  for (let i = 1; i < validSearch.length; i++) {
-    const cMet = checkBillingSearch(item, validSearch[i].text)
-    if (validSearch[i].logic === 'AND') match = match && cMet
-    else if (validSearch[i].logic === 'OR') match = match || cMet
-    else if (validSearch[i].logic === 'NOT') match = match && !cMet
-  }
-  return match
-}
-
-const tabCounts = computed(() => {
-  const counts = {}
-  if (!store.kpiTabs) return counts
-
-  store.kpiTabs.forEach(tab => {
-    if (tab.filter === 'ALL') {
-      counts[tab.id] = store.billings.length
-    } else if (tab.customQueries) {
-      counts[tab.id] = store.billings.filter(item => evaluateQueries(item, tab.customQueries)).length
-    } else {
-      counts[tab.id] = 0
-    }
-  })
-  return counts
-})
 
 const filteredBillings = computed(() => {
-  let base = store.billings
-  const activeTab = store.kpiTabs.find(t => t.id === store.activeTabId)
-  
-  // Aplikuj filtry z aktywnej zakładki
-  if (activeTab && activeTab.id !== 'ALL' && activeTab.customQueries) {
-    base = base.filter(item => evaluateQueries(item, activeTab.customQueries))
-  }
+  let base = [...filteredBaseList.value]
 
-  // Aplikuj filtry z głównej wyszukiwarki
-  base = base.filter(item => evaluateQueries(item, store.searchQueriesMain))
-
-  // Sortowanie
+  // Aplikujemy tylko sortowanie (filtry obsługuje już Composable!)
   if (currentSort.value.col) {
     const col = currentSort.value.col
     const dir = currentSort.value.dir
@@ -252,7 +216,6 @@ const groupedBillings = computed(() => {
     let sortKey = '9999-99'
     let label = 'ZAMKNIĘTE BEZ DATY (Błąd Systemu / Do wyjaśnienia)'
     
-    // Zastąpiono duplikat metody isPrelim z pliku BillingsList
     const isWstepne = item.billing_state === 'PRE_SETTLED' || 
                       String(item.billing_status || '').toUpperCase().includes('WSTĘPN') || 
                       String(item.status || '').toUpperCase().includes('WSTĘPN') ||
@@ -285,7 +248,7 @@ const groupedBillings = computed(() => {
     if (!groups[sortKey]) groups[sortKey] = { key: sortKey, label: label, items: [], settledCount: 0, totalEur: 0 }
     
     groups[sortKey].items.push(item)
-    if (item.billing_state === 'SETTLED' || item.billing_state === 'CORRECTED') {
+    if (item.billing_state === 'SETTLED' || item.billing_state === 'CORRECTED' || String(item.status).toUpperCase().includes('ROZLICZONE')) {
        groups[sortKey].settledCount++
        if (item.saved_data && item.saved_data.total_eur) {
          groups[sortKey].totalEur += parseFloat(item.saved_data.total_eur)
@@ -434,8 +397,23 @@ const onHeaderDrop = (targetIdx) => {
   saveColumnsConfig()
 }
 
-const setActiveTab = (id) => {
-  store.activeTabId = store.activeTabId === id && id !== 'ALL' ? 'ALL' : id
+// LOGIKA MULTI-SELECT 
+const setActiveTab = (filterId) => {
+  let current = store.activeTabs ? [...store.activeTabs] : ['ALL']
+
+  if (filterId === 'ALL') {
+    current = ['ALL']
+  } else {
+    current = current.filter(id => id !== 'ALL')
+    if (current.includes(filterId)) {
+      current = current.filter(id => id !== filterId)
+      if (current.length === 0) current = ['ALL']
+    } else {
+      current.push(filterId)
+    }
+  }
+  
+  store.activeTabs = current
   saveUserConfig()
 }
 
@@ -459,7 +437,10 @@ const confirmDeleteTab = (id) => {
     show: true, message: "Usunąć ten filtr (zakładkę)?",
     onConfirm: () => {
       store.kpiTabs = store.kpiTabs.filter(t => t.id !== id)
-      if (store.activeTabId === id) store.activeTabId = 'ALL'
+      if (store.activeTabs && store.activeTabs.includes(id)) {
+          store.activeTabs = store.activeTabs.filter(tabId => tabId !== id);
+          if (store.activeTabs.length === 0) store.activeTabs = ['ALL']; 
+      }
       saveUserConfig()
     }
   }
@@ -472,7 +453,7 @@ const saveTab = ({ form, queries }) => {
     if (tab) { tab.name = form.name; tab.color = form.color; tab.icon = form.iconPreviewBase64; tab.customQueries = JSON.parse(JSON.stringify(validQ)) }
   } else {
     store.kpiTabs.push({ id: "TAB_" + Date.now(), name: form.name, filter: "CUSTOM", color: form.color, icon: form.iconPreviewBase64, customQueries: JSON.parse(JSON.stringify(validQ)) })
-    store.activeTabId = store.kpiTabs[store.kpiTabs.length - 1].id
+    store.activeTabs = [store.kpiTabs[store.kpiTabs.length - 1].id]
   }
   saveUserConfig()
   showTabModal.value = false

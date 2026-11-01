@@ -11,14 +11,15 @@
       ]"
       :activeView="store.currentView"
       @switch-view="v => { store.currentView = v; focusToday() }"
-      :activeTabId="store.activeTabId"
+      :activeTabs="store.activeTabs"
       :tabs="store.kpiTabs"
-      :tabCounts="store.kpiTabs.reduce((acc, tab) => { acc[tab.id] = getTabCount(tab); return acc; }, {})"
-      @select-tab="id => { store.activeTabId = store.activeTabId === id && id !== 'ALL' ? 'ALL' : id; store.saveTabsConfiguration() }"
+      :tabCounts="tabCounts"
+      @select-tab="setActiveTab"
       @open-modal="openNewTabModal"
       @edit-tab="editTab"
       @delete-tab="confirmDeleteTab"
       @reorder-tabs="handleReorderTabs"
+      @save-settings="store.saveTabsConfiguration()"
     />
 
     <UniversalSearch 
@@ -75,12 +76,13 @@
 import { ref, computed, onMounted } from 'vue'
 import { useScheduleStore } from '../../stores/useScheduleStore'
 import { useSearchFilters } from '../../composables/useSearchFilters'
+import { useSmartKpiFilters } from '../../composables/useSmartKpiFilters'
 
 import UniversalKpi from '../../common/UniversalKpi.vue'
 import UniversalSearch from '../../common/UniversalSearch.vue'
 import UniversalTabModal from '../../common/UniversalTabModal.vue'
 import ConfirmModal from '../../common/ConfirmModal.vue'
-import ScheduleList from './ScheduleList.vue' // <-- IMPORTUJEMY KOMPONENT LISTY
+import ScheduleList from './ScheduleList.vue'
 
 const store = useScheduleStore()
 const { checkTicketSearch } = useSearchFilters()
@@ -132,7 +134,10 @@ const confirmDeleteTab = (id) => {
     show: true, message: "Usunąć ten filtr (zakładkę)?",
     onConfirm: () => {
       store.kpiTabs = store.kpiTabs.filter(t => t.id !== id)
-      if (store.activeTabId === id) store.activeTabId = 'ALL'
+      if (store.activeTabs && store.activeTabs.includes(id)) {
+          store.activeTabs = store.activeTabs.filter(tabId => tabId !== id);
+          if (store.activeTabs.length === 0) store.activeTabs = ['ALL']; 
+      }
       store.saveTabsConfiguration()
     }
   }
@@ -145,7 +150,7 @@ const saveTab = ({ form, queries }) => {
     if (tab) { tab.name = form.name; tab.color = form.color; tab.icon = form.iconPreviewBase64; tab.customQueries = JSON.parse(JSON.stringify(validQ)) }
   } else {
     store.kpiTabs.push({ id: "TAB_" + Date.now(), name: form.name, filter: "CUSTOM", color: form.color, icon: form.iconPreviewBase64, customQueries: JSON.parse(JSON.stringify(validQ)) })
-    store.activeTabId = store.kpiTabs[store.kpiTabs.length - 1].id
+    store.activeTabs = [store.kpiTabs[store.kpiTabs.length - 1].id]
   }
   store.saveTabsConfiguration()
   showTabModal.value = false
@@ -163,7 +168,27 @@ const handleReorderTabs = ({ sourceId, targetId }) => {
   }
 }
 
-// LOGIKA WYBORU TECHNIKA
+const setActiveTab = (filterId) => {
+  let current = store.activeTabs ? [...store.activeTabs] : ['ALL']
+
+  if (filterId === 'ALL') {
+    current = ['ALL']
+  } else {
+    current = current.filter(id => id !== 'ALL')
+    if (current.includes(filterId)) {
+      current = current.filter(id => id !== filterId)
+      if (current.length === 0) current = ['ALL']
+    } else {
+      current.push(filterId)
+    }
+  }
+  
+  store.activeTabs = current
+  store.saveTabsConfiguration()
+}
+
+
+// LOGIKA WYBORU TECHNIKA (Menu rozwijane z prawej strony)
 const currentTechName = computed(() => {
   if (store.selectedTechId === 'ALL') return 'CAŁA FLOTA (WSZYSCY)'
   const tech = store.techList.find(t => t.id === store.selectedTechId)
@@ -197,79 +222,94 @@ const totalBacklogCount = computed(() => {
   return store.tickets.filter(d => isValidBacklogTicket(d, assignedIds)).length
 })
 
-const getTabCount = (tab) => {
+
+// === UŻYCIE NOWEGO, INTELIGENTNEGO COMPOSABLE DLA HARMONOGRAMU ===
+
+// 1. Podpinamy funkcję zwracającą listę gotową do filtrowania (Tylko te niezaplanowane!)
+store.getBaseList = () => {
   let assignedIds = store.events.map(ev => ev.ticket_id)
-  let unassignedTickets = store.tickets.filter(d => isValidBacklogTicket(d, assignedIds))
-  
-  if (tab.filter === "ALL") return unassignedTickets.length
-  if (tab.filter === "URGENT") return unassignedTickets.filter(d => d.slaLeft < 24).length
-  if (tab.filter === "TODAY") {
-    const todayStr = new Date().toISOString().split('T')[0]
-    return store.events.filter(x => x.start_time && x.start_time.startsWith(todayStr)).length
-  }
-  if (tab.filter === "CUSTOM") {
-    return unassignedTickets.filter(d => {
-      const validQ = tab.customQueries ? tab.customQueries.filter(q => q.text.trim() !== '') : []
-      if (validQ.length !== 0) {
-        let match = checkTicketSearch(d, validQ[0].text)
-        if (validQ[0].logic === 'NOT') match = !match
-        for (let i = 1; i < validQ.length; i++) {
-          const cMet = checkTicketSearch(d, validQ[i].text)
-          if (validQ[i].logic === 'AND') match = match && cMet
-          else if (validQ[i].logic === 'OR') match = match || cMet
-          else if (validQ[i].logic === 'NOT') match = match && !cMet
-        }
-        return match
-      }
-      return true
-    }).length
-  }
-  return 0
+  return store.tickets.filter(d => isValidBacklogTicket(d, assignedIds))
 }
 
-const filteredTickets = computed(() => {
-  let assignedIds = store.events.map(ev => ev.ticket_id)
-  let base = store.tickets.filter(d => isValidBacklogTicket(d, assignedIds))
+// 2. Obsługa duplikatów (jeśli harmonogram wymaga) - w harmonogramie ignorujemy, ale potrzebujemy tablicy
+store.duplicateIds = []
+
+// 3. Wstrzykujemy Composable
+const { filteredBaseList, evaluateQueries } = useSmartKpiFilters(store, checkTicketSearch)
+
+
+// 4. Dostosowujemy zliczanie tabCounts z uwzględnieniem specyficznych kafelków kalendarza (np. TODAY, URGENT)
+const tabCounts = computed(() => {
+  const counts = {}
+  if (!store.kpiTabs) return counts
   
-  const activeTab = store.kpiTabs.find(t => t.id === store.activeTabId)
-  if (activeTab) {
-    if (activeTab.filter === "URGENT") base = base.filter(d => d.slaLeft < 24)
-    else if (activeTab.filter === "TODAY") base = []
-    else if (activeTab.filter === "CUSTOM") {
-      base = base.filter(d => {
-        const validQ = activeTab.customQueries ? activeTab.customQueries.filter(q => q.text.trim() !== '') : []
-        if (validQ.length !== 0) {
-          let match = checkTicketSearch(d, validQ[0].text)
-          if (validQ[0].logic === 'NOT') match = !match
-          for (let i = 1; i < validQ.length; i++) {
-            const cMet = checkTicketSearch(d, validQ[i].text)
-            if (validQ[i].logic === 'AND') match = match && cMet
-            else if (validQ[i].logic === 'OR') match = match || cMet
-            else if (validQ[i].logic === 'NOT') match = match && !cMet
-          }
-          return match
-        }
-        return true
-      })
-    }
+  // Pobieramy "surową" przefiltrowaną szukajką listę
+  let searchFilteredBase = store.getBaseList()
+  if (store.searchQueriesMain.some(q => q.text.trim() !== '')) {
+    searchFilteredBase = searchFilteredBase.filter(item => evaluateQueries(item, store.searchQueriesMain))
   }
 
-  const validSearch = store.searchQueriesMain.filter(q => q.text.trim() !== '')
-  if (validSearch.length !== 0) {
-    base = base.filter(d => {
-      let match = checkTicketSearch(d, validSearch[0].text)
-      if (validSearch[0].logic === 'NOT') match = !match
-      for (let i = 1; i < validSearch.length; i++) {
-        const cMet = checkTicketSearch(d, validSearch[i].text)
-        if (validSearch[i].logic === 'AND') match = match && cMet
-        else if (validSearch[i].logic === 'OR') match = match || cMet
-        else if (validSearch[i].logic === 'NOT') match = match && !cMet
-      }
-      return match
-    })
+  // Funkcja symulująca rygorystyczny check dla Multi-Select (zapożyczona logika z composable)
+  const getSimulatedCount = (tab) => {
+    let isTechTab = tab.id.startsWith('TECH_')
+    let isStatusTab = tab.filter === 'SYSTEM' || tab.filter === 'CUSTOM'
+    
+    // Zbieramy aktualnie wybrane 
+    const activeIds = store.activeTabs || ['ALL']
+    const activeObjs = activeIds.filter(id => id !== 'ALL').map(id => store.kpiTabs.find(c => c.id === id)).filter(Boolean)
+    
+    let activeTechs = activeObjs.filter(t => t.id.startsWith('TECH_'))
+    let activeStatuses = activeObjs.filter(t => t.filter === 'SYSTEM' || t.filter === 'CUSTOM')
+    
+    // Symulacja "koszyków"
+    let techGroup = isTechTab ? [tab] : activeTechs
+    let statusGroup = isStatusTab ? [tab] : activeStatuses
+    
+    return searchFilteredBase.filter(item => {
+      let passTech = techGroup.length === 0 || techGroup.some(t => evaluateQueries(item, t.customQueries))
+      let passStatus = statusGroup.length === 0 || statusGroup.some(t => {
+        if(t.id === 'URGENT') return item.slaLeft < 24
+        return evaluateQueries(item, t.customQueries)
+      })
+      return passTech && passStatus
+    }).length
   }
+
+  store.kpiTabs.forEach(tab => {
+    if (tab.isHidden) return;
+    
+    if (tab.filter === 'ALL') {
+      counts[tab.id] = searchFilteredBase.length
+    } else if (tab.filter === 'URGENT') {
+      counts[tab.id] = searchFilteredBase.filter(d => d.slaLeft < 24).length
+    } else if (tab.filter === 'TODAY') {
+      const todayStr = new Date().toISOString().split('T')[0]
+      counts[tab.id] = store.events.filter(x => x.start_time && x.start_time.startsWith(todayStr)).length
+    } else if (tab.customQueries) {
+      counts[tab.id] = getSimulatedCount(tab)
+    } else {
+      counts[tab.id] = 0
+    }
+  })
+  return counts
+})
+
+
+// 5. Finalna lista dla UI - wzbogacona o niestandardowe kafelki (URGENT / TODAY), a całą resztę przepuszcza z composable
+const filteredTickets = computed(() => {
+  let base = [...filteredBaseList.value]
+  const activeTabs = store.activeTabs || ['ALL']
+  
+  if (activeTabs.includes('URGENT')) {
+      base = base.filter(d => d.slaLeft < 24)
+  }
+  if (activeTabs.includes('TODAY')) {
+      base = [] // Backlog pusty, bo wszystko jest zaplanowane na dziś (wyświetlane na siatce po prawo)
+  }
+
   return base.sort((a,b) => a.slaLeft - b.slaLeft)
 })
+
 
 const confirmDeleteEvent = (id) => {
   confirmModal.value = {

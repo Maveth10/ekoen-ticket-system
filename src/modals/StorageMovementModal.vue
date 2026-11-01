@@ -1,269 +1,401 @@
 <template>
-  <div v-if="show" class="fixed inset-0 z-[2000] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-fadeIn" @click.self="$emit('close')">
-    <div class="bg-white rounded-[20px] shadow-2xl w-full max-w-[600px] overflow-hidden border border-slate-200">
+  <div v-if="show" class="fixed inset-0 z-[2000] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-fadeIn" @click.self="closeModal">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-visible border border-slate-200 animate-slideUp">
       
-      <!-- Nagłówek Modala -->
-      <div class="px-6 py-5 flex justify-between items-center border-b border-slate-100 bg-slate-50/50">
-        <h3 class="text-[13px] font-black uppercase tracking-widest flex items-center gap-2" :class="opType === 'ZUZYCIE' ? 'text-red-600' : 'text-blue-600'">
-          <svg v-if="opType === 'ZUZYCIE'" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-          <svg v-else class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 3v18"/><path d="m21 7-4-4-4 4"/><path d="M7 21V3"/><path d="m3 17 4 4 4-4"/></svg> 
-          {{ titleStr }}
-        </h3>
-        <button type="button" @click="$emit('close')" class="text-slate-400 hover:text-slate-700 transition-colors bg-white p-2 rounded-xl shadow-sm border border-slate-200">✕</button>
+      <!-- NAGŁÓWEK Z ZAKŁADKAMI -->
+      <div class="bg-white px-6 pt-5 border-b border-slate-100 flex flex-col gap-4 rounded-t-2xl">
+        <div class="flex justify-between items-center">
+          <h3 class="text-sm font-extrabold text-slate-800 uppercase tracking-widest flex items-center gap-2">
+            Rejestracja operacji magazynowej
+          </h3>
+          <button @click="closeModal" class="text-slate-400 hover:text-slate-700 transition-colors p-1">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+
+        <!-- PRZEŁĄCZNIK TYPU OPERACJI -->
+        <div class="flex bg-slate-100/80 p-1 rounded-t-xl gap-1">
+          <button 
+            type="button" 
+            @click="form.type = 'PRZESUNIĘCIE'" 
+            class="flex-1 py-2.5 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all"
+            :class="form.type === 'PRZESUNIĘCIE' ? 'bg-white text-[#58b347] shadow-sm border border-slate-200/60' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'"
+          >Przesunięcie</button>
+          <button 
+            type="button" 
+            @click="form.type = 'DOSTAWA'" 
+            class="flex-1 py-2.5 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all"
+            :class="form.type === 'DOSTAWA' ? 'bg-white text-[#58b347] shadow-sm border border-slate-200/60' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'"
+          >Dostawa</button>
+          <button 
+            type="button" 
+            @click="form.type = 'ZUŻYCIE'" 
+            class="flex-1 py-2.5 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all"
+            :class="form.type === 'ZUŻYCIE' ? 'bg-white text-[#58b347] shadow-sm border border-slate-200/60' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'"
+          >Zużycie</button>
+        </div>
       </div>
 
-      <!-- Treść Modala -->
-      <div class="p-8 space-y-6 bg-white">
+      <!-- CIAŁO FORMULARZA -->
+      <form @submit.prevent="handleSubmit" class="p-6 space-y-5 bg-slate-50/30 rounded-b-2xl">
         
-        <!-- Wyszukiwarka i Wybór Części (jeśli odpalono z guzika ogólnego) -->
-        <div v-if="!selectedPart" class="space-y-3">
-          <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500">WYBIERZ ASORTYMENT *</label>
-          <div class="relative">
-            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <!-- WSPÓLNE: ASORTYMENT I ILOŚĆ -->
+        <div class="grid grid-cols-12 gap-5 p-4 bg-white border border-slate-200 rounded-xl shadow-sm">
+          <div class="col-span-12 sm:col-span-8">
+            <label class="block text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Co operujesz? (Część / Pojazd) *</label>
+            <select v-model="form.part_sku" required class="w-full px-3 py-2.5 border border-slate-200 bg-slate-50 rounded-lg text-xs font-bold focus:outline-none focus:border-[#58b347] cursor-pointer">
+              <option value="" disabled>-- Wybierz z bazy --</option>
+              <option v-for="part in store.parts" :key="part.id_sku || part.sku" :value="part.id_sku || part.sku">
+                [{{ part.id_sku || part.sku }}] {{ part.name }}
+              </option>
+            </select>
+          </div>
+          <div class="col-span-12 sm:col-span-4">
+            <label class="block text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Ilość *</label>
+            <input type="number" v-model.number="form.quantity" required min="1" class="w-full px-3 py-2.5 border border-slate-200 bg-slate-50 rounded-lg text-sm font-bold text-center focus:outline-none focus:border-[#58b347]" />
+          </div>
+        </div>
+
+        <!-- ZAKŁADKA: PRZESUNIĘCIE -->
+        <div v-show="form.type === 'PRZESUNIĘCIE'" class="grid grid-cols-12 gap-5 animate-fadeIn">
+          <div class="col-span-12 sm:col-span-6">
+            <label class="block text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Skąd pobrać? *</label>
+            <select v-model="form.from" :required="form.type === 'PRZESUNIĘCIE'" class="w-full px-3 py-2 border border-slate-200 bg-white rounded-lg text-xs font-bold focus:outline-none focus:border-[#58b347]">
+              <option v-for="loc in availableLocations" :key="loc.id" :value="loc.id" :disabled="loc.id === form.to">{{ loc.name }}</option>
+            </select>
+          </div>
+          <div class="col-span-12 sm:col-span-6">
+            <label class="block text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Dokąd wysłać? *</label>
+            <select v-model="form.to" :required="form.type === 'PRZESUNIĘCIE'" class="w-full px-3 py-2 border border-slate-200 bg-white rounded-lg text-xs font-bold focus:outline-none focus:border-[#58b347]">
+              <option v-for="loc in availableLocations" :key="loc.id" :value="loc.id" :disabled="loc.id === form.from">{{ loc.name }}</option>
+            </select>
+          </div>
+          
+          <div class="col-span-12 sm:col-span-5">
+            <label class="block text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Logistyka</label>
+            <select v-model="form.shipping_type" class="w-full px-3 py-2 border border-slate-200 bg-white rounded-lg text-xs font-bold focus:outline-none focus:border-[#58b347]">
+              <option value="Odbiór osobisty">Odbiór osobisty</option>
+              <option value="Wysyłka">Wysyłka (Kurier/Paczkomat)</option>
+            </select>
+          </div>
+          <div v-if="form.shipping_type === 'Wysyłka'" class="col-span-12 sm:col-span-7">
+            <label class="block text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Numer Przesyłki *</label>
+            <input type="text" v-model="form.tracking_number" :required="form.shipping_type === 'Wysyłka' && form.type === 'PRZESUNIĘCIE'" placeholder="Np. InPost / DPD..." class="w-full px-3 py-2 border border-slate-200 bg-white rounded-lg text-xs font-bold focus:outline-none focus:border-[#58b347]" />
+          </div>
+        </div>
+
+        <!-- ZAKŁADKA: DOSTAWA -->
+        <div v-show="form.type === 'DOSTAWA'" class="grid grid-cols-12 gap-5 animate-fadeIn">
+          <div class="col-span-12 sm:col-span-6">
+            <label class="block text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Źródło / Dostawca</label>
+            <input type="text" v-model="form.source_supplier" placeholder="Np. Hurtownia elektryczna..." class="w-full px-3 py-2 border border-slate-200 bg-white rounded-lg text-xs font-bold focus:outline-none focus:border-[#58b347]" />
+          </div>
+          <div class="col-span-12 sm:col-span-6">
+            <label class="block text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Numer Faktury / WZ</label>
+            <input type="text" v-model="form.invoice" placeholder="Opcjonalnie..." class="w-full px-3 py-2 border border-slate-200 bg-white rounded-lg text-xs font-bold focus:outline-none focus:border-[#58b347]" />
+          </div>
+          <div class="col-span-12 sm:col-span-6">
+            <label class="block text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Stan asortymentu</label>
+            <select v-model="form.item_condition" class="w-full px-3 py-2 border border-slate-200 bg-white rounded-lg text-xs font-bold focus:outline-none focus:border-[#58b347]">
+              <option value="Nowe">Nowe / Fabryczne</option>
+              <option value="Używane / Regenerowane">Używane / Regenerowane</option>
+            </select>
+          </div>
+          <div class="col-span-12 sm:col-span-6">
+            <label class="block text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Magazyn Docelowy *</label>
+            <select v-model="form.to" :required="form.type === 'DOSTAWA'" class="w-full px-3 py-2 border border-slate-200 bg-white rounded-lg text-xs font-bold focus:outline-none focus:border-[#58b347]">
+              <option value="ZG">Centrala (Zielona Góra)</option>
+              <option value="WA">Filia (Warszawa)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- ZAKŁADKA: ZUŻYCIE -->
+        <div v-show="form.type === 'ZUŻYCIE'" class="grid grid-cols-12 gap-5 animate-fadeIn">
+          <div class="col-span-12 sm:col-span-6">
+            <label class="block text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Który technik melduje zużycie? *</label>
+            <select v-model="form.technician_id" :required="form.type === 'ZUŻYCIE'" class="w-full px-3 py-2 border border-slate-200 bg-white rounded-lg text-xs font-bold focus:outline-none focus:border-[#58b347]">
+              <option value="" disabled>-- Wybierz --</option>
+              <option v-for="t in store.techs" :key="t.id" :value="t.id">{{ t.name }}</option>
+            </select>
+          </div>
+          <div class="col-span-12 sm:col-span-6">
+            <label class="block text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Z jakiego zasobu pobrano? *</label>
+            <select v-model="form.from" :required="form.type === 'ZUŻYCIE'" class="w-full px-3 py-2 border border-slate-200 bg-white rounded-lg text-xs font-bold focus:outline-none focus:border-[#58b347]">
+              <option v-for="loc in availableLocations" :key="loc.id" :value="loc.id">{{ loc.name }}</option>
+            </select>
+          </div>
+
+          <!-- ELEGANCKA WYSZUKIWARKA ZLECEŃ -->
+          <div class="col-span-12 sm:col-span-12 relative" ref="ticketDropdownRef">
+            <div class="flex justify-between items-center mb-1.5">
+              <label class="block text-[10px] font-bold uppercase tracking-widest text-slate-500">Powiązane zlecenie i wizyta *</label>
+              <span v-if="allSuggestionsCount > 0" class="text-[9px] font-bold text-[#58b347]">
+                Dostępnych zleceń: {{ allSuggestionsCount }}
+              </span>
             </div>
-            <input type="text" v-model="searchQuery" @focus="isDropdownOpen = true" placeholder="Wpisz nazwę, SKU, lub ID części..." class="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-blue-400 transition-all shadow-sm" />
             
-            <div v-if="isDropdownOpen && searchQuery.length > 0" class="absolute z-[100] w-full mt-2 bg-white border border-slate-200 rounded-xl shadow-xl max-h-48 overflow-y-auto ticket-custom-scrollbar divide-y divide-slate-100">
-              <div v-if="filteredParts.length === 0" class="p-4 text-center text-xs font-bold text-slate-400">Brak pasujących części</div>
-              <div v-for="part in filteredParts" :key="part.id" @click="selectPart(part)" class="p-3 hover:bg-slate-50 cursor-pointer flex flex-col gap-1 transition-colors">
-                <span class="text-[12px] font-bold text-slate-800">{{ part.name }}</span>
-                <div class="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-slate-400">
-                  <span>{{ part.id_sku || part.sku }}</span>
-                  <span class="text-[#58b347]">Stan ZG: {{ parseInt(part.zg_stock) || 0 }}</span>
+            <div class="relative group">
+              <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <svg class="w-4 h-4 text-slate-400 group-focus-within:text-[#58b347] transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+              </div>
+              
+              <input 
+                type="text" 
+                v-model="form.ticket_number" 
+                @focus="isDropdownOpen = true"
+                @input="isDropdownOpen = true"
+                :required="form.type === 'ZUŻYCIE'" 
+                placeholder="Szukaj po nr zlecenia, QP lub kliencie..." 
+                class="w-full pl-9 pr-10 py-3 border border-slate-200 bg-white rounded-xl text-sm font-bold focus:outline-none focus:border-[#58b347] focus:ring-1 focus:ring-[#58b347]/20 uppercase transition-all shadow-sm" 
+              />
+              
+              <button 
+                type="button" 
+                @click.stop="isDropdownOpen = !isDropdownOpen" 
+                class="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-[#58b347] bg-slate-50 hover:bg-[#58b347]/10 p-1.5 rounded-lg transition-colors border border-slate-200/50"
+              >
+                <svg class="w-4 h-4 transition-transform duration-200" :class="{ 'rotate-180': isDropdownOpen }" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
+            </div>
+
+            <!-- ROZWIJANA LISTA PODPOWIEDZI -->
+            <div 
+              v-show="isDropdownOpen" 
+              class="absolute z-[3000] left-0 right-0 mt-2 max-h-64 overflow-y-auto bg-white border border-slate-200 rounded-xl shadow-2xl divide-y divide-slate-100 custom-scrollbar"
+            >
+              <template v-if="filteredSuggestions.length > 0">
+                <div 
+                  v-for="item in filteredSuggestions" 
+                  :key="item.key"
+                  @mousedown.prevent="selectTicket(item.value)"
+                  class="p-3 hover:bg-[#58b347]/5 cursor-pointer flex items-center justify-between transition-colors group"
+                >
+                  <div class="flex flex-col">
+                    <div class="flex items-center gap-2.5">
+                      <span class="text-sm font-black text-slate-800 group-hover:text-[#499b3a]">{{ item.ticket_id }}</span>
+                      <span class="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-[#58b347]/10 text-[#499b3a] border border-[#58b347]/20 shadow-sm">
+                        {{ item.visit_title }}
+                      </span>
+                      <span v-if="item.isAssignedTech" class="text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded text-emerald-600 bg-white border border-emerald-200 shadow-sm">
+                        Twój rejon
+                      </span>
+                    </div>
+                    <div class="text-[11px] font-medium text-slate-500 mt-1 flex items-center gap-1.5">
+                      <span v-if="item.qp" class="font-bold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200/60">{{ item.qp }}</span>
+                      <span v-if="item.qp && item.client" class="text-slate-300">•</span>
+                      <span v-if="item.client" class="truncate max-w-[200px]">{{ item.client }}</span>
+                      <span v-if="item.tech && !item.isAssignedTech" class="text-slate-300">•</span>
+                      <span v-if="item.tech && !item.isAssignedTech" class="text-slate-400 italic">{{ item.tech }}</span>
+                    </div>
+                  </div>
                 </div>
+              </template>
+
+              <!-- STAN PUSTY / BRAK WYNIKÓW -->
+              <div v-else class="p-6 flex flex-col items-center justify-center text-center">
+                <div class="w-10 h-10 rounded-full bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-300 mb-2">
+                  <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                </div>
+                <span class="text-xs font-bold text-slate-500">{{ allSuggestionsCount === 0 ? 'Brak otwartych zleceń w bazie.' : 'Nie znaleziono zlecenia.' }}</span>
+                <span class="text-[10px] text-slate-400 mt-1">Możesz wpisać numer ręcznie w polu powyżej.</span>
               </div>
             </div>
           </div>
         </div>
 
-        <div v-else class="border rounded-xl p-4 flex flex-col shadow-sm" :class="opType === 'ZUZYCIE' ? 'bg-red-50 border-red-200' : 'bg-blue-50 border-blue-200'">
-          <div class="text-[10px] font-black uppercase tracking-widest mb-1" :class="opType === 'ZUZYCIE' ? 'text-red-400' : 'text-blue-400'">{{ selectedPart.id_sku || selectedPart.sku }}</div>
-          <div class="text-[13px] font-black leading-snug" :class="opType === 'ZUZYCIE' ? 'text-red-900' : 'text-blue-900'">{{ selectedPart.name }}</div>
-          <button v-if="!preselectedPart" @click="clearPart" class="text-[9px] font-black text-slate-500 uppercase tracking-widest mt-3 w-max hover:text-slate-700">ZMIEŃ CZĘŚĆ</button>
+        <!-- WSPÓLNE: NOTATKA -->
+        <div class="w-full pt-2">
+          <label class="block text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Dodatkowe Notatki</label>
+          <textarea v-model="form.notes" rows="2" placeholder="Opcjonalny komentarz do operacji..." class="w-full px-3 py-2 border border-slate-200 bg-white rounded-lg text-xs font-medium text-slate-700 focus:outline-none focus:border-[#58b347] resize-none"></textarea>
         </div>
 
-        <div class="w-full h-px bg-slate-100"></div>
-
-        <!-- Główna siatka selekcji -->
-        <div class="grid grid-cols-2 gap-4">
-          
-          <!-- WYBÓR: TYP OPERACJI -->
-          <div class="col-span-full sm:col-span-1 space-y-2">
-            <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500">TYP OPERACJI *</label>
-            <div class="relative bg-slate-50 border border-slate-200 rounded-xl shadow-sm focus-within:border-blue-400 transition-colors h-[46px] overflow-hidden">
-               <select v-model="opType" @change="handleTypeChange" class="w-full h-full pl-4 pr-10 text-[12px] font-bold text-slate-700 bg-transparent focus:outline-none appearance-none outline-none cursor-pointer">
-                 <option value="PRZESUNIECIE">Przesunięcie (np. Wydanie, Zwrot, ZG ⇄ WAW)</option>
-                 <option value="DOSTAWA">Dostawa Zewnętrzna (Dodanie stoku)</option>
-                 <option value="ZUZYCIE">Zużycie / Montaż w terenie</option>
-               </select>
-               <div class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                 <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg>
-               </div>
-            </div>
-          </div>
-
-          <!-- ILOŚĆ -->
-          <div class="col-span-full sm:col-span-1 space-y-2">
-            <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500">ILOŚĆ (SZT.) *</label>
-            <div class="flex gap-3 h-[46px]">
-              <input type="number" v-model.number="quantity" min="1" class="flex-1 border border-slate-200 bg-slate-50 rounded-xl px-4 text-center text-lg font-black text-slate-800 focus:outline-none focus:border-blue-400 transition-all shadow-sm m-0" />
-              <button v-if="opType !== 'DOSTAWA'" type="button" @click="setMax" class="bg-slate-50 border border-slate-200 text-slate-500 font-extrabold px-5 rounded-xl hover:bg-slate-100 transition-colors shadow-sm text-[10px] uppercase tracking-widest" title="Ustaw maksymalną dostępną ilość">MAX</button>
-            </div>
-          </div>
-
-          <!-- ŹRÓDŁO (Z) -->
-          <div v-if="opType === 'PRZESUNIECIE' || opType === 'ZUZYCIE'" class="col-span-full sm:col-span-1 space-y-2">
-            <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Z (ŹRÓDŁO) *</label>
-            <div class="relative bg-white border border-slate-200 rounded-xl shadow-sm focus-within:border-blue-400 transition-colors h-[46px] overflow-hidden mb-4">
-               <select v-model="sourceId" @change="handleSourceChange" class="w-full h-full pl-4 pr-10 text-[13px] font-bold text-slate-700 bg-transparent focus:outline-none appearance-none outline-none cursor-pointer">
-                 <option value="" disabled>-- Wybierz Źródło --</option>
-                 <option v-for="loc in availableSources" :key="loc.id" :value="loc.id">{{ loc.name }}</option>
-               </select>
-               <div class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                 <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg>
-               </div>
-            </div>
-            <!-- Podpowiedź Stoku -->
-            <p v-if="selectedPart && sourceId" class="text-[10px] font-bold text-slate-400 text-right -mt-2 pr-1">Stan: {{ availableStock }} szt.</p>
-          </div>
-
-          <!-- CEL (DO) -->
-          <div v-if="opType === 'PRZESUNIECIE' || opType === 'DOSTAWA'" class="col-span-full sm:col-span-1 space-y-2">
-            <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">DO (CEL) *</label>
-            <div class="relative bg-white border border-slate-200 rounded-xl shadow-sm focus-within:border-blue-400 transition-colors h-[46px] overflow-hidden mb-4">
-               <select v-model="destId" :disabled="availableDestinations.length === 0" class="w-full h-full pl-4 pr-10 text-[13px] font-bold text-slate-700 bg-transparent focus:outline-none appearance-none outline-none cursor-pointer disabled:bg-slate-50 disabled:text-slate-400">
-                 <option value="" disabled>-- Wybierz Cel --</option>
-                 <option v-for="loc in availableDestinations" :key="loc.id" :value="loc.id">{{ loc.name }}</option>
-               </select>
-               <div class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                 <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg>
-               </div>
-            </div>
-          </div>
-          
-          <!-- Powiązanie ze zgłoszeniem (Tylko dla zużycia) -->
-          <div v-if="opType === 'ZUZYCIE'" class="col-span-full sm:col-span-1 space-y-2">
-            <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">POWIĄŻ ZE ZGŁOSZENIEM</label>
-            <input type="text" v-model="ticketCode" placeholder="Np. AX-1234 (Opcjonalnie)" class="w-full h-[46px] border border-slate-200 bg-white rounded-xl px-4 text-xs font-bold text-slate-800 focus:outline-none focus:border-blue-400 transition-all shadow-sm m-0" />
-          </div>
-
+        <!-- STOPKA Z PRZYCISKAMI -->
+        <div class="flex gap-4 pt-3 border-t border-slate-200 mt-4">
+          <button type="button" @click="closeModal" class="flex-1 border border-slate-200 bg-white text-slate-700 font-bold py-3.5 rounded-xl text-xs hover:bg-slate-50 transition-colors shadow-sm">
+            Anuluj
+          </button>
+          <button type="submit" class="flex-1 text-white font-bold py-3.5 rounded-xl text-xs transition-colors shadow-sm bg-[#58b347] hover:bg-[#499b3a] shadow-[#58b347]/20">
+            Zatwierdź operację
+          </button>
         </div>
-
-      </div>
-
-      <!-- Stopka -->
-      <div class="p-6 border-t border-slate-100 bg-slate-50/50 flex gap-4">
-        <button type="button" @click="$emit('close')" class="flex-1 bg-white border border-slate-200 text-slate-700 font-extrabold py-3.5 rounded-xl hover:bg-slate-50 transition-colors shadow-sm text-xs uppercase tracking-widest">ANULUJ</button>
-        <button type="button" @click="submit" class="flex-1 text-white font-black py-3.5 rounded-xl transition-all shadow-sm text-xs uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed" :class="opType === 'ZUZYCIE' ? 'bg-red-600 hover:bg-red-700 shadow-red-500/20' : 'bg-blue-600 hover:bg-blue-700 shadow-blue-500/20'">
-          ZATWIERDŹ OPERACJĘ
-        </button>
-      </div>
+      </form>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, watch, computed, onMounted, onUnmounted } from 'vue'
 import { useStorageStore } from '../stores/useStorageStore'
 
 const props = defineProps({
-  show: Boolean,
-  preselectedPart: Object,
-  preselectedOpType: String,
-  preselectedSource: String,
-  preselectedDest: String
+  show: { type: Boolean, default: false },
+  initialPartSku: { type: String, default: '' },
+  initialType: { type: String, default: 'PRZESUNIĘCIE' },
+  initialSource: { type: String, default: '' },
+  initialDest: { type: String, default: '' },
+  openTickets: { type: Array, default: () => [] }
 })
 
 const emit = defineEmits(['close', 'save'])
 const store = useStorageStore()
 
-const searchQuery = ref('')
+const defaultForm = () => ({
+  type: props.initialType || 'PRZESUNIĘCIE',
+  part_sku: props.initialPartSku || '',
+  quantity: 1,
+  from: props.initialSource || 'ZG',
+  to: props.initialDest || 'WA',
+  shipping_type: 'Odbiór osobisty',
+  tracking_number: '',
+  source_supplier: '',
+  item_condition: 'Nowe',
+  invoice: '',
+  technician_id: '',
+  ticket_number: '',
+  notes: ''
+})
+
+const form = ref(defaultForm())
 const isDropdownOpen = ref(false)
-const selectedPart = ref(null)
+const ticketDropdownRef = ref(null)
 
-const opType = ref('PRZESUNIECIE') // 'PRZESUNIECIE', 'DOSTAWA', 'ZUZYCIE'
-const sourceId = ref('')
-const destId = ref('')
-const quantity = ref(1)
-const ticketCode = ref('') // Optional
-
-const allLocations = computed(() => {
-  return [
-    { id: 'ZG', name: 'Magazyn (Zielona Góra)' },
-    { id: 'WAW', name: 'Magazyn (Warszawa)' },
-    ...store.techs.map(t => ({ id: t.id, name: `Auto: ${t.name}` }))
-  ]
-})
-
-// Ograniczamy listę celów na podstawie wybranego źródła (żeby nikt nie przesunął na samego siebie)
-const availableSources = computed(() => allLocations.value)
-
-const availableDestinations = computed(() => {
-  if (opType.value === 'DOSTAWA') {
-    // Dostawę można zrobić tylko do głównego magazynu lub warszawy
-    return allLocations.value.filter(loc => loc.id === 'ZG' || loc.id === 'WAW')
+const availableLocations = computed(() => {
+  let locs = [
+    { id: 'ZG', name: 'Magazyn Centralny (Zielona Góra)' },
+    { id: 'WA', name: 'Filia (Warszawa)' }
+  ];
+  if (store.techs) {
+    store.techs.forEach(t => {
+      locs.push({ id: t.id, name: `Auto serwisowe: ${t.name}` })
+    })
   }
-  if (!sourceId.value) return allLocations.value
-  return allLocations.value.filter(loc => loc.id !== sourceId.value)
+  return locs;
 })
 
-const availableStock = computed(() => {
-  if (!selectedPart.value || !sourceId.value || opType.value === 'DOSTAWA') return 0
-  if (sourceId.value === 'ZG') return parseInt(selectedPart.value.zg_stock) || 0
-  if (sourceId.value === 'WAW') return parseInt(selectedPart.value.warsaw_stock) || 0
-  
-  const tech = store.techs.find(t => t.id === sourceId.value)
-  if (tech) return parseInt(selectedPart.value[tech.name]) || 0
-  return 0
+// Przetwarzanie otwartych zleceń na podpowiedzi z numerami wizyt
+const ticketSuggestions = computed(() => {
+  const source = (props.openTickets && props.openTickets.length) ? props.openTickets : (store.openTickets || []);
+  let list = [];
+
+  const selectedTechObj = store.techs ? store.techs.find(t => t.id === form.value.technician_id) : null;
+  const selectedTechName = selectedTechObj ? selectedTechObj.name.toLowerCase() : '';
+
+  source.forEach(t => {
+    const isAssigned = selectedTechName && t.tech && t.tech.toLowerCase().includes(selectedTechName);
+
+    if (t.visits && t.visits.length > 0) {
+      t.visits.forEach(v => {
+        list.push({
+          key: `${t.id}_V${v.visit_number}`,
+          ticket_id: t.id,
+          visit_title: `Wizyta ${v.visit_number}`,
+          qp: t.qp,
+          client: t.client,
+          tech: v.tech || t.tech,
+          date: v.date,
+          isAssignedTech: isAssigned,
+          value: `${t.id} (Wizyta ${v.visit_number})`
+        });
+      });
+
+      const nextNum = t.visits.length + 1;
+      list.push({
+        key: `${t.id}_V${nextNum}_NEW`,
+        ticket_id: t.id,
+        visit_title: `Wizyta ${nextNum} (Nowa)`,
+        qp: t.qp,
+        client: t.client,
+        tech: t.tech,
+        date: '',
+        isAssignedTech: isAssigned,
+        value: `${t.id} (Wizyta ${nextNum})`
+      });
+    } else {
+      list.push({
+        key: `${t.id}_V1`,
+        ticket_id: t.id,
+        visit_title: 'Wizyta 1',
+        qp: t.qp,
+        client: t.client,
+        tech: t.tech,
+        date: '',
+        isAssignedTech: isAssigned,
+        value: `${t.id} (Wizyta 1)`
+      });
+    }
+  });
+
+  list.sort((a, b) => {
+    if (a.isAssignedTech && !b.isAssignedTech) return -1;
+    if (!a.isAssignedTech && b.isAssignedTech) return 1;
+    return a.ticket_id.localeCompare(b.ticket_id);
+  });
+
+  return list;
 })
 
-watch(() => props.show, (isOpen) => {
-  if (isOpen) {
-    searchQuery.value = ''
-    selectedPart.value = props.preselectedPart || null
-    opType.value = props.preselectedOpType || 'PRZESUNIECIE'
-    sourceId.value = props.preselectedSource || ''
-    destId.value = props.preselectedDest || ''
-    quantity.value = 1
-    ticketCode.value = ''
-    isDropdownOpen.value = false
+const allSuggestionsCount = computed(() => ticketSuggestions.value.length)
+
+const filteredSuggestions = computed(() => {
+  const query = String(form.value.ticket_number || '').trim().toLowerCase();
+  if (!query) return ticketSuggestions.value;
+  return ticketSuggestions.value.filter(s => {
+    return s.value.toLowerCase().includes(query) ||
+           (s.qp && s.qp.toLowerCase().includes(query)) ||
+           (s.client && s.client.toLowerCase().includes(query)) ||
+           (s.tech && s.tech.toLowerCase().includes(query));
+  });
+})
+
+const selectTicket = (val) => {
+  form.value.ticket_number = val;
+  isDropdownOpen.value = false;
+}
+
+const handleClickOutside = (e) => {
+  if (ticketDropdownRef.value && !ticketDropdownRef.value.contains(e.target)) {
+    isDropdownOpen.value = false;
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('click', handleClickOutside);
+})
+
+onUnmounted(() => {
+  window.removeEventListener('click', handleClickOutside);
+})
+
+watch(() => props.show, (newVal) => {
+  if (newVal) {
+    form.value = defaultForm();
+    isDropdownOpen.value = false;
     
-    // Jeśli nie wybrano źródła w przesunięciu, na sztywno załaduj ZG jeśli puste
-    if (!sourceId.value && opType.value !== 'DOSTAWA') sourceId.value = 'ZG'
-    if (!destId.value && opType.value === 'DOSTAWA') destId.value = 'ZG'
+    if (form.value.type === 'ZUŻYCIE' && form.value.from && form.value.from !== 'ZG' && form.value.from !== 'WA') {
+      form.value.technician_id = form.value.from;
+    }
   }
 })
 
-const titleStr = computed(() => {
-  if (opType.value === 'DOSTAWA') return 'NOWA DOSTAWA Z HURTOWNI'
-  if (opType.value === 'ZUZYCIE') return 'ZUŻYCIE / MONTAŻ SPRZĘTU'
-  return 'RUCH MAGAZYNOWY (PRZESUNIĘCIE)'
+watch(() => form.value.technician_id, (newTech) => {
+  if (form.value.type === 'ZUŻYCIE' && newTech) {
+    form.value.from = newTech;
+  }
 })
 
-const filteredParts = computed(() => {
-  const q = searchQuery.value.toLowerCase().trim()
-  if (!q) return store.parts.slice(0, 10)
-  return store.parts.filter(p => p.name.toLowerCase().includes(q) || (p.sku && p.sku.toLowerCase().includes(q))).slice(0, 15)
-})
-
-const selectPart = (part) => {
-  selectedPart.value = part
-  searchQuery.value = ''
-  isDropdownOpen.value = false
+const closeModal = () => {
+  emit('close');
 }
 
-const clearPart = () => {
-  selectedPart.value = null
-  searchQuery.value = ''
-}
-
-const handleTypeChange = () => {
-  if (opType.value === 'DOSTAWA') sourceId.value = ''
-  if (opType.value === 'ZUZYCIE') destId.value = ''
-  if (opType.value === 'PRZESUNIECIE') {
-    if (!sourceId.value) sourceId.value = 'ZG'
-  }
-  handleSourceChange()
-}
-
-const handleSourceChange = () => {
-  // Resetuje cel jeśli klikneliśmy to samo co cel
-  if (sourceId.value === destId.value) destId.value = ''
-}
-
-const setMax = () => {
-  if (opType.value !== 'DOSTAWA' && availableStock.value > 0) {
-    quantity.value = availableStock.value
-  }
-}
-
-const submit = () => {
-  if (!selectedPart.value) return alert("Wybierz asortyment!")
-  if (opType.value !== 'DOSTAWA' && !sourceId.value) return alert("Wybierz źródło (Skąd zdejmujesz sprzęt)!")
-  if (opType.value !== 'ZUZYCIE' && !destId.value) return alert("Wybierz cel (Dokąd przesuwasz sprzęt)!")
-  if (quantity.value <= 0 || isNaN(quantity.value)) return alert("Podaj prawidłową ilość większą od 0!")
-  
-  if (opType.value !== 'DOSTAWA' && quantity.value > availableStock.value) {
-    return alert(`Nie masz wystarczającej ilości towaru na tym stanie. Maksymalnie: ${availableStock.value} szt.`)
-  }
-
-  const payload = {
-    part_sku: selectedPart.value.id_sku || selectedPart.value.sku || selectedPart.value.id,
-    type: opType.value, // ZUZYCIE | DOSTAWA | PRZESUNIECIE
-    quantity: quantity.value,
-    source: sourceId.value || null,
-    destination: destId.value || null,
-    ticket_id: ticketCode.value.trim() || null
-  }
-
-  emit('save', payload)
+const handleSubmit = () => {
+  emit('save', { ...form.value });
 }
 </script>
 
 <style scoped>
-.ticket-custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
-.ticket-custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-.ticket-custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.4); border-radius: 10px; }
-.ticket-custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(88, 179, 71, 0.8); }
+.custom-scrollbar::-webkit-scrollbar { width: 5px; height: 5px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.4); border-radius: 10px; }
+.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(88, 179, 71, 0.8); }
 </style>

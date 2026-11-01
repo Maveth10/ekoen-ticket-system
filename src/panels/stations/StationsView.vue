@@ -1,13 +1,17 @@
 <template>
-  <div class="flex flex-col h-full bg-[#f4f6f8] relative z-10 overflow-auto stations-custom-scrollbar" @click="closeAllDropdowns">
+<div class="flex flex-col h-full bg-[#f4f6f8] relative z-10 overflow-auto stations-custom-scrollbar" @click="closeAllDropdowns" @scroll="handleScroll">
     
-    <!-- 1. UNIWERSALNE KPI -->
+<!-- 1. UNIWERSALNE KPI -->
     <UniversalKpi 
       title="Baza Stacji"
       subtitle="Zarządzanie infrastrukturą ładowania i jej lokalizacją."
-      :views="[]"
-      activeView=""
-      :activeTabId="store.activeTabId"
+      :views="[
+        { label: 'Ekoenergetyka', value: 'ekoenergetyka' },
+        { label: 'Ekoen', value: 'ekoen' }
+      ]"
+      :activeView="store.activeModule"
+      @switch-view="switchModule"
+      :activeTabs="store.activeTabs"
       :tabs="store.kpiTabs"
       :tabCounts="tabCounts"
       @select-tab="setActiveTab"
@@ -92,10 +96,6 @@
         @open-analytics="openAnalytics"
         @open-edit="openAddStationModal"
       />
-      
-      <div v-if="filteredStations.length > currentPage * 50" class="p-6 text-center border-t border-slate-100 bg-slate-50/50 rounded-b-2xl mt-4 shrink-0">
-        <button @click="currentPage++" class="bg-white border border-slate-200 text-slate-600 font-bold px-6 py-2.5 rounded-xl hover:bg-slate-50 transition-colors shadow-sm text-xs uppercase tracking-widest">Załaduj więcej wyników</button>
-      </div>
     </div>
 
     <!-- TOAST -->
@@ -127,6 +127,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useStationsStore } from '../../stores/useStationsStore'
+import { useSmartKpiFilters } from '../../composables/useSmartKpiFilters'
 
 import UniversalKpi from '../../common/UniversalKpi.vue'
 import UniversalSearch from '../../common/UniversalSearch.vue'
@@ -136,6 +137,10 @@ import StationsList from './StationsList.vue'
 import StationAnalyticsModal from '../../modals/StationAnalyticsModal.vue'
 
 const store = useStationsStore()
+
+const switchModule = (mod) => {
+  store.activeModule = mod
+}
 
 const currentPage = ref(1)
 const selectedIds = ref([])
@@ -170,6 +175,7 @@ const columns = ref([
 
 const visibleColumns = computed(() => columns.value.filter(c => c.visible))
 
+// --- FUNKCJE POMOCNICZE WYSZUKIWANIA I EWALUACJI ---
 const isActiveTicket = (s) => {
   let activeTickets = []
   if (store.tickets.length > 0) {
@@ -185,7 +191,7 @@ const isActiveTicket = (s) => {
       }
     })
   } else {
-    // Fallback gdy tickety się jeszcze nie wczytały
+    // Fallback
     if (s.active_ticket_id && String(s.active_ticket_id).trim() !== '') {
       const tStatus = s.ticket_status ? String(s.ticket_status).trim().toLowerCase() : ''
       if (!tStatus.includes('zakończ') && !tStatus.includes('zamknięt') && !tStatus.includes('closed') && !tStatus.includes('anulowan') && !tStatus.includes('cancelled') && !tStatus.includes('wykonano')) {
@@ -196,68 +202,112 @@ const isActiveTicket = (s) => {
   return activeTickets.length > 0
 }
 
-const checkStationSearch = (s, queryObj) => {
-  const q = queryObj.text.toLowerCase().trim()
+const checkStationSearch = (s, queryStr) => {
+  let q = String(queryStr || '').toLowerCase().trim()
   if (!q) return true
+  
+  if (q.startsWith('technik:')) q = q.replace('technik:', '').trim()
+  if (q.startsWith('tech_exact:')) q = q.replace('tech_exact:', '').trim()
 
   const superString = [
     s.public_id, s.city, s.street, s.client_id, s.technician_id, s.model, s.street_number, s.active_ticket_id, s.ticket_technician
   ].filter(Boolean).join(' | ').toLowerCase()
+  
   return superString.includes(q)
 }
 
-const evaluateQueries = (s, queries) => {
-  const validSearch = queries?.filter(q => q.text.trim() !== '') || []
-  if (validSearch.length === 0) return true
-  let match = checkStationSearch(s, validSearch[0])
-  if (validSearch[0].logic === 'NOT') match = !match
-  for (let i = 1; i < validSearch.length; i++) {
-    const cMet = checkStationSearch(s, validSearch[i])
-    if (validSearch[i].logic === 'AND') match = match && cMet
-    else if (validSearch[i].logic === 'OR') match = match || cMet
-    else if (validSearch[i].logic === 'NOT') match = match && !cMet
+const evaluateStationTab = (s, tab) => {
+  if (tab.filter === 'ALL') return true
+  // --- ZMIENIONO NA BŁYSKAWICZNE ODPYTYWANIE STORE ---
+  if (tab.filter === 'AWARIE') return store.getStationActiveTickets(s).length > 0
+  if (tab.filter === 'NO_GPS') return !s.gps_lat || !s.gps_lng || String(s.gps_lat).trim() === ''
+  if (tab.filter === 'MUTED') return store.mutedIds.has(s.id)
+  
+  if ((tab.filter === 'CUSTOM' || tab.filter === 'SYSTEM') && tab.customQueries) {
+    const validSearch = tab.customQueries.filter(q => q.text.trim() !== '')
+    if (validSearch.length === 0) return true
+    
+    let match = checkStationSearch(s, validSearch[0].text)
+    if (validSearch[0].logic === 'NOT') match = !match
+    for (let i = 1; i < validSearch.length; i++) {
+      const cMet = checkStationSearch(s, validSearch[i].text)
+      if (validSearch[i].logic === 'AND') match = match && cMet
+      else if (validSearch[i].logic === 'OR') match = match || cMet
+      else if (validSearch[i].logic === 'NOT') match = match && !cMet
+    }
+    return match
   }
-  return match
+  return true
 }
 
+// --- WPIĘCIE LOGIKI USE-SMART-KPI-FILTERS ---
+store.getBaseList = () => store.stations
+store.duplicateIds = []
+
+const { evaluateQueries } = useSmartKpiFilters(store, checkStationSearch)
+
+
+// --- LOGIKA MULTI-SELECT (ZLICZANIE CYFEREK) ---
 const tabCounts = computed(() => {
   const counts = {}
   if (!store.kpiTabs) return counts
+  
+  let searchFilteredBase = store.stations
+  const validSearch = store.searchQueriesMain.filter(q => q.text.trim() !== '')
+  
+  if (validSearch.length > 0) {
+    searchFilteredBase = searchFilteredBase.filter(s => evaluateQueries(s, store.searchQueriesMain))
+  }
+
   store.kpiTabs.forEach(tab => {
-    if (tab.id === 'ALL') {
-      counts[tab.id] = store.stations.length
-    } else if (tab.id === 'AWARIE') {
-      counts[tab.id] = store.stations.filter(s => isActiveTicket(s)).length
-    } else if (tab.id === 'NO_GPS') {
-      counts[tab.id] = store.stations.filter(s => !s.gps_lat || !s.gps_lng || String(s.gps_lat).trim() === '').length
-    } else if (tab.id === 'MUTED') {
-      counts[tab.id] = store.mutedIds.size
-    } else if (tab.customQueries) {
-      counts[tab.id] = store.stations.filter(t => evaluateQueries(t, tab.customQueries)).length
-    } else {
-      counts[tab.id] = 0
-    }
+     let isTech = tab.id.startsWith('TECH_')
+     const activeTabsIds = store.activeTabs || ['ALL']
+     const activeTabObjs = activeTabsIds.filter(id => id !== 'ALL').map(id => store.kpiTabs.find(t => t.id === id)).filter(Boolean)
+     
+     let techTabs = activeTabObjs.filter(t => t.id.startsWith('TECH_'))
+     let otherTabs = activeTabObjs.filter(t => !t.id.startsWith('TECH_'))
+     
+     // Wbudowana "madrosc kaflowa": Symulujemy grupy, wykluczając konkurencyjne kafelki z tej samej grupy
+     let simulatedTechGroup = isTech ? [tab] : techTabs
+     let simulatedOtherGroup = !isTech ? [...otherTabs, tab] : otherTabs
+     
+     counts[tab.id] = searchFilteredBase.filter(s => {
+        let passTech = simulatedTechGroup.length === 0 || simulatedTechGroup.some(t => evaluateStationTab(s, t))
+        let passOther = simulatedOtherGroup.length === 0 || simulatedOtherGroup.every(t => evaluateStationTab(s, t))
+        return passTech && passOther
+     }).length
   })
+  
   return counts
 })
 
+
+// --- LOGIKA MULTI-SELECT (FILTROWANIE TABELI BAZOWEJ) ---
 const filteredStations = computed(() => {
   let base = store.stations
-  const activeTab = store.kpiTabs.find(t => t.id === store.activeTabId)
+  const activeTabsIds = store.activeTabs || ['ALL']
   
-  if (activeTab) {
-    if (activeTab.id === 'AWARIE') base = base.filter(s => isActiveTicket(s))
-    else if (activeTab.id === 'NO_GPS') base = base.filter(s => !s.gps_lat || !s.gps_lng || String(s.gps_lat).trim() === '')
-    else if (activeTab.id === 'MUTED') base = base.filter(s => store.mutedIds.has(s.id))
-    else if (activeTab.id !== 'ALL' && activeTab.customQueries) {
-      base = base.filter(t => evaluateQueries(t, activeTab.customQueries))
-    }
+  // Krzyżowanie filtrów LUB/ORAZ
+  if (!activeTabsIds.includes('ALL')) {
+      const activeTabObjs = activeTabsIds.map(id => store.kpiTabs.find(t => t.id === id)).filter(Boolean)
+      
+      const techTabs = activeTabObjs.filter(t => t.id.startsWith('TECH_'))
+      const otherTabs = activeTabObjs.filter(t => !t.id.startsWith('TECH_'))
+      
+      base = base.filter(s => {
+          let passTech = techTabs.length === 0 || techTabs.some(tab => evaluateStationTab(s, tab))
+          let passOther = otherTabs.length === 0 || otherTabs.every(tab => evaluateStationTab(s, tab))
+          return passTech && passOther
+      })
   }
 
-  if (store.searchQueriesMain.some(q => q.text.trim() !== '')) {
-    base = base.filter(t => evaluateQueries(t, store.searchQueriesMain))
+  // Aplikowanie wyników inputa
+  const validSearch = store.searchQueriesMain.filter(q => q.text.trim() !== '')
+  if (validSearch.length > 0) {
+    base = base.filter(s => evaluateQueries(s, store.searchQueriesMain))
   }
 
+  // Sortowanie
   if (currentSort.value.col) {
     base.sort((a, b) => {
       let valA = '', valB = ''
@@ -280,6 +330,7 @@ const filteredStations = computed(() => {
 
 const paginatedStations = computed(() => filteredStations.value.slice(0, currentPage.value * 50))
 
+// --- RESZTA LOGIKI ---
 const sortBy = (colId) => {
   if (currentSort.value.col === colId) currentSort.value.dir = currentSort.value.dir === 'asc' ? 'desc' : 'asc'
   else { currentSort.value.col = colId; currentSort.value.dir = 'asc' }
@@ -339,7 +390,6 @@ const openAnalytics = (qp) => {
   showAnalyticsModal.value = true
 }
 
-// LOGIKA KOLUMN
 const loadColumnsConfig = () => {
   try {
     const localStore = JSON.parse(localStorage.getItem('EKOEN_STATIONS_UI')) || {}
@@ -380,9 +430,23 @@ const closeAllDropdowns = () => {
   isColDropdownOpen.value = false
 }
 
-// LOGIKA TABS KPI
-const setActiveTab = (id) => {
-  store.activeTabId = store.activeTabId === id && id !== 'ALL' && id !== 'AWARIE' && id !== 'NO_GPS' && id !== 'MUTED' ? 'ALL' : id
+// === ZAAWANSOWANA LOGIKA ZAKŁADEK ===
+const setActiveTab = (filterId) => {
+  let current = store.activeTabs ? [...store.activeTabs] : ['ALL']
+
+  if (filterId === 'ALL') {
+    current = ['ALL']
+  } else {
+    current = current.filter(id => id !== 'ALL')
+    if (current.includes(filterId)) {
+      current = current.filter(id => id !== filterId)
+      if (current.length === 0) current = ['ALL']
+    } else {
+      current.push(filterId)
+    }
+  }
+  
+  store.activeTabs = current
   currentPage.value = 1
   saveUserConfig()
 }
@@ -407,7 +471,10 @@ const confirmDeleteTab = (id) => {
     show: true, message: "Usunąć ten filtr (zakładkę)?",
     onConfirm: () => {
       store.kpiTabs = store.kpiTabs.filter(t => t.id !== id)
-      if (store.activeTabId === id) store.activeTabId = 'ALL'
+      if (store.activeTabs && store.activeTabs.includes(id)) {
+          store.activeTabs = store.activeTabs.filter(tabId => tabId !== id);
+          if (store.activeTabs.length === 0) store.activeTabs = ['ALL']; 
+      }
       saveUserConfig()
     }
   }
@@ -420,7 +487,7 @@ const saveTab = ({ form, queries }) => {
     if (tab) { tab.name = form.name; tab.color = form.color; tab.icon = form.iconPreviewBase64; tab.customQueries = JSON.parse(JSON.stringify(validQ)) }
   } else {
     store.kpiTabs.push({ id: "TAB_" + Date.now(), name: form.name, filter: "CUSTOM", color: form.color, icon: form.iconPreviewBase64, customQueries: JSON.parse(JSON.stringify(validQ)) })
-    store.activeTabId = store.kpiTabs[store.kpiTabs.length - 1].id
+    store.activeTabs = [store.kpiTabs[store.kpiTabs.length - 1].id]
   }
   saveUserConfig()
   showTabModal.value = false
@@ -444,6 +511,17 @@ const executeConfirm = () => {
 }
 
 const saveUserConfig = () => store.saveTabsConfiguration()
+
+// --- NIESKOŃCZONE PRZEWIJANIE (INFINITE SCROLL) ---
+const handleScroll = (e) => {
+  const target = e.target;
+  // Jeśli użytkownik dotarł do 90% paska przewijania, załaduj kolejną paczkę 50 stacji
+  if (target.scrollTop + target.clientHeight >= target.scrollHeight - 200) {
+    if (filteredStations.value.length > currentPage.value * 50) {
+       currentPage.value++;
+    }
+  }
+}
 
 onMounted(() => {
   loadColumnsConfig()

@@ -11,7 +11,7 @@
         { label: 'Historia', value: 'historia' }
       ]"
       :activeView="store.activeModule"
-      :activeTabId="store.activeTabId"
+      :activeTabs="store.activeTabs"
       :tabs="store.kpiTabs"
       :tabCounts="tabCounts"
       @switch-view="switchModule"
@@ -189,10 +189,11 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue' // <--- DODANO watch TUTAJ
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue' 
 import { useTicketsStore } from '../../stores/useTicketsStore'
 import { useBillingsStore } from '../../stores/useBillingsStore'
 import { useSearchFilters } from '../../composables/useSearchFilters'
+import { useSmartKpiFilters } from '../../composables/useSmartKpiFilters'
 
 import UniversalKpi from '../../common/UniversalKpi.vue'
 import UniversalSearch from '../../common/UniversalSearch.vue'
@@ -209,16 +210,31 @@ const store = useTicketsStore()
 const billingsStore = useBillingsStore()
 const { checkTicketSearch } = useSearchFilters()
 
-// ==== DODANY BLOK DEBUGOWANIA ====
-// Kiedy store pobierze tickets, wyślij pierwsze na konsolę
-watch(() => store.tickets, (newTickets) => {
-  if (newTickets && newTickets.length > 0) {
-    console.log("=== STRUKTURA PIERWSZEGO ZGŁOSZENIA (PO POBRANIU) ===");
-    console.table(newTickets[0]);
-    window.DEBUG_TICKETS = newTickets; // dostępne globalnie do zabawy
+const isClosedTicket = (t) => {
+  const check = (str) => {
+    let lower = String(str || '').toLowerCase()
+    return lower.includes('zakończ') || lower.includes('close') || lower.includes('done') || 
+           lower.includes('zrobione') || lower.includes('zamknięt') || lower.includes('anulowan') || lower.includes('cancel')
   }
-}, { once: true }) 
-// ==================================
+  return check(t.status) || check(t.ticket_status)
+}
+
+// Przygotowanie do użycia SmartKpiFilters
+store.getBaseList = () => store.tickets.filter(t => store.activeModule === 'historia' ? isClosedTicket(t) : !isClosedTicket(t))
+store.duplicateIds = computed(() => {
+  const activeTix = store.tickets.filter(t => !isClosedTicket(t))
+  const qpCounts = {}
+  activeTix.forEach(t => { 
+    const statId = t.qp_id || t.station_id || ''
+    if(statId) qpCounts[statId] = (qpCounts[statId] || 0) + 1
+  })
+  return Object.keys(qpCounts).filter(id => qpCounts[id] > 1)
+})
+
+// === UŻYCIE NOWEGO, INTELIGENTNEGO COMPOSABLE ===
+const { filteredBaseList, tabCounts, evaluateQueries } = useSmartKpiFilters(store, checkTicketSearch)
+
+const baseTicketsCount = computed(() => store.getBaseList().length)
 
 const currentPage = ref(1)
 const itemsPerPage = 50
@@ -262,6 +278,57 @@ const columns = ref([
 ])
 
 const visibleColumns = computed(() => columns.value.filter(c => c.visible))
+
+// Aplikujemy tylko sortowanie. Filtry KPI i szukajka są wbudowane w filteredBaseList
+const filteredTickets = computed(() => {
+  let base = [...filteredBaseList.value]
+  
+  if (currentSort.value.col) {
+    base.sort((a, b) => {
+      let valA = '', valB = ''
+      const col = currentSort.value.col
+      if (col === 'station') { valA = a.qp_id || a.station_id || ''; valB = b.qp_id || b.station_id || ''; }
+      else if (col === 'tech_parts') { valA = a.technician_id || ''; valB = b.technician_id || ''; }
+      else if (col === 'code') { valA = a.ticket_code || a.ticket_number || a.id || ''; valB = b.ticket_code || b.ticket_number || b.id || ''; }
+      else if (col === 'used_parts') { valA = String(a.raw_info || '') + String(a.req_status || ''); valB = String(b.raw_info || '') + String(b.req_status || ''); }
+      else if (col === 'diagnoza') { valA = String(a.raw_diagnoza || '') + String(a.notes || ''); valB = String(b.raw_diagnoza || '') + String(b.notes || ''); }
+      else if (col === 'client_contact') { valA = a.client || ''; valB = b.client || ''; }
+      else { valA = a[col] || ''; valB = b[col] || ''; }
+
+      valA = String(valA).toLowerCase(); valB = String(valB).toLowerCase()
+      if (valA < valB) return currentSort.value.dir === 'asc' ? -1 : 1
+      if (valA > valB) return currentSort.value.dir === 'asc' ? 1 : -1
+      return 0
+    })
+  }
+  return base
+})
+
+const paginatedTickets = computed(() => filteredTickets.value.slice(0, currentPage.value * itemsPerPage))
+
+
+// === NOWA FUNKCJA ZARZĄDZAJĄCA MULTI-SELECTEM Z ZACHOWANIEM REAKTYWNOŚCI ===
+const setActiveTab = (filterId) => {
+  let current = store.activeTabs ? [...store.activeTabs] : ['ALL']
+
+  if (filterId === 'ALL') {
+    current = ['ALL']
+  } else {
+    current = current.filter(id => id !== 'ALL')
+    
+    if (current.includes(filterId)) {
+      current = current.filter(id => id !== filterId)
+      if (current.length === 0) current = ['ALL']
+    } else {
+      current.push(filterId)
+    }
+  }
+  
+  store.activeTabs = current
+  currentPage.value = 1
+  saveUserConfig()
+}
+
 
 const openAttachmentsList = (rawUrlOrArray) => {
   attachmentsModal.value.show = true
@@ -438,7 +505,7 @@ const saveSettlement = (payload) => {
 
 const switchModule = (mod) => {
   store.activeModule = mod
-  store.activeTabId = 'ALL'
+  store.activeTabs = ['ALL']
   currentPage.value = 1
   store.fetchTicketsData()
 }
@@ -516,82 +583,6 @@ const saveNewTicket = (ticketPayload) => {
   setTimeout(() => { toast.value.show = false }, 3000)
 }
 
-const isClosedTicket = (t) => {
-  const check = (str) => {
-    let lower = String(str || '').toLowerCase()
-    return lower.includes('zakończ') || lower.includes('close') || lower.includes('done') || 
-           lower.includes('zrobione') || lower.includes('zamknięt') || lower.includes('anulowan') || lower.includes('cancel')
-  }
-  return check(t.status) || check(t.ticket_status)
-}
-
-const getBaseTickets = () => store.tickets.filter(t => store.activeModule === 'historia' ? isClosedTicket(t) : !isClosedTicket(t))
-const baseTicketsCount = computed(() => getBaseTickets().length)
-
-const evaluateQueries = (item, queries) => {
-  const validSearch = queries?.filter(q => q.text.trim() !== '') || []
-  if (validSearch.length === 0) return true
-  let match = checkTicketSearch(item, validSearch[0].text)
-  if (validSearch[0].logic === 'NOT') match = !match
-  for (let i = 1; i < validSearch.length; i++) {
-    const cMet = checkTicketSearch(item, validSearch[i].text)
-    if (validSearch[i].logic === 'AND') match = match && cMet
-    else if (validSearch[i].logic === 'OR') match = match || cMet
-    else if (validSearch[i].logic === 'NOT') match = match && !cMet
-  }
-  return match
-}
-
-const tabCounts = computed(() => {
-  const counts = {}
-  if (!store.kpiTabs) return counts
-  const baseTix = getBaseTickets()
-  store.kpiTabs.forEach(tab => {
-    if (tab.filter === 'ALL') counts[tab.id] = baseTix.length
-    else if (tab.customQueries) counts[tab.id] = baseTix.filter(item => evaluateQueries(item, tab.customQueries)).length
-    else counts[tab.id] = 0
-  })
-  return counts
-})
-
-const filteredTickets = computed(() => {
-  let base = getBaseTickets()
-  const activeTab = store.kpiTabs.find(t => t.id === store.activeTabId)
-  if (activeTab && activeTab.id !== 'ALL' && activeTab.customQueries) {
-    base = base.filter(item => evaluateQueries(item, activeTab.customQueries))
-  }
-  if (store.searchQueriesMain.some(q => q.text.trim() !== '')) {
-    base = base.filter(item => evaluateQueries(item, store.searchQueriesMain))
-  }
-  if (currentSort.value.col) {
-    base.sort((a, b) => {
-      let valA = '', valB = ''
-      const col = currentSort.value.col
-      if (col === 'station') { valA = a.qp_id || a.station_id || ''; valB = b.qp_id || b.station_id || ''; }
-      else if (col === 'tech_parts') { valA = a.technician_id || ''; valB = b.technician_id || ''; }
-      else if (col === 'code') { valA = a.ticket_code || a.ticket_number || a.id || ''; valB = b.ticket_code || b.ticket_number || b.id || ''; }
-      else if (col === 'used_parts') { valA = String(a.raw_info || '') + String(a.req_status || ''); valB = String(b.raw_info || '') + String(b.req_status || ''); }
-      else if (col === 'diagnoza') { valA = String(a.raw_diagnoza || '') + String(a.notes || ''); valB = String(b.raw_diagnoza || '') + String(b.notes || ''); }
-      else if (col === 'client_contact') { valA = a.client || ''; valB = b.client || ''; }
-      else { valA = a[col] || ''; valB = b[col] || ''; }
-
-      valA = String(valA).toLowerCase(); valB = String(valB).toLowerCase()
-      if (valA < valB) return currentSort.value.dir === 'asc' ? -1 : 1
-      if (valA > valB) return currentSort.value.dir === 'asc' ? 1 : -1
-      return 0
-    })
-  }
-  return base
-})
-
-const paginatedTickets = computed(() => filteredTickets.value.slice(0, currentPage.value * itemsPerPage))
-
-const setActiveTab = (id) => {
-  store.activeTabId = store.activeTabId === id && id !== 'ALL' ? 'ALL' : id
-  currentPage.value = 1
-  saveUserConfig()
-}
-
 const openNewTabModal = () => {
   editingTabId.value = null
   modalForm.value = { name: "", color: "#58b347", iconPreviewBase64: "", selectedIconName: "" }
@@ -612,7 +603,10 @@ const confirmDeleteTab = (id) => {
     show: true, message: "Usunąć ten filtr (zakładkę)?",
     onConfirm: () => {
       store.kpiTabs = store.kpiTabs.filter(t => t.id !== id)
-      if (store.activeTabId === id) store.activeTabId = 'ALL'
+      if (store.activeTabs && store.activeTabs.includes(id)) {
+          store.activeTabs = store.activeTabs.filter(tabId => tabId !== id);
+          if (store.activeTabs.length === 0) store.activeTabs = ['ALL']; 
+      }
       saveUserConfig()
     }
   }
@@ -625,7 +619,7 @@ const saveTab = ({ form, queries }) => {
     if (tab) { tab.name = form.name; tab.color = form.color; tab.icon = form.iconPreviewBase64; tab.customQueries = JSON.parse(JSON.stringify(validQ)) }
   } else {
     store.kpiTabs.push({ id: "TAB_" + Date.now(), name: form.name, filter: "CUSTOM", color: form.color, icon: form.iconPreviewBase64, customQueries: JSON.parse(JSON.stringify(validQ)) })
-    store.activeTabId = store.kpiTabs[store.kpiTabs.length - 1].id
+    store.activeTabs = [store.kpiTabs[store.kpiTabs.length - 1].id]
   }
   saveUserConfig()
   showTabModal.value = false

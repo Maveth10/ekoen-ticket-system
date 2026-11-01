@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, shallowRef, computed } from 'vue'
+import { ref, shallowRef } from 'vue'
 
 const ICON_USERS = "PHN2ZyBjbGFzcz0idy02IGgtNiIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyLjUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTE2IDIxdi0yYTQgNCAwIDAgMC00LTRINmE0IDQgMCAwIDAtNCA0djIiLz48Y2lyY2xlIGN4PSI5IiBjeT0iNyIgcj0iNCIvPjxwYXRoIGQ9Ik0yMiAyMXYtMmE0IDQgMCAwIDAtMy0zLjg3Ii8+PHBhdGggZD0iTTE2IDMuMTNhNCA0IDAgMCAxIDAgNy43NSIvPjwvc3ZnPg=="
 const ICON_ALERT = "PHN2ZyBjbGFzcz0idy02IGgtNiIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyLjUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0ibTIxLjczIDE4LTgtMTRhMiAyIDAgMCAwLTMuNDggMGwtOCAxNEEyIDIgMCAwIDAgNCAyMWgxNmEyIDIgMCAwIDAgMS43My0zWiIvPjxsaW5lIHgxPSIxMiIgeTE9IjkiIHgyPSIxMiIgeTI9IjEzIi8+PGxpbmUgeDE9IjEyIiB5MT0iMTciIHgyPSIxMi4wMSIgeTI9IjE3Ii8+PC9zdmc+"
@@ -10,7 +10,7 @@ export const useTechniciansStore = defineStore('technicians', () => {
   const stations = shallowRef([])
   const isLoading = ref(false)
 
-  const activeTabId = ref('ALL')
+  const activeTabs = ref(['ALL']) // <--- POPRAWKA: TABLICA ZAMIAST STRINGA!
   const kpiTabs = ref([])
   const searchQueriesMain = ref([{ id: 'tq_m_' + Date.now(), logic: 'AND', text: '' }])
   const expandedIds = ref([])
@@ -93,7 +93,6 @@ export const useTechniciansStore = defineStore('technicians', () => {
       .getTechniciansFromBase()
   }
 
-  // NOWA FUNKCJA ZAPISU (OPTYMISTYCZNE UI)
   const saveTechnician = (payload, onSuccess) => {
     const isEdit = !!payload.id
     const tempId = payload.id || ('tech_' + Date.now())
@@ -164,7 +163,7 @@ export const useTechniciansStore = defineStore('technicians', () => {
 
   return {
     technicians, stations, isLoading,
-    activeTabId, kpiTabs, searchQueriesMain, expandedIds,
+    activeTabs, kpiTabs, searchQueriesMain, expandedIds,
     loadTabsConfiguration, saveTabsConfiguration, fetchTechniciansData, 
     saveTechnician, deleteTechnician, massDeleteTechnicians
   }

@@ -117,18 +117,18 @@
 
             <!-- ACTIVE TICKETS -->
             <div v-else-if="col.id === 'ticket'" class="text-xs text-left">
-               <div v-if="getActiveTickets(s).length === 0" class="text-slate-300 font-bold block">Brak</div>
+               <div v-if="store.getStationActiveTickets(s).length === 0" class="text-slate-300 font-bold block">Brak</div>
                <div v-else class="flex flex-col w-full mt-0.5">
-                  <div v-for="t in getActiveTickets(s)" :key="t.id || t.ticket_code" class="stations-m-tooltip-wrapper w-full flex flex-col items-start text-left min-w-0 mb-3 last:mb-0.5">
-                     <div class="font-black text-[#58b347] text-[13px] mb-[2px] truncate w-full text-left">{{ t.ticket_code || t.ticket_id || t.id || 'Brak ID' }}</div>
+                  <div v-for="t in store.getStationActiveTickets(s)" :key="t.display_id" class="stations-m-tooltip-wrapper w-full flex flex-col items-start text-left min-w-0 mb-3 last:mb-0.5">
+                     <div class="font-black text-[#58b347] text-[13px] mb-[2px] truncate w-full text-left">{{ t.display_id }}</div>
                      <div class="text-[10px] font-bold text-slate-500 truncate w-full text-left">
-                        <span class="text-slate-400 font-medium">Tech:</span> <span class="text-slate-700">{{ t.technician_id || t.technician || 'Nieprzypisany' }}</span>
+                        <span class="text-slate-400 font-medium">Tech:</span> <span class="text-slate-700">{{ t.technician_id }}</span>
                      </div>
                      <div class="stations-m-tooltip stations-m-tooltip-bottom text-left min-w-[150px]">
                         <div class="mb-1 text-[10px] text-slate-400">ID ZGŁOSZENIA</div>
-                        <div class="font-bold text-white mb-2">{{ t.ticket_code || t.ticket_id || t.id || 'Brak ID' }}</div>
+                        <div class="font-bold text-white mb-2">{{ t.display_id }}</div>
                         <div class="mb-1 text-[10px] text-slate-400">PRZYPISANY TECHNIK</div>
-                        <div class="font-bold text-white">{{ t.technician_id || t.technician || 'Nieprzypisany' }}</div>
+                        <div class="font-bold text-white">{{ t.technician_id }}</div>
                      </div>
                   </div>
                </div>
@@ -136,15 +136,33 @@
 
             <!-- TECH -->
             <div v-else-if="col.id === 'tech'" class="align-middle">
-              <div v-html="getTechPill(s)"></div>
+               <template v-if="!s.technician_id || s.technician_id === 'Auto (Geo)'">
+                  <span class="text-slate-300 font-bold text-[10px]">BRAK OPIEKUNA</span>
+               </template>
+               <template v-else-if="String(s.technician_id).split(',').filter(Boolean).length > 1">
+                  <div class="stations-m-tooltip-wrapper inline-flex min-w-0">
+                    <span class="border px-2.5 py-1 rounded-md text-[10px] font-black tracking-wider uppercase truncate max-w-full block w-fit shadow-sm transition-colors cursor-help" style="color: #4f46e5; background-color: #eef2ff; border-color: #e0e7ff;">
+                       KILKU TECHNIKÓW
+                    </span>
+                    <div class="stations-m-tooltip stations-m-tooltip-bottom flex flex-col text-left text-[11px] font-medium min-w-[140px]">
+                      <div class="mb-1 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest border-b border-slate-600 pb-1">PRZYPISANI TECHNICY</div>
+                      <span v-for="tn in String(s.technician_id).split(',').map(x=>x.trim()).filter(Boolean)" :key="tn" class="block py-1.5 border-b border-white/10 last:border-0 font-bold text-white">
+                        {{ tn }}
+                      </span>
+                    </div>
+                  </div>
+               </template>
+               <template v-else>
+                  <span class="border px-2.5 py-1 rounded-md text-[10px] font-black tracking-wider uppercase truncate max-w-full block w-fit shadow-sm transition-colors" :style="getSingleTechStyle(s.technician_id)">
+                     {{ String(s.technician_id).split(',')[0].trim() }}
+                  </span>
+               </template>
             </div>
 
             <!-- STATUS -->
             <div v-else-if="col.id === 'status'" class="text-left">
-               <div v-if="getActiveTickets(s).length === 0" class="flex flex-col items-start text-left w-full mt-0.5">
-                 <span class="bg-emerald-50 text-emerald-700 border border-emerald-200/60 px-3 py-1 rounded-md text-[10px] font-black uppercase tracking-wider shadow-2xs inline-flex items-center gap-1.5">
-                   <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> DZIAŁA
-                 </span>
+               <div v-if="store.getStationActiveTickets(s).length === 0" class="flex flex-col items-start text-left w-full mt-0.5">
+                 <span class="text-slate-300 font-bold text-[10px]">BRAK</span>
                </div>
                <div v-else class="flex flex-col items-start text-left w-full mt-0.5">
                  <div v-if="mutedIds.has(s.id)" class="stations-m-tooltip-wrapper mb-3 last:mb-0.5">
@@ -154,9 +172,10 @@
                     <div class="stations-m-tooltip stations-m-tooltip-right">Awaria została wyciszona</div>
                  </div>
                  <template v-else>
-                   <div v-for="t in getActiveTickets(s)" :key="t.id || t.ticket_code" class="flex flex-col w-full gap-1 mb-3 last:mb-0.5">
-                     <span class="w-max px-2 py-0.5 bg-slate-50 text-slate-500 border border-slate-200 rounded text-[9px] font-bold uppercase tracking-wider truncate max-w-full" title="Kategoria zgłoszenia">{{ t.category || t.ticket_category || 'Brak' }}</span>
-                     <span class="w-max px-2 py-0.5 bg-indigo-50 text-indigo-500 border border-indigo-200 rounded text-[9px] font-bold uppercase tracking-wider truncate max-w-full" title="Status zgłoszenia">{{ t.status || t.ticket_status || t.status_zlecenia || 'Brak' }}</span>
+                   <div v-for="t in store.getStationActiveTickets(s)" :key="t.display_id" class="flex flex-col w-full gap-1 mb-3 last:mb-0.5">
+                     <!-- PRZYWRÓCONA KATEGORIA I STATUS -->
+                     <span class="w-max px-2 py-0.5 bg-slate-50 text-slate-500 border border-slate-200 rounded text-[9px] font-bold uppercase tracking-wider truncate max-w-full" title="Kategoria zgłoszenia">{{ t.category || 'Brak' }}</span>
+                     <span class="w-max px-2 py-0.5 bg-indigo-50 text-indigo-500 border border-indigo-200 rounded text-[9px] font-bold uppercase tracking-wider truncate max-w-full" title="Status zgłoszenia">{{ t.status || 'Brak' }}</span>
                    </div>
                  </template>
                </div>
@@ -174,12 +193,12 @@ import { computed } from 'vue'
 import { useStationsStore } from '../../stores/useStationsStore'
 
 const props = defineProps({
-  stations: Array,
+  stations: { type: Array, default: () => [] },
   isLoading: Boolean,
-  visibleColumns: Array,
-  selectedIds: Array,
-  mutedIds: Object,
-  currentSort: Object
+  visibleColumns: { type: Array, default: () => [] },
+  selectedIds: { type: Array, default: () => [] },
+  mutedIds: { type: Object, default: () => new Set() },
+  currentSort: { type: Object, default: () => ({}) }
 })
 
 const emit = defineEmits([
@@ -189,7 +208,7 @@ const emit = defineEmits([
 
 const store = useStationsStore()
 
-const isAllSelected = computed(() => props.stations.length > 0 && props.selectedIds.length === props.stations.length)
+const isAllSelected = computed(() => props.stations && props.stations.length > 0 && props.selectedIds.length === props.stations.length)
 
 const getShortId = (fullId) => {
   if (!fullId || fullId === '-') return '-'
@@ -198,11 +217,12 @@ const getShortId = (fullId) => {
 
 const getClientName = (clientId) => {
   if (!clientId) return '-'
-  const found = store.clients.find(c => c.id === clientId || c.name === clientId)
+  const found = (store.clients || []).find(c => c.id === clientId || c.name === clientId)
   return found ? found.name : clientId
 }
 
 const getLocationString = (s) => {
+  if (!s) return '-'
   let parts = []
   if(s.city && s.city.trim() !== '') parts.push(s.city.trim())
   if(s.street && s.street.trim() !== '') parts.push(s.street.trim())
@@ -234,75 +254,23 @@ const getRegionPill = (region) => {
   }
 }
 
-const getTechPill = (s) => {
-  const techName = s.technician_id && s.technician_id !== 'Auto (Geo)' ? s.technician_id : s.auto_tech
-  let techDisplay = "BRAK OPIEKUNA"
-  let tooltipContent = ""
+// BRAKUJĄCA FUNKCJA - DODANA:
+const getSingleTechStyle = (techName) => {
+  if (!techName) return ''
+  let tName = String(techName).split(',')[0].trim()
+  let foundTech = (store.techList || []).find(t => (t && t.name === tName) || (t === tName))
+  let tColor = (foundTech && foundTech.zone_color) ? foundTech.zone_color : ((foundTech && foundTech.color) ? foundTech.color : "#58b347")
   
-  let techPillStyle = "color: #dc2626; background-color: #fef2f2; border-color: #fee2e2;"
-  let techPillClass = "border px-2.5 py-1 rounded-md text-[10px] font-black tracking-wider uppercase truncate max-w-full block w-fit shadow-sm"
-
-  if (techName) {
-    let arr = techName.split(',').map(x => x.trim()).filter(Boolean)
-    if (arr.length > 1) {
-      techDisplay = 'KILKU TECHNIKÓW'
-      techPillStyle = "color: #4f46e5; background-color: #eef2ff; border-color: #e0e7ff;"
-      tooltipContent = arr.map(t => `<span class="block py-1 border-b border-white/10 last:border-0">${t}</span>`).join('')
-    } else {
-      techDisplay = arr[0]
-      let foundTech = store.techs.find(t => t.name === techDisplay)
-      let tColor = (foundTech && foundTech.zone_color) ? foundTech.zone_color : "#58b347"
-      
-      const hexToRgba = (hex, alpha) => {
-        if(!hex || !hex.startsWith('#')) return `rgba(88, 179, 71, ${alpha})`;
-        const c = hex.substring(1);
-        const num = parseInt(c.length === 3 ? c.split('').map(x => x+x).join('') : c, 16);
-        return `rgba(${(num >> 16) & 255}, ${(num >> 8) & 255}, ${num & 255}, ${alpha})`;
-      }
-      
-      let bgRgba = hexToRgba(tColor, 0.08)
-      let borderRgba = hexToRgba(tColor, 0.25)
-      techPillStyle = `color: ${tColor}; background-color: ${bgRgba}; border-color: ${borderRgba};`
-    }
+  const hexToRgba = (hex, alpha) => {
+    if(!hex || !hex.startsWith('#')) return `rgba(88, 179, 71, ${alpha})`;
+    const c = hex.substring(1);
+    const num = parseInt(c.length === 3 ? c.split('').map(x => x+x).join('') : c, 16);
+    return `rgba(${(num >> 16) & 255}, ${(num >> 8) & 255}, ${num & 255}, ${alpha})`;
   }
-
-  let techPill = `<span class="${techPillClass}" style="${techPillStyle}">${techDisplay}</span>`
-  if (tooltipContent) {
-    techPill = `<div class="stations-m-tooltip-wrapper inline-flex min-w-0">${techPill}<div class="stations-m-tooltip flex flex-col text-left text-[11px] font-medium">${tooltipContent}</div></div>`
-  }
-  return techPill
-}
-
-const getActiveTickets = (s) => {
-  let activeTickets = []
-  if (store.tickets.length > 0) {
-    store.tickets.forEach(t => {
-      const tStatus = String(t.status || t.ticket_status || t.status_zlecenia || '').toLowerCase().trim()
-      const qpMatch = String(t.qp_id || t.station_id || t.qp || '').toLowerCase().trim()
-      const sid = String(s.id).toLowerCase().trim()
-      const spub = String(s.public_id).toLowerCase().trim()
-      
-      const isMatch = qpMatch !== '' && (qpMatch === sid || qpMatch === spub || qpMatch.startsWith(spub + '_') || qpMatch.startsWith(spub + '-'))
-      if (isMatch && !tStatus.includes('zakończ') && !tStatus.includes('zamknięt') && !tStatus.includes('closed') && !tStatus.includes('anulowan') && !tStatus.includes('cancelled') && !tStatus.includes('wykonano')) {
-          if (!activeTickets.some(x => (x.id || x.ticket_code) === (t.id || t.ticket_code))) {
-              activeTickets.push(t)
-          }
-      }
-    })
-  } else {
-    if (s.active_ticket_id && String(s.active_ticket_id).trim() !== '') {
-      const tStatus = s.ticket_status ? String(s.ticket_status).trim().toLowerCase() : ''
-      if (!tStatus.includes('zakończ') && !tStatus.includes('zamknięt') && !tStatus.includes('closed') && !tStatus.includes('anulowan') && !tStatus.includes('cancelled') && !tStatus.includes('wykonano')) {
-          activeTickets.push({
-             ticket_code: s.active_ticket_id,
-             ticket_status: s.ticket_status,
-             category: s.ticket_category,
-             technician_id: s.ticket_technician
-          })
-      }
-    }
-  }
-  return activeTickets
+  
+  let bgRgba = hexToRgba(tColor, 0.08)
+  let borderRgba = hexToRgba(tColor, 0.25)
+  return `color: ${tColor}; background-color: ${bgRgba}; border-color: ${borderRgba};`
 }
 
 const jumpToMap = (s) => {
@@ -318,8 +286,8 @@ const jumpToMap = (s) => {
 </script>
 
 <style scoped>
-.stations-m-tooltip-wrapper { position: relative; display: inline-flex; align-items: center; justify-content: flex-start; cursor: help; min-width: 0; }
-.stations-m-tooltip { 
+:deep(.stations-m-tooltip-wrapper) { position: relative; display: inline-flex; align-items: center; justify-content: flex-start; cursor: help; min-width: 0; }
+:deep(.stations-m-tooltip) { 
   visibility: hidden; opacity: 0; transition: all 0.2s ease; 
   pointer-events: none; position: absolute; 
   bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%) translateY(4px); 
@@ -327,25 +295,25 @@ const jumpToMap = (s) => {
   padding: 6px 12px; border-radius: 8px; font-size: 11px; 
   box-shadow: 0 10px 25px -5px rgba(0,0,0,0.2); font-weight: 600; 
 }
-.stations-m-tooltip::after {
+:deep(.stations-m-tooltip::after) {
   content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
   border-width: 5px; border-style: solid; border-color: #1e293b transparent transparent transparent;
 }
-.stations-m-tooltip-right { left: auto; right: 0; transform: translateX(0) translateY(4px); }
-.stations-m-tooltip-right::after { left: auto; right: 15px; transform: translateX(0); }
-.stations-m-tooltip-wrapper:hover > .stations-m-tooltip { visibility: visible; opacity: 1; transform: translateX(-50%) translateY(0); }
-.stations-m-tooltip-wrapper:hover > .stations-m-tooltip.stations-m-tooltip-right { transform: translateX(0) translateY(0); }
+:deep(.stations-m-tooltip-right) { left: auto; right: 0; transform: translateX(0) translateY(4px); }
+:deep(.stations-m-tooltip-right::after) { left: auto; right: 15px; transform: translateX(0); }
+:deep(.stations-m-tooltip-wrapper:hover > .stations-m-tooltip) { visibility: visible; opacity: 1; transform: translateX(-50%) translateY(0); }
+:deep(.stations-m-tooltip-wrapper:hover > .stations-m-tooltip.stations-m-tooltip-right) { transform: translateX(0) translateY(0); }
 
-.stations-m-tooltip.stations-m-tooltip-bottom {
+:deep(.stations-m-tooltip.stations-m-tooltip-bottom) {
   top: calc(100% + 6px); bottom: auto; transform: translateX(-50%) translateY(-4px);
 }
-.stations-m-tooltip-bottom::after {
+:deep(.stations-m-tooltip-bottom::after) {
   bottom: 100%; top: auto; border-color: transparent transparent #1e293b transparent;
 }
-.stations-m-tooltip-wrapper:hover > .stations-m-tooltip.stations-m-tooltip-bottom { transform: translateX(-50%) translateY(0); }
+:deep(.stations-m-tooltip-wrapper:hover > .stations-m-tooltip.stations-m-tooltip-bottom) { transform: translateX(-50%) translateY(0); }
 
-.stations-m-tooltip-left { left: 0; right: auto; transform: translateX(0) translateY(4px); }
-.stations-m-tooltip-left::after { left: 15px; transform: translateX(0); }
-.stations-m-tooltip-wrapper:hover > .stations-m-tooltip.stations-m-tooltip-left { transform: translateX(0) translateY(0); }
-.stations-m-tooltip-wrapper:hover > .stations-m-tooltip.stations-m-tooltip-bottom.stations-m-tooltip-left { transform: translateX(0) translateY(0); }
+:deep(.stations-m-tooltip-left) { left: 0; right: auto; transform: translateX(0) translateY(4px); }
+:deep(.stations-m-tooltip-left::after) { left: 15px; transform: translateX(0); }
+:deep(.stations-m-tooltip-wrapper:hover > .stations-m-tooltip.stations-m-tooltip-left) { transform: translateX(0) translateY(0); }
+:deep(.stations-m-tooltip-wrapper:hover > .stations-m-tooltip.stations-m-tooltip-bottom.stations-m-tooltip-left) { transform: translateX(0) translateY(0); }
 </style>

@@ -15,7 +15,7 @@ export const useTicketsStore = defineStore('tickets', {
     isLoading: false,
 
     activeModule: 'axon',
-    activeTabId: 'ALL',
+    activeTabs: ['ALL'], // <--- POPRAWKA: TABLICA ZAMIAST STRINGA!
     kpiTabs: [],
     searchQueriesMain: [{ id: 'tq_m_' + Date.now(), logic: 'AND', text: '' }]
   }),
@@ -27,6 +27,7 @@ export const useTicketsStore = defineStore('tickets', {
       if (hasFullAccess) {
         return [
           { id: 'ALL', name: 'WSZYSTKIE', filter: 'ALL', color: '#58b347', icon: ICON_TICKETS, customQueries: [] },
+          { id: "GROUP_TECHS", name: "TECHNICY", filter: "GROUP", color: "#0ea5e9", icon: "", customQueries: [] },
           { id: 'DUPLICATES', name: 'ZDUBLOWANE', filter: 'SYSTEM', color: '#f59e0b', icon: ICON_DUPLICATES, customQueries: [{ id: 'q_dup', logic: 'AND', text: 'status:dubel' }] },
           { id: 'NEW', name: 'NOWE ZGŁOSZENIA', filter: 'SYSTEM', color: '#ec4899', icon: ICON_TICKETS, customQueries: [{ id: 'q_new', logic: 'AND', text: 'STATUS_EXACT:Nowe' }] },
           { id: 'WAIT_EXEC', name: 'DO REALIZACJI', filter: 'SYSTEM', color: '#3b82f6', icon: ICON_CLOCK, customQueries: [{ id: 'q_we', logic: 'AND', text: 'STATUS_EXACT:Oczekuje na realizację' }] },
@@ -82,6 +83,45 @@ export const useTicketsStore = defineStore('tickets', {
       }
     },
 
+    setupTechTabs() {
+      if (!this.techList || this.techList.length === 0) return
+      
+      let validTechIds = this.techList.map(tech => 'TECH_' + String(tech.id || tech.name || tech).toUpperCase().replace(/[^A-Z0-9]/g, '_'))
+      
+      this.kpiTabs = this.kpiTabs.filter(t => !t.id.startsWith('TECH_') || validTechIds.includes(t.id))
+      
+      if (!this.kpiTabs.find(t => t.id === 'GROUP_TECHS')) {
+        this.kpiTabs.splice(1, 0, { id: 'GROUP_TECHS', name: 'TECHNICY', filter: 'GROUP', color: '#0ea5e9', icon: '', customQueries: [] })
+      }
+
+      const ICON_USER = "PHN2ZyBjbGFzcz0idy02IGgtNiIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyLjUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTE5IDIxdi0yYTQgNCAwIDAgMC00LTRIOWE0IDQgMCAwIDAtNCA0djIiLz48Y2lyY2xlIGN4PSIxMiIgY3k9IjciIHI9IjQiLz48L3N2Zz4="
+
+      this.techList.forEach(tech => {
+        if (!tech) return
+        
+        let techName = tech.name || tech
+        let techColor = tech.zone_color || tech.color || '#0ea5e9'
+        let safeId = 'TECH_' + techName.toUpperCase().replace(/[^A-Z0-9]/g, '_')
+        
+        let exists = this.kpiTabs.find(t => t.id === safeId)
+        if (!exists) {
+          this.kpiTabs.push({
+            id: safeId, 
+            name: techName.toUpperCase(), 
+            filter: 'SYSTEM', 
+            color: techColor, 
+            icon: ICON_USER,
+            customQueries: [{ id: 'tq_tech_' + Date.now(), logic: 'AND', text: 'TECH_EXACT:' + techName }],
+            isHidden: true 
+          })
+        } else {
+          exists.color = techColor
+          exists.icon = ICON_USER
+        }
+      })
+      this.saveTabsConfiguration()
+    },
+
     processPingPongStatuses(ticketsList) {
       if (this.activeModule !== 'axon') return ticketsList
 
@@ -114,7 +154,6 @@ export const useTicketsStore = defineStore('tickets', {
 
     async fetchTicketsData() {
       this.isLoading = true
-      // UWAGA: USUNIĘTO this.tickets = [] ABY ZAPOBIEC "MIGANIU" LISTY!
       this.loadTabsConfiguration()
       
       const requestedModule = this.activeModule
@@ -141,7 +180,8 @@ export const useTicketsStore = defineStore('tickets', {
           parsedTickets = res.tickets
         }
 
-        // Dopiero teraz bezpiecznie podmieniamy całą bazę!
+        this.setupTechTabs()
+
         this.tickets = this.processPingPongStatuses(parsedTickets.filter(Boolean))
         this.isLoading = false
       }

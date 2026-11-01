@@ -1,5 +1,7 @@
 // Adres URL z dodanym parametrem action=getScheduleData
-const GAS_API_URL = "https://script.google.com/macros/s/AKfycbyuikCp8l8PIMgWgHuME9iqX7yKPyooFUrE_AwmgR6JNG8QlxTvHY6oT90r95ZMStOH/exec";
+//KOPIA EKOEN
+//const GAS_API_URL = "https://script.google.com/macros/s/AKfycbyuikCp8l8PIMgWgHuME9iqX7yKPyooFUrE_AwmgR6JNG8QlxTvHY6oT90r95ZMStOH/exec";
+const GAS_API_URL = "https://script.google.com/macros/s/AKfycbyMqe87OuhNHgqI4OScTPc4RSJ3fDF3QhhC1S3-OFTC6ho7mphyS_Q8nE0gvDluybU8ww/exec";
 
 export const initGasMock = () => {
   if (typeof window.google === 'undefined') {

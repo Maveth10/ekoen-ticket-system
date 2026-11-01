@@ -1278,7 +1278,14 @@ function deleteAreaFromBase(id) {
  * Pobieranie zgłoszeń z nowej struktury Axon Connect + Inteligentne złączenie ze stacjami i rozliczeniami
  */
 function getTicketsFromSheet() {
+  var cacheKey = "DB_TICKETS_AXON_CONNECT";
   try {
+    // 1. Sprawdzamy czy mamy już przetworzone zgłoszenia w Cache
+    var cachedData = getLargeCache(cacheKey);
+    if (cachedData) {
+      return JSON.parse(cachedData);
+    }
+
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var sheet = ss.getSheetByName("Axon Connect"); 
     if (!sheet) throw new Error("Brak zakładki Axon Connect w arkuszu!");
@@ -1293,7 +1300,7 @@ function getTicketsFromSheet() {
       if (stRes && stRes.success) stations = stRes.data;
     } catch(e) {}
 
-    // NOWOŚĆ: Odczyt zapisanych rozliczeń, aby Centrum Zgłoszeń ładowało je do pamięci (Brak kasowania wizyt!)
+    // NOWOŚĆ: Odczyt zapisanych rozliczeń
     var billingsMap = {};
     try {
       var bSheet = ss.getSheetByName("sys_billings");
@@ -1310,9 +1317,12 @@ function getTicketsFromSheet() {
     } catch(e) {}
 
     var tickets = [];
+    
+    // LIMITOWANIE: Czytamy tylko 1500 najnowszych zgłoszeń dla błyskawicznego ładowania
+    var rowCount = data.length;
+    var startRow = rowCount > 1500 ? rowCount - 1500 : 1;
 
-    // Omijamy nagłówki
-    for (var i = 1; i < data.length; i++) {
+    for (var i = startRow; i < rowCount; i++) {
       var row = data[i];
       if (!row[0] && !row[1]) continue; 
 
@@ -1412,7 +1422,11 @@ function getTicketsFromSheet() {
       });
     }
 
-    return tickets.reverse(); 
+    var reversedTickets = tickets.reverse(); 
+    // 2. Zapisujemy gotową listę do Cache na 12 godzin
+    putLargeCache(cacheKey, JSON.stringify(reversedTickets), 43200);
+    return reversedTickets; 
+    
   } catch (e) {
     Logger.log("Błąd w getTicketsFromSheet: " + e.toString());
     throw e;
@@ -1586,7 +1600,9 @@ function saveAxonTicketToBase(payload) {
       }
   } catch(e) {}
   
-  return true; 
+  // Odświeżenie Cache zgłoszeń po edycji z aplikacji
+  removeLargeCache("DB_TICKETS_AXON_CONNECT");
+  return true;
 }
 
 /**
@@ -2067,13 +2083,16 @@ function getBillingsDataForFrontend() {
       }
     } catch(e) {}
 
-    // 3. POBIERANIE AXON CONNECT
+    // 3. POBIERANIE AXON CONNECT Z OPTYMALIZACJĄ (LIMIT 1500)
     var sheet = ss.getSheetByName("Axon Connect");
     if (!sheet) throw new Error("Brak zakładki 'Axon Connect'");
     var data = sheet.getDataRange().getValues();
     var tickets = [];
+    
+    var rowCount = data.length;
+    var startRow = rowCount > 1500 ? rowCount - 1500 : 1;
 
-    for (var i = 1; i < data.length; i++) {
+    for (var i = startRow; i < rowCount; i++) {
       var row = data[i];
       var id = row[0] ? row[0].toString().trim() : "";
       var statusAxon = row[6] ? row[6].toString().trim().toUpperCase() : "";
@@ -2899,6 +2918,7 @@ function HARD_RESET_CACHE() {
   tables.forEach(function(tableName) { 
     removeLargeCache("DB_TABLE_" + tableName); 
   });
+  removeLargeCache("DB_TICKETS_AXON_CONNECT"); // <- DODANO CZYSZCZENIE AXONA
   
   Logger.log("🧹 Cała pamięć Cache została wyczyszczona!");
 }

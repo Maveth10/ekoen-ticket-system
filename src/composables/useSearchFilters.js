@@ -7,7 +7,7 @@ export function useSearchFilters() {
     return String(s).toLowerCase().replace(/[ąćęłńóśźż]/g, match => plMap[match])
   }
 
-  // Cache parsowania zapytań (gigantyczny skok wydajności)
+  // Cache parsowania zapytań
   const queryCache = new Map()
   const parseQueryCached = (qText) => {
     if (queryCache.has(qText)) return queryCache.get(qText)
@@ -45,81 +45,85 @@ export function useSearchFilters() {
 
       switch(q.prefix) {
         case 'TECH_EXACT':
-          targetField = d.technician_id || d.techName || 'brak przypisania'
+          // Dla techników zbieramy wszystko co może identyfikować przypisaną osobę
+          targetField = [d.technician_id, d.techName].filter(Boolean).join(' ') || 'brak przypisania'
           break
         case 'STATUS_EXACT':
-          targetField = [d.status, d.ticket_status, d.req_status].join(' ')
+          // Ważne: Sprawdzamy wszystkie statusy jako jeden ciąg
+          targetField = [d.status, d.ticket_status, d.req_status].filter(Boolean).join(' ')
           break
         case 'ID': case 'NUMER': case 'ZGLOSZENIE':
-          targetField = [d.ticket_code, d.ticket_number, d.id, d.t_code].join(' ')
+          targetField = [d.ticket_code, d.ticket_number, d.id, d.t_code].filter(Boolean).join(' ')
           break
         case 'QP': case 'STACJA': 
-          targetField = [d.qp_id, d.qp_id_full, d.station_id, d.t_qp].join(' ')
+          targetField = [d.qp_id, d.qp_id_full, d.station_id, d.t_qp].filter(Boolean).join(' ')
           break
         case 'KLIENT': case 'FIRMA': 
-          targetField = d.client || d.t_client
+          targetField = d.client || d.t_client || ''
           break
         case 'TYTUL': case 'TEMAT':
-          targetField = [d.title, d.subject, d.t_title].join(' ')
+          targetField = [d.title, d.subject, d.t_title].filter(Boolean).join(' ')
           break
         case 'PRIORYTET': 
-          targetField = d.priority
+          targetField = d.priority || ''
           break
         case 'KATEGORIA': case 'TYP': case 'KAT': 
-          targetField = d.category || d.t_category
+          targetField = d.category || d.t_category || ''
           break
         case 'STATUS': case 'STATUS_AXON': case 'STATUS_WEW':
-          targetField = [d.status, d.ticket_status, d.t_status].join(' ')
+          targetField = [d.status, d.ticket_status, d.t_status].filter(Boolean).join(' ')
           break
         case 'PRODUKT': case 'MODEL':
-          targetField = [d.product, d.manufacturer].join(' ')
+          targetField = [d.product, d.manufacturer].filter(Boolean).join(' ')
           break
         case 'OPIS': 
-          targetField = d.description || d.t_desc
+          targetField = d.description || d.t_desc || ''
           break
         case 'OSOBA': case 'KONTAKT': 
-          targetField = [d.contact_person, d.contact_name].join(' ')
+          targetField = [d.contact_person, d.contact_name].filter(Boolean).join(' ')
           break
         case 'TEL': case 'TELEFON': 
-          targetField = d.contact_phone
+          targetField = d.contact_phone || ''
           break
         case 'MAIL': case 'EMAIL': 
-          targetField = d.contact_email
+          targetField = d.contact_email || ''
           break
         case 'TECHNIK': case 'TECH':
-          targetField = d.technician_id || d.techName
+          targetField = d.technician_id || d.techName || ''
           break
         case 'ADRES': case 'ULICA': 
-          targetField = [d.address, d.street, d.t_address].join(' ')
+          targetField = [d.address, d.street, d.t_address].filter(Boolean).join(' ')
           break
         case 'KOD': case 'ZIP': 
-          targetField = [d.postcode, d.zip].join(' ')
+          targetField = [d.postcode, d.zip].filter(Boolean).join(' ')
           break
         case 'MIASTO': 
-          targetField = d.city
+          targetField = d.city || ''
           break
         case 'DATA': case 'UTWORZONO': 
-          targetField = d.created_at
+          targetField = d.created_at || ''
           break
         case 'ZAPOTRZEBOWANIE': case 'UZUPELNIENIA': 
-          targetField = d.raw_info
+          targetField = d.raw_info || ''
           break
         case 'STATUS_ZAPOTRZEBOWANIA': case 'STATUS_CZESCI': 
-          targetField = d.req_status
+          targetField = d.req_status || ''
           break
         case 'DIAGNOZA': 
-          targetField = d.raw_diagnoza
+          targetField = d.raw_diagnoza || ''
           break
         case 'NOTATKA': case 'UWAGI': 
-          targetField = d.notes
+          targetField = d.notes || ''
           break
         case 'CZESCI': case 'UZYTE_CZESCI': 
-          targetField = d.parts_str
+          targetField = d.parts_str || ''
           break
       }
 
       if (targetField !== null) {
         const normTarget = normalizePL(targetField)
+        // Jeśli dany kafel (np. NOWE) wyszukuje po STATUS_EXACT:Nowe|Wysłane,
+        // to q.searchValues wynosi ['nowe', 'wyslane']. Wystarczy, że jedno pasuje.
         return q.searchValues.some(sv => normTarget.includes(sv))
       }
     }

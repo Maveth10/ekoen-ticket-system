@@ -15,14 +15,14 @@ const gasPayload = `
     <!-- INITIAL PAYLOAD Z GOOGLE APPS SCRIPT -->
     <script>
       window.SERVER_PAYLOAD = {
-        schedule: <?!= (typeof scheduleDataInit !== 'undefined' && scheduleDataInit) ? scheduleDataInit : 'null' ?>,
-        clients: <?!= (typeof clientsDataInit !== 'undefined' && clientsDataInit) ? clientsDataInit : 'null' ?>,
-        billings: <?!= (typeof billingsDataInit !== 'undefined' && billingsDataInit) ? billingsDataInit : 'null' ?>,
-        axon: <?!= (typeof axonDataInit !== 'undefined' && axonDataInit) ? axonDataInit : 'null' ?>,
-        ekoen: <?!= (typeof ekoenDataInit !== 'undefined' && ekoenDataInit) ? ekoenDataInit : 'null' ?>,
-        mapData: <?!= (typeof mapDataInit !== 'undefined' && mapDataInit) ? mapDataInit : 'null' ?>,
-        technicians: <?!= (typeof techniciansDataInit !== 'undefined' && techniciansDataInit) ? techniciansDataInit : 'null' ?>,
-        storage: <?!= (typeof storageDataInit !== 'undefined' && storageDataInit) ? storageDataInit : 'null' ?>
+        schedule: null,
+        clients: null,
+        billings: null,
+        axon: null,
+        ekoen: null,
+        mapData: null,
+        technicians: null,
+        storage: null
       };
     </script>
 `;

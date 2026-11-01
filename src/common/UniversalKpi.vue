@@ -20,7 +20,12 @@
 
     <!-- PASEK KAFELKÓW (ZAKŁADEK) -->
     <div class="px-8 shrink-0 w-full relative">
-      <div class="pt-2 pb-4 overflow-x-auto ticket-custom-scrollbar w-full" @wheel.prevent="onScroll" ref="scrollContainer">
+      <div class="pt-2 pb-4 overflow-x-auto ticket-custom-scrollbar w-full" 
+           @wheel.prevent="onScroll" 
+           @mousemove="checkEdgeScroll" 
+           @mouseleave="stopEdgeScroll" 
+           @dragover.prevent="checkEdgeScroll"
+           ref="scrollContainer">
         <div class="flex gap-4 items-stretch select-none w-max pr-2">
           
           <template v-for="t in visibleTabs" :key="t.id">
@@ -28,12 +33,13 @@
             <!-- SPECJALNY KAFELEK: GRUPA TECHNIKÓW -->
             <div v-if="t.id === 'GROUP_TECHS'" 
                  @mouseenter="openTechPanel" @mouseleave="closeTechPanel"
+                 draggable="true" @dragstart="dragStart($event, t.id)" @dragover.prevent @drop="drop($event, t.id)" 
                  class="relative rounded-2xl p-5 transition-all flex flex-col justify-center w-[240px] shrink-0 snap-start group border cursor-pointer"
-                 :class="activeTabId.startsWith('TECH_') ? 'bg-[#f0f9ff] border-[#0ea5e9] border-2 shadow-[0_0_20px_rgba(14,165,233,0.25)] -translate-y-0.5' : 'bg-white border-slate-200 border shadow-sm'">
-              
+                 :class="isAnyTechActive ? 'bg-slate-50 border-slate-400 border-2 shadow-[0_0_15px_rgba(148,163,184,0.3)] -translate-y-0.5' : 'bg-white border-slate-200 border shadow-sm'">
+
               <div class="flex justify-between items-center w-full mb-1 pointer-events-none">
-                <p class="text-[10px] font-black uppercase tracking-widest" :style="{ color: activeTabId.startsWith('TECH_') ? '#0ea5e9' : '#94a3b8' }">TECHNICY ({{ visibleTechTabs.length }}/{{ techTabs.length }})</p>
-                <svg class="w-4 h-4" :class="activeTabId.startsWith('TECH_') ? 'text-[#0ea5e9]' : 'text-slate-300'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                <p class="text-[10px] font-black uppercase tracking-widest transition-colors" :style="{ color: isAnyTechActive ? '#64748b' : '#94a3b8' }">TECHNICY ({{ visibleTechTabs.length }}/{{ techTabs.length }})</p>
+                <svg class="w-4 h-4 transition-colors" :class="isAnyTechActive ? 'text-slate-500' : 'text-slate-300'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
               </div>
               
               <div class="flex items-center -space-x-2.5 mt-2 pointer-events-none">
@@ -66,11 +72,11 @@
               </div>
 
               <div class="overflow-hidden pr-2 min-w-0 flex-1 pointer-events-none">
-                <p class="text-[10px] font-black uppercase tracking-widest mb-1 truncate w-full" :style="{ color: activeTabId === t.id ? (t.color || '#58b347') : '#94a3b8' }">{{ t.name }}</p>
+                <!-- Podpinamy się pod nową, ujednoliconą zmienną currentActiveTabs -->
+                <p class="text-[10px] font-black uppercase tracking-widest mb-1 truncate w-full transition-colors" :style="{ color: currentActiveTabs.includes(t.id) ? (t.color || '#58b347') : '#94a3b8' }">{{ t.name }}</p>
                 <p class="text-3xl font-black text-slate-800">{{ tabCounts[t.id] || 0 }}</p>
               </div>
               <div class="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 transition-all pointer-events-none" :style="getIconStyle(t)">
-                <!-- ZMIANA: Dodano obsługę dekodowania SVG -->
                 <span v-html="decodeIcon(t.icon)"></span>
               </div>
             </div>
@@ -119,7 +125,9 @@ const props = defineProps({
   subtitle: String,
   views: Array,
   activeView: String,
-  activeTabId: String,
+  // ZMIANA: Obsługa kompatybilności wstecznej - akceptujemy obie zmienne
+  activeTabs: { type: Array, default: null },
+  activeTabId: { type: String, default: '' },
   tabs: Array,
   tabCounts: Object
 })
@@ -129,26 +137,33 @@ const emit = defineEmits([
   'open-modal', 'reorder-tabs', 'save-settings'
 ])
 
+// ZMIANA: Uniwersalna zmienna obliczeniowa łącząca stary i nowy system
+const currentActiveTabs = computed(() => {
+  if (props.activeTabs && Array.isArray(props.activeTabs)) return props.activeTabs
+  if (props.activeTabId) return [props.activeTabId]
+  return ['ALL']
+})
+
+const isAnyTechActive = computed(() => {
+  return currentActiveTabs.value.some(id => id.startsWith('TECH_'))
+})
+
 const decodeIcon = (iconStr) => {
   if (!iconStr) return ''
   try {
     let svg = iconStr.trim()
-    // Jeśli to ciąg Base64, zdekoduj go
     if (!svg.startsWith('<svg')) {
       svg = decodeURIComponent(escape(atob(iconStr)))
     }
-    // Zabezpieczenie przed literówkami w atrybutach ścieżek path
     if (svg.includes('2-2h9py') || !svg.includes('</svg>')) {
       return `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`
     }
     return svg
   } catch (e) {
-    // Domyślna ikona w przypadku jakiegokolwiek błędu dekodowania
     return `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`
   }
 }
 
-// --- OBLICZENIA I FILTROWANIE DLA TECHNIKÓW ---
 const visibleTabs = computed(() => props.tabs.filter(t => !t.isHidden))
 const techTabs = computed(() => props.tabs.filter(t => t.id.startsWith('TECH_')))
 const visibleTechTabs = computed(() => techTabs.value.filter(t => !t.isHidden))
@@ -160,7 +175,6 @@ const getInitials = (name) => {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
 }
 
-// --- LOGIKA HOVER PANELU DLA TECHNIKÓW ---
 const isTechPanelOpen = ref(false)
 const techPanelStyle = ref({ top: '0px', left: '0px' })
 let hideTimeout = null
@@ -190,24 +204,52 @@ const keepTechPanelOpen = () => {
   clearTimeout(hideTimeout)
 }
 
-const toggleTech = (techId) => {
-  const tab = props.tabs.find(t => t.id === techId)
-  if (tab) {
-    tab.isHidden = !tab.isHidden
-    if (tab.isHidden && props.activeTabId === techId) {
-      emit('select-tab', 'ALL')
-    }
-    emit('save-settings')
-  }
-}
-
-// --- FUNKCJE POMOCNICZE UI (KOLORY, DRAG&DROP) ---
+// --- NAPRAWIONA STREFA AUTO-SCROLLA ---
 const scrollContainer = ref(null)
+
 const onScroll = (e) => {
   if (e.deltaY !== 0 && scrollContainer.value) {
     scrollContainer.value.scrollLeft += e.deltaY > 0 ? 50 : -50
   }
 }
+
+let edgeScrollReq = null
+let edgeScrollSpeed = 0
+
+const checkEdgeScroll = (e) => {
+  if (!scrollContainer.value) return
+  
+  const rect = scrollContainer.value.getBoundingClientRect()
+  const threshold = 80 
+  const x = e.clientX - rect.left
+  let speed = 0
+  
+  if (x >= 0 && x < threshold) speed = -15 
+  else if (x <= rect.width && x > rect.width - threshold) speed = 15
+
+  if (speed !== 0) {
+    edgeScrollSpeed = speed
+    if (!edgeScrollReq) loopEdgeScroll()
+  } else {
+    stopEdgeScroll()
+  }
+}
+
+const loopEdgeScroll = () => {
+  if (edgeScrollSpeed !== 0 && scrollContainer.value) {
+    scrollContainer.value.scrollLeft += edgeScrollSpeed
+    edgeScrollReq = requestAnimationFrame(loopEdgeScroll)
+  }
+}
+
+const stopEdgeScroll = () => {
+  if (edgeScrollReq) { 
+    cancelAnimationFrame(edgeScrollReq) 
+    edgeScrollReq = null 
+  }
+  edgeScrollSpeed = 0
+}
+// ---------------------------------------
 
 const hexToRgba = (hex, alpha) => {
   if (!hex || !hex.startsWith('#')) return `rgba(88, 179, 71, ${alpha})`
@@ -218,7 +260,8 @@ const hexToRgba = (hex, alpha) => {
 }
 
 const getCardStyle = (t) => {
-  const isActive = props.activeTabId === t.id
+  // ZMIANA: używamy currentActiveTabs
+  const isActive = currentActiveTabs.value.includes(t.id) 
   const color = t.color || '#58b347'
   
   if (isActive) {
@@ -239,11 +282,31 @@ const getCardStyle = (t) => {
 }
 
 const getIconStyle = (t) => {
-  const isActive = props.activeTabId === t.id
+  // ZMIANA: używamy currentActiveTabs
+  const isActive = currentActiveTabs.value.includes(t.id) 
   const color = t.color || '#58b347'
   
   if (isActive) return { backgroundColor: color, color: '#ffffff' }
   return { backgroundColor: hexToRgba(color, 0.12), color: color }
+}
+
+const toggleTech = (techId) => {
+  const tab = props.tabs.find(t => t.id === techId)
+  if (tab) {
+    // Odwracamy widoczność
+    tab.isHidden = !tab.isHidden
+    
+    // Jeśli właśnie UKRYLIŚMY technika, a był on włączony w filtrach -> wyłączamy go
+    if (tab.isHidden && currentActiveTabs.value.includes(techId)) {
+      emit('select-tab', techId) 
+    }
+    // Jeśli właśnie ODKRYLIŚMY technika, a NIE BYŁ w filtrach -> automatycznie go włączamy
+    else if (!tab.isHidden && !currentActiveTabs.value.includes(techId)) {
+      emit('select-tab', techId)
+    }
+    
+    emit('save-settings')
+  }
 }
 
 const draggedId = ref(null)

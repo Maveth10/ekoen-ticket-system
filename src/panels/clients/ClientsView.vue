@@ -11,7 +11,7 @@
           { label: 'Osoby Prywatne', value: 'private' }
         ]"
         :activeView="activeModule"
-        :activeTabId="store.activeTabId"
+        :activeTabs="store.activeTabs"
         :tabs="store.kpiTabs"
         :tabCounts="tabCounts"
         @switch-view="activeModule = $event"
@@ -109,6 +109,7 @@ import ClientFormModal from '../../modals/ClientFormModal.vue'
 // 3. IMPORTY LOGIKI BIZNESOWEJ
 import { useClientsStore } from '../../stores/useClientsStore'
 import { useSearchFilters } from '../../composables/useSearchFilters'
+import { useSmartKpiFilters } from '../../composables/useSmartKpiFilters'
 
 // Inicjalizacja stanu i logiki
 const store = useClientsStore()
@@ -143,8 +144,37 @@ const getClientStations = (c, allStations) => {
   })
 }
 
+// Funkcja testująca czy Klient zalicza dany filtr (odpowiednik evaluateTab)
+const evaluateClientTab = (c, tab, stationsList) => {
+    if (tab.filter === 'ALL') return true
+    if (tab.filter === 'VIP') { let sla = parseInt(c.sla_hours || c.sla) || 48; return sla > 0 && sla < 48 }
+    if (tab.filter === 'MISSING_CONTACT') return !c.contact_person || !c.phone || !c.email
+    if (tab.filter === 'NO_STATIONS') return getClientStations(c, stationsList).length === 0
+    if (tab.filter === 'HAS_STATIONS') return getClientStations(c, stationsList).length > 0
+    if (tab.filter === 'ACTIVE_TICKETS') {
+      return getClientStations(c, stationsList).some(s => {
+        const tStat = s.ticket_status ? String(s.ticket_status).trim().toLowerCase() : ''
+        return s.active_ticket_id && !tStat.includes('zakończ') && !tStat.includes('zamknięt') && !tStat.includes('wykonano')
+      })
+    }
+    if (tab.filter === 'CUSTOM' && tab.customQueries) {
+      const validSearch = tab.customQueries.filter(q => q.text.trim() !== '')
+      if (validSearch.length === 0) return true
+      let match = checkClientSearch(c, validSearch[0].text, stationsList)
+      if (validSearch[0].logic === 'NOT') match = !match
+      for (let i = 1; i < validSearch.length; i++) {
+        const cMet = checkClientSearch(c, validSearch[i].text, stationsList)
+        if (validSearch[i].logic === 'AND') match = match && cMet
+        else if (validSearch[i].logic === 'OR') match = match || cMet
+        else if (validSearch[i].logic === 'NOT') match = match && !cMet
+      }
+      return match
+    }
+    return true
+}
+
 // ==========================================
-// OBLICZENIA I FILTROWANIE DANYCH
+// UŻYCIE LOGIKI MULTI-SELECT ORAZ ZLICZANIA KPI
 // ==========================================
 
 const tabCounts = computed(() => {
@@ -153,70 +183,49 @@ const tabCounts = computed(() => {
   const stationsList = store.stations
 
   if (!store.kpiTabs || !Array.isArray(store.kpiTabs)) return counts
+  
+  // W systemie klientów szukajka działa na wyniki KPI
+  let searchFilteredBase = clientsList
+  const validSearch = store.searchQueriesMain.filter(q => q.text.trim() !== '')
+  if (validSearch.length > 0) {
+    searchFilteredBase = searchFilteredBase.filter(c => {
+      let match = checkClientSearch(c, validSearch[0].text, stationsList)
+      if (validSearch[0].logic === 'NOT') match = !match
+      for (let i = 1; i < validSearch.length; i++) {
+        const cMet = checkClientSearch(c, validSearch[i].text, stationsList)
+        if (validSearch[i].logic === 'AND') match = match && cMet
+        else if (validSearch[i].logic === 'OR') match = match || cMet
+        else if (validSearch[i].logic === 'NOT') match = match && !cMet
+      }
+      return match
+    })
+  }
 
+  // W bazie klientów (ponieważ nie ma konfliktów miedzy statusami jak 'Nowe' / 'Zamkniete'), 
+  // zliczamy czysty wynik każdego filtra.
   store.kpiTabs.forEach(tab => {
     if (!tab || !tab.id) return 
-
-    if (tab.filter === 'ALL') {
-      counts[tab.id] = clientsList.length
-    } else if (tab.filter === 'VIP') {
-      counts[tab.id] = clientsList.filter(c => { let sla = parseInt(c.sla_hours || c.sla) || 48; return sla > 0 && sla < 48 }).length
-    } else if (tab.filter === 'MISSING_CONTACT') {
-      counts[tab.id] = clientsList.filter(c => !c.contact_person || !c.phone || !c.email).length
-    } else if (tab.filter === 'NO_STATIONS') {
-      counts[tab.id] = clientsList.filter(c => getClientStations(c, stationsList).length === 0).length
-    } else if (tab.filter === 'HAS_STATIONS') {
-      counts[tab.id] = clientsList.filter(c => getClientStations(c, stationsList).length > 0).length
-    } else if (tab.filter === 'ACTIVE_TICKETS') {
-      counts[tab.id] = clientsList.filter(c => {
-        return getClientStations(c, stationsList).some(s => {
-          const tStat = s.ticket_status ? String(s.ticket_status).trim().toLowerCase() : ''
-          return s.active_ticket_id && !tStat.includes('zakończ') && !tStat.includes('zamknięt') && !tStat.includes('wykonano')
-        })
-      }).length
-    } else if (tab.filter === 'CUSTOM' && tab.customQueries) {
-      const validSearch = tab.customQueries.filter(q => q.text.trim() !== '')
-      if (validSearch.length === 0) {
-        counts[tab.id] = clientsList.length
-      } else {
-        counts[tab.id] = clientsList.filter(c => {
-          let match = checkClientSearch(c, validSearch[0].text, stationsList)
-          if (validSearch[0].logic === 'NOT') match = !match
-          for (let i = 1; i < validSearch.length; i++) {
-            const cMet = checkClientSearch(c, validSearch[i].text, stationsList)
-            if (validSearch[i].logic === 'AND') match = match && cMet
-            else if (validSearch[i].logic === 'OR') match = match || cMet
-            else if (validSearch[i].logic === 'NOT') match = match && !cMet
-          }
-          return match
-        }).length
-      }
-    } else {
-      counts[tab.id] = 0
-    }
+    counts[tab.id] = searchFilteredBase.filter(c => evaluateClientTab(c, tab, stationsList)).length
   })
+  
   return counts
 })
 
 const filteredClients = computed(() => {
   let base = store.clients
-  const activeTab = store.kpiTabs.find(t => t.id === store.activeTabId)
+  const activeTabsIds = store.activeTabs || ['ALL']
   
-  if (activeTab) {
-    if (activeTab.filter === 'VIP') base = base.filter(c => { let sla = parseInt(c.sla_hours || c.sla) || 48; return sla > 0 && sla < 48 })
-    else if (activeTab.filter === 'MISSING_CONTACT') base = base.filter(c => !c.contact_person || !c.phone || !c.email)
-    else if (activeTab.filter === 'NO_STATIONS') base = base.filter(c => getClientStations(c, store.stations).length === 0)
-    else if (activeTab.filter === 'HAS_STATIONS') base = base.filter(c => getClientStations(c, store.stations).length > 0)
-    else if (activeTab.filter === 'ACTIVE_TICKETS') {
+  // Logika Multi-Select (Krzyżowanie warunków "LUB" / "ORAZ")
+  if (!activeTabsIds.includes('ALL')) {
+      const activeTabObjs = activeTabsIds.map(id => store.kpiTabs.find(t => t.id === id)).filter(Boolean)
+      
       base = base.filter(c => {
-        return getClientStations(c, store.stations).some(s => {
-          const tStat = s.ticket_status ? String(s.ticket_status).trim().toLowerCase() : ''
-          return s.active_ticket_id && !tStat.includes('zakończ') && !tStat.includes('zamknięt') && !tStat.includes('wykonano')
-        })
+          // Klienci muszą spełnić WSZYSTKIE zaznaczone warunki krzyżowo (Systemowe)
+          return activeTabObjs.every(tab => evaluateClientTab(c, tab, store.stations))
       })
-    }
   }
 
+  // Zastosowanie głównej szukajki z inputa
   const validSearch = store.searchQueriesMain.filter(q => q.text.trim() !== '')
   if (validSearch.length > 0) {
     base = base.filter(c => {
@@ -279,8 +288,22 @@ const toggleAccordion = (id) => {
   }
 }
 
-const setActiveTab = (id) => {
-  store.activeTabId = store.activeTabId === id && id !== 'ALL' ? 'ALL' : id
+const setActiveTab = (filterId) => {
+  let current = store.activeTabs ? [...store.activeTabs] : ['ALL']
+
+  if (filterId === 'ALL') {
+    current = ['ALL']
+  } else {
+    current = current.filter(id => id !== 'ALL')
+    if (current.includes(filterId)) {
+      current = current.filter(id => id !== filterId)
+      if (current.length === 0) current = ['ALL']
+    } else {
+      current.push(filterId)
+    }
+  }
+  
+  store.activeTabs = current
   currentPage.value = 1
   saveUserConfig()
 }
@@ -310,7 +333,10 @@ const deleteTab = (id) => {
     message: "Usunąć ten filtr (zakładkę)?",
     onConfirm: () => {
       store.kpiTabs = store.kpiTabs.filter(t => t.id !== id)
-      if (store.activeTabId === id) setActiveTab('ALL')
+      if (store.activeTabs && store.activeTabs.includes(id)) {
+          store.activeTabs = store.activeTabs.filter(tabId => tabId !== id);
+          if (store.activeTabs.length === 0) store.activeTabs = ['ALL']; 
+      }
       saveUserConfig() 
     }
   }
@@ -338,6 +364,7 @@ const saveTab = ({ form, queries }) => {
     if (idx !== -1) store.kpiTabs[idx] = tabData
   } else {
     store.kpiTabs.push(tabData)
+    store.activeTabs = [tabData.id]
   }
 
   showTabModal.value = false

@@ -25,18 +25,16 @@ export const useClientsStore = defineStore('clients', () => {
   const isLoading = ref(false)
   const error = ref(null)
 
-  const activeTabId = ref('ALL')
+  // <--- ZMIANA: Tablica zamiast stringa
+  const activeTabs = ref(['ALL']) 
   const kpiTabs = ref([...defaultTabs])
   const expandedIds = ref([])
   const searchQueriesMain = ref([{ id: 'm_' + Date.now(), logic: 'AND', text: '' }])
 
-  // --- NOWE FUNKCJE DO ZAPISU I ODCZYTU ZAKŁADEK ---
   const saveTabsConfiguration = () => {
-    // 1. Zapis lokalny (natychmiastowe odtworzenie po odświeżeniu F5)
     const configToSave = JSON.parse(JSON.stringify(kpiTabs.value))
     localStorage.setItem('ekoen_clients_tabs', JSON.stringify(configToSave))
 
-    // 2. Wysłanie do bazy (aby ustawienia wędrowały za użytkownikiem na inne urządzenia)
     if (typeof google !== 'undefined' && google.script) {
       google.script.run
         .withFailureHandler((err) => console.error("Błąd zapisu zakładek w chmurze:", err))
@@ -45,7 +43,6 @@ export const useClientsStore = defineStore('clients', () => {
   }
 
   const loadTabsConfiguration = () => {
-    // Pobierz z pamięci podręcznej przeglądarki
     const saved = localStorage.getItem('ekoen_clients_tabs')
     if (saved) {
       try {
@@ -56,17 +53,13 @@ export const useClientsStore = defineStore('clients', () => {
     }
   }
 
-  // Od razu przy uruchomieniu aplikacji ładujemy układ użytkownika!
   loadTabsConfiguration()
-  // ------------------------------------------------
 
   const fetchClientsData = () => {
     if (isLoading.value) return
     isLoading.value = true
     error.value = null
 
-    // Niezależnie od tego czy jesteśmy na produkcji, czy lokalnie (dzięki gasMock.js) 
-    // to wywołanie zadziała tak samo!
     if (typeof google !== 'undefined' && google.script) {
       google.script.run
         .withSuccessHandler((response) => {
@@ -98,7 +91,6 @@ export const useClientsStore = defineStore('clients', () => {
     const tempId = payload.id || ('client_' + Date.now())
     const clientRecord = { ...payload, id: tempId }
 
-    // 1. OPTIMISTIC UPDATE: Aktualizacja UI w 0 ms
     if (isEdit) {
       const idx = clients.value.findIndex(c => String(c.id) === String(payload.id))
       if (idx !== -1) {
@@ -110,11 +102,9 @@ export const useClientsStore = defineStore('clients', () => {
       clients.value = [clientRecord, ...clients.value]
     }
 
-    // 2. SYNCHRONIZACJA Z GOOGLE SHEETS W TLE
     if (typeof google !== 'undefined' && google.script) {
       google.script.run
         .withSuccessHandler((response) => {
-          // Jeśli backend zwrócił przypisany ID nowego wiersza, zaktualizuj ID klienta
           if (!isEdit && response && response.id) {
             const idx = clients.value.findIndex(c => c.id === tempId)
             if (idx !== -1) {
@@ -135,10 +125,8 @@ export const useClientsStore = defineStore('clients', () => {
   }
 
   const deleteClientFromBase = (id) => {
-    // 1. OPTIMISTIC UI: Od razu usuwamy z widoku lokalnego
     clients.value = clients.value.filter(c => String(c.id) !== String(id))
 
-    // 2. Wysłanie komendy usunięcia w tle do Google Sheets
     if (typeof google !== 'undefined' && google.script) {
       google.script.run
         .withFailureHandler((err) => {
@@ -153,7 +141,7 @@ export const useClientsStore = defineStore('clients', () => {
 
   return {
     clients, stations, isLoading, error,
-    activeTabId, kpiTabs, expandedIds, searchQueriesMain,
+    activeTabs, kpiTabs, expandedIds, searchQueriesMain,
     fetchClientsData, saveClientToBase, deleteClientFromBase,
     saveTabsConfiguration
   }
