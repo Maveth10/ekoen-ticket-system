@@ -76,17 +76,26 @@ export function useCalendar() {
 
   const eventsByDate = computed(() => {
     const dict = {}
+    
+    // NOWE PANCERNE FILTROWANIE DLA AKTUALNIE WYBRANEGO TECHNIKA Z MENU
     const filteredEvents = store.events.filter(ev => {
-      if (store.selectedTechId !== "ALL" && ev.technician_id !== store.selectedTechId) return false
-      return ev.start_time
+      if (store.selectedTechId !== "ALL") {
+         const tObj = store.techList.find(t => t.id === store.selectedTechId);
+         const tName = tObj ? tObj.name : store.selectedTechId;
+         const isSameTech = (ev.technician_id === store.selectedTechId || ev.technician_id === tName || (ev.extendedProps && ev.extendedProps.technicianName === tName));
+         if (!isSameTech) return false;
+      }
+      return ev.start_time;
     })
 
     filteredEvents.forEach(ev => {
-      const dateStr = ev.start_time.split('T')[0]
+      // NOWE: Odporność na brak litery 'T' w zapisanej z bazy dacie
+      const dateStr = ev.start_time.includes('T') ? ev.start_time.split('T')[0] : ev.start_time.split(' ')[0]
       if (!dict[dateStr]) dict[dateStr] = []
       
       const ticket = store.tickets.find(t => String(t.t_id) === String(ev.ticket_id) || String(t.t_code) === String(ev.ticket_id))
-      const tech = store.techList.find(t => String(t.id) === String(ev.technician_id))
+      // ZMIANA: Szukamy podwójnie - po ID lub Imieniu (dla kompatybilności ze starymi wpisami)
+      const tech = store.techList.find(t => String(t.id) === String(ev.technician_id) || String(t.name) === String(ev.technician_id))
       
       dict[dateStr].push({ 
         ...ev, 
@@ -166,12 +175,20 @@ export function useCalendar() {
 
   const checkOverlap = (techId, startStr, endStr, excludeEventId = null) => {
     if(!techId) return false
-    const start = new Date(startStr).getTime()
-    const end = new Date(endStr).getTime()
+    // Zabezpieczenie na puste spacje zamiast 'T' w dacie przychodzącej
+    const start = new Date(startStr.replace(' ', 'T')).getTime()
+    const end = new Date(endStr.replace(' ', 'T')).getTime()
+    
+    const techObj = store.techList.find(t => t.id === techId || t.name === techId)
+    const finalTechId = techObj ? techObj.id : techId
+    const techName = techObj ? techObj.name : techId
+
     return store.events.some(ev => {
-      if(ev.id === excludeEventId || ev.technician_id !== techId || !ev.start_time || !ev.end_time) return false
-      let evStart = new Date(ev.start_time).getTime()
-      let evEnd = new Date(ev.end_time).getTime()
+      const isSameTech = (ev.technician_id === finalTechId || ev.technician_id === techName || (ev.extendedProps && ev.extendedProps.technicianName === techName));
+      if(ev.id === excludeEventId || !isSameTech || !ev.start_time || !ev.end_time) return false
+      
+      let evStart = new Date(ev.start_time.replace(' ', 'T')).getTime()
+      let evEnd = new Date(ev.end_time.replace(' ', 'T')).getTime()
       return (start < evEnd && end > evStart)
     })
   }
@@ -208,8 +225,18 @@ export function useCalendar() {
     resizeData.startDurationMs = endMs - startMs
     resizeData.modifiedEvents = new Set([ev.id])
 
-    const dateStr = ev.start_time.split('T')[0]
-    const techEvents = store.events.filter(x => x.technician_id === ev.technician_id && x.start_time.startsWith(dateStr))
+    const dateStr = String(ev.start_time).includes('T') ? String(ev.start_time).split('T')[0] : String(ev.start_time).split(' ')[0];
+    
+    const techEvents = store.events.filter(x => {
+      // Ignoruj urlopy i L4 - nie przepychaj ich w dół podczas rozciągania!
+      const isAbsence = x.event_type === 'absence' || (x.extendedProps && x.extendedProps.event_type === 'absence');
+      if (isAbsence) return false;
+      
+      const techMatch = x.technician_id === ev.technician_id || (x.extendedProps && ev.extendedProps && x.extendedProps.technicianName === ev.extendedProps.technicianName);
+      const xDateStr = String(x.start_time).includes('T') ? String(x.start_time).split('T')[0] : String(x.start_time).split(' ')[0];
+      
+      return techMatch && xDateStr === dateStr;
+    })
 
     resizeData.snapshot = techEvents.map(x => ({
       id: x.id,

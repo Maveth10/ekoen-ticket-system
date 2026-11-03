@@ -203,38 +203,40 @@ export const useScheduleStore = defineStore('schedule', {
             const res = typeof response === 'string' ? JSON.parse(response) : response
             if (res && res.success !== false) {
               
+              const rawTechList = Array.isArray(res.technicians) ? res.technicians : []
+
               this.events = Array.isArray(res.events) ? res.events.map(ev => {
+                let mappedEv = null;
                 if (Array.isArray(ev)) {
                    if(String(ev[0]||'').toLowerCase() === 'id') return null
-                   return { 
-                     id: String(ev[0]||''), 
-                     ticket_id: String(ev[1]||''), 
-                     technician_id: String(ev[2]||''), 
-                     title: String(ev[3]||''), 
-                     start_time: String(ev[4]||''), 
-                     end_time: String(ev[5]||''), 
-                     event_type: String(ev[6]||'service'), 
-                     event_subtype: String(ev[7]||''), 
-                     description: String(ev[8]||''), 
-                     all_day: String(ev[9]||'NIE'), 
-                     created_at: String(ev[10]||'') 
+                   mappedEv = { 
+                     id: String(ev[0]||''), ticket_id: String(ev[1]||''), technician_id: String(ev[2]||''), 
+                     title: String(ev[3]||''), start_time: String(ev[4]||''), end_time: String(ev[5]||''), 
+                     event_type: String(ev[6]||'service'), event_subtype: String(ev[7]||''), 
+                     description: String(ev[8]||''), all_day: String(ev[9]||'NIE'), created_at: String(ev[10]||'') 
                    }
                 } else {
                    if(String(ev.id||'').toLowerCase() === 'id') return null
-                   return { 
-                     id: String(ev.id||ev.ID||''), 
-                     ticket_id: String(ev.ticket_id||''), 
-                     technician_id: String(ev.technician_id||''), 
-                     title: String(ev.title||''), 
-                     start_time: String(ev.start_time||''), 
-                     end_time: String(ev.end_time||''), 
-                     event_type: String(ev.event_type||'service'),
-                     event_subtype: String(ev.event_subtype||''),
-                     description: String(ev.description||''),
-                     all_day: String(ev.all_day||'NIE'),
-                     created_at: String(ev.created_at||'') 
+                   mappedEv = { 
+                     id: String(ev.id||ev.ID||''), ticket_id: String(ev.ticket_id||''), technician_id: String(ev.technician_id||''), 
+                     title: String(ev.title||''), start_time: String(ev.start_time||''), end_time: String(ev.end_time||''), 
+                     event_type: String(ev.event_type||'service'), event_subtype: String(ev.event_subtype||''),
+                     description: String(ev.description||''), all_day: String(ev.all_day||'NIE'), created_at: String(ev.created_at||'') 
                    }
                 }
+                
+                // Od razu wtłaczamy extendedProps przy ładowaniu
+                if (mappedEv) {
+                   const tech = rawTechList.find(t => t.id === mappedEv.technician_id || t.name === mappedEv.technician_id)
+                   mappedEv.extendedProps = {
+                     technicianName: tech ? tech.name : (mappedEv.technician_id || 'BRAK'),
+                     techColor: tech ? (tech.zone_color || tech.color) : '#cbd5e1',
+                     event_type: mappedEv.event_type,
+                     event_subtype: mappedEv.event_subtype,
+                     all_day: mappedEv.all_day === 'TAK'
+                   }
+                }
+                return mappedEv;
               }).filter(Boolean) : []
 
               this.techList = Array.isArray(res.technicians) ? res.technicians : []
@@ -264,40 +266,56 @@ export const useScheduleStore = defineStore('schedule', {
         .getScheduleData() // <--- TUTAJ BYŁ BŁĄD. Zmienione z getScheduleDataForFrontend
     },
     saveEventToCloud(evData) {
-      // 1. Zapisz błyskawicznie do stanu lokalnego aplikacji (Vue reactivity zareaguje i pokaże to na kalendarzu od razu)
-      const existingIdx = this.events.findIndex(e => String(e.id) === String(evData.id))
+      // ZABEZPIECZENIE: Wymuszamy, by do bazy trafiało UUID, a nie imię!
+      const activeTechId = evData.technician_id || evData.tech_id || evData.techName || '';
+      const techObj = this.techList.find(t => t.id === activeTechId || t.name === activeTechId);
+      const finalTechId = techObj ? techObj.id : activeTechId; 
+
+      const fullEvData = { 
+         ...evData, 
+         technician_id: finalTechId, // <--- Czyste ID
+         extendedProps: {
+           ...(evData.extendedProps || {}),
+           technicianName: techObj ? techObj.name : (finalTechId || 'BRAK'),
+           techColor: techObj ? (techObj.zone_color || techObj.color) : '#cbd5e1',
+           event_type: evData.event_type || 'service',
+           event_subtype: evData.event_subtype || 'Awaria',
+           all_day: evData.all_day === 'TAK' || evData.is_all_day === true
+         }
+      };
+
+      const existingIdx = this.events.findIndex(e => String(e.id) === String(evData.id));
       if (existingIdx !== -1) {
-        this.events[existingIdx] = { ...this.events[existingIdx], ...evData }
+        this.events[existingIdx] = { ...this.events[existingIdx], ...fullEvData };
       } else {
-        this.events.push(evData)
+        this.events.push(fullEvData);
       }
 
-      if(typeof google === 'undefined') return
+      if(typeof google === 'undefined') return;
       
-      // 2. Precyzyjnie przygotuj paczkę dla backendu, używając wyłącznie czystych nazw
       const payload = {
-        id: evData.id,
-        ticket_id: evData.ticket_id || '',
-        technician_id: evData.technician_id || evData.tech_id || evData.techName || '', 
-        title: evData.title || '',
-        description: evData.description || '',
-        start_time: evData.start_time,
-        end_time: evData.end_time || evData.start_time,
-        event_type: evData.event_type || 'service',
-        event_subtype: evData.event_subtype || '',
-        all_day: evData.all_day || (evData.is_all_day ? 'TAK' : 'NIE'),
+        id: fullEvData.id,
+        ticket_id: fullEvData.ticket_id || '',
+        technician_id: fullEvData.technician_id,
+        title: fullEvData.title || '',
+        description: fullEvData.description || '',
+        start_time: fullEvData.start_time,
+        end_time: fullEvData.end_time || fullEvData.start_time,
+        event_type: fullEvData.extendedProps.event_type,
+        event_subtype: fullEvData.extendedProps.event_subtype,
+        all_day: fullEvData.extendedProps.all_day ? 'TAK' : 'NIE',
         created_by: window.CURRENT_USERNAME || ''
-      }
+      };
       
       google.script.run
         .withSuccessHandler((res) => {
-          // Jeśli backend zwrócił nowe ID, to je aktualizujemy
-          if (res && res.newId && String(payload.id).includes('temp_')) {
-            const idx = this.events.findIndex(x => x.id === payload.id)
-            if(idx > -1) this.events[idx].id = res.newId
+          // res.newId pochodzi z naszej wczorajszej funkcji w backendzie
+          if (res && res.newId && (String(payload.id).includes('temp_') || String(payload.id).includes('EV_'))) {
+            const idx = this.events.findIndex(x => x.id === payload.id);
+            if(idx > -1) this.events[idx].id = res.newId;
           }
         })
-        .saveCalendarEvent(payload) 
+        .saveCalendarEvent(payload);
     },
     deleteEventFromCloud(eventId) {
       this.events = this.events.filter(e => String(e.id) !== String(eventId))

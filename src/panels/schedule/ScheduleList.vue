@@ -229,12 +229,14 @@
                 <p class="text-[9px] text-slate-600 leading-tight flex-1 overflow-hidden pointer-events-none">{{ ev.extendedProps.description }}</p>
               </template>
 
-              <div class="mt-auto pt-1.5 flex justify-between items-center shrink-0 pointer-events-none w-full gap-2 border-t border-slate-100/80">
-                <span class="text-[9px] font-black bg-slate-100 border border-slate-200 text-slate-700 px-1.5 py-0.5 rounded shadow-sm">{{ new Date(ev.start_time).getHours() }}:{{ String(new Date(ev.start_time).getMinutes()).padStart(2, '0') }} - {{ ev.end_time ? new Date(ev.end_time).getHours() + ':' + String(new Date(ev.end_time).getMinutes()).padStart(2, '0') : '' }}</span>
+              <div v-if="!ev.extendedProps.all_day && ev.extendedProps.event_type !== 'absence'" 
+                   class="mt-auto pt-1.5 flex justify-between items-center shrink-0 pointer-events-none w-full gap-2 border-t border-slate-100/80">
+                <span class="text-[9px] font-black bg-slate-100 border border-slate-200 text-slate-700 px-1.5 py-0.5 rounded shadow-sm">{{ new Date(String(ev.start_time).replace(' ', 'T')).getHours() }}:{{ String(new Date(String(ev.start_time).replace(' ', 'T')).getMinutes()).padStart(2, '0') }} - {{ ev.end_time ? new Date(String(ev.end_time).replace(' ', 'T')).getHours() + ':' + String(new Date(String(ev.end_time).replace(' ', 'T')).getMinutes()).padStart(2, '0') : '' }}</span>
                 <span v-if="ev.extendedProps.t_status" class="text-[8px] font-black uppercase tracking-widest text-slate-500 truncate text-right">{{ ev.extendedProps.t_status }}</span>
               </div>
 
-              <div class="absolute bottom-0 left-0 right-0 h-3 bg-gradient-to-t from-slate-200/80 to-transparent cursor-ns-resize opacity-0 group-hover/card:opacity-100 transition-opacity z-[100]"
+              <div v-if="ev.extendedProps.event_type !== 'absence' && !ev.extendedProps.all_day"
+                   class="absolute bottom-0 left-0 right-0 h-3 bg-gradient-to-t from-slate-200/80 to-transparent cursor-ns-resize opacity-0 group-hover/card:opacity-100 transition-opacity z-[100]"
                    @mousedown.stop="cal.startResize($event, ev)">
               </div>
             </div>
@@ -330,60 +332,90 @@ const onDragStartEvent = (e, ev) => {
 const calculateDropPosition = (clientY, columnRect, dateStr) => {
   const p = dragPayload.value
   let targetTech = store.selectedTechId
-  if (targetTech === 'ALL') targetTech = p.data.technician_id || p.data.actualTechId
+  if (targetTech === 'ALL') targetTech = p.data.actualTechId || p.data.technician_id
   if (!targetTech || targetTech === 'ALL') return null
+
+  // Gwarancja dopasowania technika niezależnie czy to UUID czy Imię
+  const techObj = store.techList.find(t => t.id === targetTech || t.name === targetTech)
+  const finalTechId = techObj ? techObj.id : targetTech
+  const techName = techObj ? techObj.name : targetTech
 
   let y = clientY - columnRect.top - (p.offsetY || 0)
   if (y < 0) y = 0
   
+  // Obliczanie czasu na podstawie pozycji kursora (zaokrąglone do 30 min)
   let hoursFloat = Math.round((y / 80) * 2) / 2
   let startMs = new Date(`${dateStr}T00:00:00`).getTime() + hoursFloat * 3600000
   const durationMs = p.durationMs
   let endMs = startMs + durationMs
 
   const excludeId = p.type === 'event' ? p.data.id : null
-  const techEventsDay = store.events.filter(x => x.technician_id === targetTech && x.start_time.startsWith(dateStr) && x.id !== excludeId)
+  
+  // Pancerne filtrowanie (odporne na formaty dat ze spacją zamiast T)
+  const techEventsDay = store.events.filter(x => {
+    // IGNORUJEMY NIEOBECNOŚCI - nie są przeszkodą fizyczną
+    const isAbsence = x.event_type === 'absence' || (x.extendedProps && x.extendedProps.event_type === 'absence');
+    if (isAbsence) return false;
 
-  const snapThreshold = 1800000 
+    const isSameTech = (x.technician_id === finalTechId || x.technician_id === techName || (x.extendedProps && x.extendedProps.technicianName === techName));
+    const evDateStr = String(x.start_time).includes('T') ? String(x.start_time).split('T')[0] : String(x.start_time).split(' ')[0];
+    return isSameTech && evDateStr === dateStr && x.id !== excludeId;
+  })
+
+  // Lekkie przyciąganie (magnetyzm) do krawędzi (15 minut = 900000 ms)
+  const snapThreshold = 900000; 
   for (const ev of techEventsDay) {
-    const evS = new Date(ev.start_time).getTime()
-    const evE = ev.end_time ? new Date(ev.end_time).getTime() : evS + 2 * 3600000
+    const evS = new Date(String(ev.start_time).replace(' ', 'T')).getTime()
+    const evE = ev.end_time ? new Date(String(ev.end_time).replace(' ', 'T')).getTime() : evS + 2 * 3600000
+    
     if (Math.abs(startMs - evE) <= snapThreshold) { startMs = evE; endMs = startMs + durationMs; break; }
     if (Math.abs(endMs - evS) <= snapThreshold) { endMs = evS; startMs = endMs - durationMs; break; }
   }
 
-  const hasCollision = techEventsDay.some(ev => {
-    const evS = new Date(ev.start_time).getTime()
-    const evE = ev.end_time ? new Date(ev.end_time).getTime() : evS + 2 * 3600000
+  // --- INTELIGENTNA RESOLUCJA KOLIZJI DLA WIDOKU DNIA ---
+  let hasCollision = techEventsDay.some(ev => {
+    const evS = new Date(String(ev.start_time).replace(' ', 'T')).getTime()
+    const evE = ev.end_time ? new Date(String(ev.end_time).replace(' ', 'T')).getTime() : evS + 2 * 3600000
     return startMs < evE && endMs > evS
   })
 
   if (hasCollision) {
+    // Zbieramy możliwe wolne luki (początek dnia roboczego oraz tuż po / przed każdym zdarzeniem)
     let candidates = [new Date(`${dateStr}T07:00:00`).getTime()] 
     techEventsDay.forEach(ev => {
-       const evS = new Date(ev.start_time).getTime()
-       const evE = ev.end_time ? new Date(ev.end_time).getTime() : evS + 2 * 3600000
-       candidates.push(evE) 
-       candidates.push(evS - durationMs) 
+       const evS = new Date(String(ev.start_time).replace(' ', 'T')).getTime()
+       const evE = ev.end_time ? new Date(String(ev.end_time).replace(' ', 'T')).getTime() : evS + 2 * 3600000
+       candidates.push(evE)             // Tuż po evencie
+       candidates.push(evS - durationMs) // Tuż przed eventem
     })
     
     let bestCandidate = null
     let minDiff = Infinity
 
     for (let cand of candidates) {
-       if (cand < new Date(`${dateStr}T00:00:00`).getTime()) continue 
+       if (cand < new Date(`${dateStr}T00:00:00`).getTime()) continue // Zapobiega przeskoczeniu na wczoraj
+       
        const candEnd = cand + durationMs
        let collides = techEventsDay.some(ev => {
-          const evS = new Date(ev.start_time).getTime()
-          const evE = ev.end_time ? new Date(ev.end_time).getTime() : evS + 2 * 3600000
+          const evS = new Date(String(ev.start_time).replace(' ', 'T')).getTime()
+          const evE = ev.end_time ? new Date(String(ev.end_time).replace(' ', 'T')).getTime() : evS + 2 * 3600000
           return cand < evE && candEnd > evS
        })
+       
+       // Wybieramy tę lukę, która jest NAJBLIŻEJ oryginalnego miejsca upuszczenia kursora
        if (!collides) {
-          let diff = Math.abs(cand - startMs)
-          if (diff < minDiff) { minDiff = diff; bestCandidate = cand }
+          let diff = Math.abs(cand - startMs) 
+          if (diff < minDiff) { 
+             minDiff = diff; 
+             bestCandidate = cand 
+          }
        }
     }
-    if (bestCandidate !== null) { startMs = bestCandidate; endMs = startMs + durationMs }
+    
+    if (bestCandidate !== null) { 
+        startMs = bestCandidate; 
+        endMs = startMs + durationMs 
+    }
   }
 
   return { startMs, endMs, targetTech }
@@ -503,7 +535,7 @@ const openManualEventModal = () => {
     title: '',
     start_time: payload.startDate,
     end_time: '',
-    event_type: 'service'
+    event_type: 'task' // Zmienione z 'service' na 'task'
   }
   showEventModal.value = true
 }
@@ -519,7 +551,7 @@ const onEmptySlotClick = (dateStr, hour) => {
     title: '',
     start_time: payload.startDate,
     end_time: '',
-    event_type: 'service'
+    event_type: 'task' // Zmienione z 'service' na 'task'
   }
   showEventModal.value = true
 }
