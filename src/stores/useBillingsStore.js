@@ -103,8 +103,8 @@ export const useBillingsStore = defineStore('billings', {
             filter: 'SYSTEM', 
             color: techColor, 
             icon: ICON_USER,
-            customQueries: [{ id: 'tq_tech_' + Date.now(), logic: 'AND', text: 'TECH_EXACT:' + tech }], // Zunifikowany prefix dla techników
-            isHidden: true 
+            customQueries: [{ id: 'tq_tech_' + Date.now(), logic: 'AND', text: 'TECH_EXACT:' + tech }] 
+            // isHidden usunięte - teraz kafelki techników będą widoczne
           })
         } else {
           exists.color = techColor
