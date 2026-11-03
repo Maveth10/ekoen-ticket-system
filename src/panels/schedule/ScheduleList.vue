@@ -161,7 +161,7 @@
                @dragover.prevent="onDragOverColumn($event, day.YYYY_MM_DD)"
                @drop.stop="onDropDayColumn($event, day.YYYY_MM_DD)">
             
-            <!-- DODANA NIEWIDZIALNA KLIKALNA WARSTWA POD EVENTAMI Z OBSŁUGĄ offset Y -->
+            <!-- KLIKALNA WARSTWA POD EVENTAMI Z OBSŁUGĄ offset Y -->
             <div class="absolute inset-0 z-0 pointer-events-auto"
                  @contextmenu.prevent="$emit('rotate-view')"
                  @click.self="(e) => onEmptySlotClick(day.YYYY_MM_DD, e.offsetY / 80)"
@@ -170,7 +170,24 @@
                  @dragleave="onDragLeaveColumn">
             </div>
 
-            <div v-for="hour in cal.calendarHours" :key="'bg'+hour" class="h-[80px] border-b border-slate-100/60 w-full relative pointer-events-none">
+            <!-- TŁA DLA NIEOBECNOŚCI (Z uciętą blokadą myszki i wystającym przyciskiem usuwania) -->
+            <div v-for="abs in cal.absencesByDate.value[day.YYYY_MM_DD] || []" :key="'abs_'+abs.id"
+                 class="absolute inset-0 z-0 pointer-events-none opacity-80 flex flex-col items-center pt-2 border-r-[3px]"
+                 :style="`border-color: ${abs.extendedProps.techColor}; background-image: repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(239,68,68,0.06) 10px, rgba(239,68,68,0.06) 20px); background-color: rgba(254,242,242,0.5)`">
+                
+                <!-- Pływająca etykieta z przyciskiem zamykania -->
+                <div class="sticky top-2 z-20 pointer-events-auto bg-white/90 backdrop-blur px-2.5 py-1.5 rounded-lg shadow-sm border border-red-200 flex items-center gap-2 max-w-[90%]">
+                   <div class="flex flex-col">
+                     <span class="text-[9px] font-black uppercase tracking-widest text-red-600 leading-none mb-0.5">{{ abs.extendedProps.event_subtype }}</span>
+                     <span class="text-[10px] font-bold text-slate-700 leading-none truncate" :style="`color: ${abs.extendedProps.techColor}`">{{ abs.extendedProps.technicianName }}</span>
+                   </div>
+                   <button @click.stop="$emit('confirm-delete-event', abs.id)" class="text-red-400 hover:text-red-600 hover:bg-red-50 p-1 rounded transition-colors ml-1 border border-transparent hover:border-red-200">
+                     <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                   </button>
+                </div>
+            </div>
+
+            <div v-for="hour in cal.calendarHours" :key="'bg'+hour" class="h-[80px] border-b border-slate-100/60 w-full relative pointer-events-none z-0">
               <div class="absolute inset-x-0 top-[40px] border-t border-dashed border-slate-100"></div>
             </div>
 

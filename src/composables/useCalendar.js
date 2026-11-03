@@ -123,13 +123,18 @@ export function useCalendar() {
       })
 
       if (store.currentView === 'month') {
-         dayEvents.forEach(ev => {
-           ev.computedStyle = { borderLeft: `6px solid ${ev.extendedProps.techColor}` }
-         })
-      } else { 
-         const uniqueTechs = [...new Set(dayEvents.map(e => e.extendedProps.technicianName))].sort()
+        dayEvents.forEach(ev => {
+          ev.computedStyle = { borderLeft: `6px solid ${ev.extendedProps.techColor}` }
+        })
+     } else { 
+        const uniqueTechs = [...new Set(dayEvents.map(e => e.extendedProps.technicianName))].sort()
 
-         dayEvents.forEach(ev => {
+        dayEvents.forEach(ev => {
+         // --- OMIJAMY URLOPY W GŁÓWNYM WIDOKU GODZINOWYM (rysujemy je jako tła) ---
+         if (ev.extendedProps.event_type === 'absence') {
+            ev.computedStyle = { display: 'none' };
+            return;
+         }
           const start = new Date(ev.start_time)
           const end = ev.end_time ? new Date(ev.end_time) : new Date(start.getTime() + 2 * 3600000)
           
@@ -157,13 +162,62 @@ export function useCalendar() {
             width: width, 
             left: left, 
             borderLeft: isAbsence ? `6px solid #ef4444` : (isTask ? `6px solid #58b347` : `6px solid ${ev.extendedProps.techColor}`), 
-            zIndex: (isAbsence ? 0 : 10) + techIndex 
+            zIndex: (isAbsence ? 0 : 10) + techIndex,
+            // DODAJ TĘ LINIJKĘ:
+            backgroundColor: isAbsence ? 'transparent' : '#ffffff' 
           }
         })
       }
     })
     return dict
   })
+          // --- NOWE: GENERATOR TEŁ DLA WIELODNIOWYCH NIEOBECNOŚCI ---
+  const absencesByDate = computed(() => {
+    const dict = {};
+    const absences = store.events.filter(ev => (ev.extendedProps ? ev.extendedProps.event_type : ev.event_type) === 'absence');
+
+    absences.forEach(ev => {
+      // Filtr technika
+      if (store.selectedTechId !== "ALL") {
+        const tObj = store.techList.find(t => t.id === store.selectedTechId);
+        const tName = tObj ? tObj.name : store.selectedTechId;
+        const isSameTech = (ev.technician_id === store.selectedTechId || ev.technician_id === tName || (ev.extendedProps && ev.extendedProps.technicianName === tName));
+        if (!isSameTech) return;
+      }
+      if (!ev.start_time) return;
+
+      const startStr = String(ev.start_time).includes('T') ? String(ev.start_time).split('T')[0] : String(ev.start_time).split(' ')[0];
+      const endStr = ev.end_time ? (String(ev.end_time).includes('T') ? String(ev.end_time).split('T')[0] : String(ev.end_time).split(' ')[0]) : startStr;
+
+      // Zabezpieczenie przed strefami czasowymi (używamy południa UTC)
+      let current = new Date(`${startStr}T12:00:00Z`);
+      const endObj = new Date(`${endStr}T12:00:00Z`);
+      
+      // ZABEZPIECZENIE przed pustym technician_id
+      const evTechId = ev.technician_id || (ev.extendedProps ? ev.extendedProps.technicianName : '');
+      const tech = store.techList.find(t => String(t.id) === String(evTechId) || String(t.name) === String(evTechId));
+      
+      // Pętla wypełniająca każdy dzień trwania urlopu (z limitem maksymalnym dla bezpieczeństwa wylogowania przeglądarki)
+      let safetyCount = 0;
+      while(current <= endObj && safetyCount < 365) {
+        const dStr = current.toISOString().split('T')[0];
+        if (!dict[dStr]) dict[dStr] = [];
+        
+        dict[dStr].push({ 
+          ...ev, 
+          extendedProps: { 
+            ...(ev.extendedProps || {}),
+            technicianName: tech ? tech.name : (ev.technician_id || 'Brak'), 
+            techColor: tech ? (tech.zone_color || tech.color) : '#cbd5e1',
+            event_type: 'absence',
+            event_subtype: ev.event_subtype || (ev.extendedProps && ev.extendedProps.event_subtype) || 'Urlop'
+          }
+        });
+        current.setDate(current.getDate() + 1); // Skok o 1 dzień
+      }
+    });
+    return dict;
+  });
 
   const formatISO = (date) => {
     const pad = n => String(n).padStart(2,'0')
@@ -184,10 +238,14 @@ export function useCalendar() {
     const techName = techObj ? techObj.name : techId
 
     return store.events.some(ev => {
+      // IGNORUJEMY URLOPY PRZY SPRAWDZANIU KOLIZJI FIZYCZNYCH
+      const isAbsence = ev.event_type === 'absence' || (ev.extendedProps && ev.extendedProps.event_type === 'absence');
+      if (isAbsence) return false;
+
       const isSameTech = (ev.technician_id === finalTechId || ev.technician_id === techName || (ev.extendedProps && ev.extendedProps.technicianName === techName));
       if(ev.id === excludeEventId || !isSameTech || !ev.start_time || !ev.end_time) return false
       
-      let evStart = new Date(ev.start_time.replace(' ', 'T')).getTime()
+      let evStart = new Date(String(ev.start_time).replace(' ', 'T')).getTime()
       let evEnd = new Date(ev.end_time.replace(' ', 'T')).getTime()
       return (start < evEnd && end > evStart)
     })
@@ -331,7 +389,7 @@ export function useCalendar() {
   return {
     currentDate, calendarHours, currentTimeLineStyle,
     activeDaysArray, activeMonthArray, calendarTitleDisplay,
-    eventsByDate, 
+    eventsByDate, absencesByDate,
     navigateCalendar, navigateToday, formatISO, checkOverlap, findNextAvailableSlot,
     startResize, handleEmptySlotClick // <--- WYEKSPORTOWANO
   }
