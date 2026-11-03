@@ -35,13 +35,47 @@
         </div>
 
         <div class="grid grid-cols-2 gap-5">
-          <!-- PRZYPISANIE DO TECHNIKA -->
-          <div class="flex flex-col col-span-2 sm:col-span-1">
+          <!-- PRZYPISANIE DO TECHNIKA (Nowoczesny Dropdown) -->
+          <div class="flex flex-col col-span-2 sm:col-span-1 relative">
             <label class="block text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Przypisz do Technika</label>
-            <select v-model="form.technician_id" required class="w-full h-[46px] px-4 border border-slate-200 bg-white rounded-xl text-[13px] font-bold text-slate-800 focus:outline-none focus:border-[#58b347] focus:ring-1 focus:ring-[#58b347]/30 transition-all shadow-sm cursor-pointer">
-              <option value="" disabled>-- Wybierz technika --</option>
-              <option v-for="tech in store.techList" :key="tech.id" :value="tech.id">{{ tech.name }}</option>
-            </select>
+            
+            <div class="relative w-full">
+              <!-- Przycisk wyzwalający -->
+              <div 
+                @click="isTechDropdownOpen = !isTechDropdownOpen"
+                class="w-full h-[46px] px-4 bg-white rounded-xl text-[13px] font-bold flex items-center justify-between cursor-pointer transition-all shadow-sm border"
+                :class="isTechDropdownOpen ? 'border-[#58b347] text-[#58b347]' : 'border-slate-200 text-slate-800 hover:border-slate-300'"
+              >
+                <span>{{ selectedTechName }}</span>
+                <svg class="w-4 h-4 transition-transform duration-200" :class="isTechDropdownOpen ? 'rotate-180 text-[#58b347]' : 'text-slate-400'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg>
+              </div>
+
+              <!-- Niewidzialna warstwa do zamykania kliknięciem gdziekolwiek obok (na całym ekranie) -->
+              <div v-if="isTechDropdownOpen" class="fixed inset-0 z-[2010]" @click="isTechDropdownOpen = false"></div>
+
+              <!-- Rozwijana lista opcji -->
+              <transition enter-active-class="transition duration-150 ease-out" enter-from-class="opacity-0 -translate-y-2" enter-to-class="opacity-100 translate-y-0" leave-active-class="transition duration-100 ease-in" leave-from-class="opacity-100 translate-y-0" leave-to-class="opacity-0 -translate-y-2">
+                <div v-if="isTechDropdownOpen" class="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-xl z-[2020] overflow-hidden max-h-[220px] overflow-y-auto schedule-custom-scrollbar">
+                  
+                  <div 
+                    v-for="tech in store.techList" 
+                    :key="tech.id"
+                    @click="selectTech(tech)"
+                    class="px-4 py-3 text-[13px] font-bold border-b border-slate-100 last:border-b-0 transition-colors"
+                    :class="[
+                      isTechAbsent(tech.id, tech.name) 
+                        ? 'text-slate-400 bg-slate-50 italic cursor-not-allowed' 
+                        : form.technician_id === tech.id 
+                          ? 'bg-[#f2fcf2] text-[#58b347] cursor-pointer' 
+                          : 'text-slate-700 hover:bg-slate-50 cursor-pointer'
+                    ]"
+                  >
+                    {{ tech.name }} {{ isTechAbsent(tech.id, tech.name) ? ' - (Nieobecny)' : '' }}
+                  </div>
+
+                </div>
+              </transition>
+            </div>
           </div>
 
           <!-- PODKATEGORIA -->
@@ -145,6 +179,53 @@ const form = ref({
 })
 
 const isEditingMode = computed(() => !!props.initialData?.id && props.initialData.id !== '')
+
+// --- NOWY KOD: Wyszukiwanie nieobecnych techników ---
+const absentTechnicians = computed(() => {
+  const startTime = form.value.start_time; 
+  if (!startTime) return [];
+
+  // Wyciągamy samą datę RRRR-MM-DD z inputa (nieważne, czy to date czy datetime-local)
+  const targetDateStr = String(startTime).includes('T') ? String(startTime).split('T')[0] : String(startTime).split(' ')[0];
+
+  // Filtrujemy zdarzenia typu 'absence' z głównego store'a
+  const absences = store.events.filter(ev => {
+    const isAbsence = ev.event_type === 'absence' || (ev.extendedProps && ev.extendedProps.event_type === 'absence');
+    if (!isAbsence) return false;
+
+    const startStr = String(ev.start_time).includes('T') ? String(ev.start_time).split('T')[0] : String(ev.start_time).split(' ')[0];
+    const endStr = ev.end_time ? (String(ev.end_time).includes('T') ? String(ev.end_time).split('T')[0] : String(ev.end_time).split(' ')[0]) : startStr;
+
+    return targetDateStr >= startStr && targetDateStr <= endStr;
+  });
+
+  // Zwracamy unikalną listę ID (i/lub imion) techników będących na L4/Urlopie
+  return [...new Set(absences.map(a => a.technician_id || (a.extendedProps ? a.extendedProps.technicianName : '')))];
+});
+
+// Pomocnicza funkcja do użycia bezpośrednio w HTML
+const isTechAbsent = (techId, techName) => {
+  return absentTechnicians.value.includes(techId) || absentTechnicians.value.includes(techName);
+};
+// ----------------------------------------------------
+
+// --- NOWY KOD: Obsługa customowego dropdownu techników ---
+const isTechDropdownOpen = ref(false);
+
+const selectedTechName = computed(() => {
+  if (!form.value.technician_id) return '-- Wybierz technika --';
+  const tech = store.techList.find(t => t.id === form.value.technician_id);
+  return tech ? tech.name : '-- Wybierz technika --';
+});
+
+const selectTech = (tech) => {
+  // Blokada wyboru jeśli technik jest na urlopie
+  if (isTechAbsent(tech.id, tech.name)) return; 
+  
+  form.value.technician_id = tech.id;
+  isTechDropdownOpen.value = false;
+};
+// ---------------------------------------------------------
 
 // Konwersja czasu na potrzeby HTML-owych inputów
 const toInputFormat = (isoString, isAllDay) => {

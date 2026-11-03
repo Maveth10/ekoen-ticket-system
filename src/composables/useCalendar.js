@@ -12,7 +12,7 @@ export function useCalendar() {
 
   const currentTimeLineStyle = computed(() => {
     const hour = currentNow.value.getHours() + (currentNow.value.getMinutes() / 60)
-    return `top: ${hour * 80}px;`
+    return `top: ${hour * 120}px;`
   })
 
   const getStartOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate())
@@ -142,8 +142,8 @@ export function useCalendar() {
           let endHour = end.getHours() + (end.getMinutes() / 60)
           if(endHour <= startHour) endHour = startHour + 0.5
           
-          const top = startHour * 80
-          const height = Math.max(40, (endHour - startHour) * 80)
+          const top = startHour * 120
+          const height = Math.max(60, (endHour - startHour) * 120)
           
           const techIndex = uniqueTechs.indexOf(ev.extendedProps.technicianName)
           const offset = techIndex * 24 
@@ -309,7 +309,7 @@ export function useCalendar() {
   const handleResizeMove = (e) => {
     if (!resizeData.evId) return
     const deltaY = e.clientY - resizeData.startY
-    let newDurationMs = resizeData.startDurationMs + (deltaY / 80) * 3600000
+    let newDurationMs = resizeData.startDurationMs + (deltaY / 120) * 3600000
 
     newDurationMs = Math.round(newDurationMs / 1800000) * 1800000
     if (newDurationMs < 1800000) newDurationMs = 1800000

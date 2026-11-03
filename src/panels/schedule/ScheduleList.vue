@@ -1,5 +1,5 @@
 <template>
-  <div class="flex-1 flex w-full relative px-8 py-6 gap-6 z-30 overflow-hidden">
+<div class="flex-1 flex w-full relative px-8 py-6 gap-6 z-30 min-h-[1000px]">
     
     <!-- BACKLOG -->
     <div class="w-[340px] bg-slate-50 border border-slate-200/80 rounded-2xl shadow-sm flex flex-col shrink-0 h-full overflow-hidden">
@@ -96,7 +96,9 @@
                  @dragleave="onDragLeaveColumn"
                  @click="goToDay(day.date)"
                  class="border-r border-b border-slate-200 last:border-r-0 relative hover:bg-slate-50 transition-colors cursor-pointer"
-                 :class="!day.isCurrentMonth ? 'bg-slate-50/50' : ''">
+                 :class="!day.isCurrentMonth ? 'bg-slate-50/50' : ''"
+                 :style="cal.absencesByDate.value[day.YYYY_MM_DD] && cal.absencesByDate.value[day.YYYY_MM_DD].length ? 'background-image: repeating-linear-gradient(45deg, #f8fafc, #f8fafc 10px, #f1f5f9 10px, #f1f5f9 20px);' : ''">
+               <!-- DODANO :style z repeating-linear-gradient -->
                
                <div v-if="dragHoverSlot.active && dragHoverSlot.dateStr === day.YYYY_MM_DD" 
                     class="absolute inset-0 bg-[#58b347]/10 border-2 border-dashed border-[#58b347] z-[150] pointer-events-none transition-all duration-75">
@@ -118,10 +120,17 @@
                        ]"
                        :style="ev.computedStyle" @contextmenu.stop @click.stop>
                      
-                     <div class="flex justify-between items-start gap-1 w-full">
-                       <span class="text-[8px] uppercase tracking-widest truncate mt-0.5" :style="`color: ${ev.extendedProps.techColor}`">{{ ev.extendedProps.technicianName }}</span>
-                       <button @click.stop="$emit('confirm-delete-event', ev.id)" class="opacity-0 group-hover/monthcard:opacity-100 text-slate-300 hover:text-red-500 transition-all p-0.5 -mt-1 -mr-1 shrink-0 bg-white/80 rounded"><svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
-                     </div>
+                        <div class="flex justify-between items-start gap-1 w-full">
+                          <span class="text-[8px] uppercase tracking-widest truncate mt-0.5" :style="`color: ${ev.extendedProps.techColor}`">{{ ev.extendedProps.technicianName }}</span>
+                          
+                          <div class="flex items-center gap-1 shrink-0 z-50">
+                            <!-- IKONA KONFLIKTU Z URLOPEM -->
+                            <svg v-if="hasAbsenceConflict(ev, day.YYYY_MM_DD)" class="w-3.5 h-3.5 text-red-500 animate-pulse" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" title="Uwaga: Technik jest w tym dniu na urlopie!"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                            
+                            <!-- PRZYCISK USUWANIA -->
+                            <button @click.stop="$emit('confirm-delete-event', ev.id)" class="opacity-0 group-hover/monthcard:opacity-100 text-slate-300 hover:text-red-500 transition-all p-0.5 -mt-1 -mr-1 bg-white/80 rounded"><svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+                          </div>
+                        </div>
                      
                      <div class="flex flex-wrap items-center gap-1 mb-0.5 w-full mt-0.5 pointer-events-none">
                        <template v-if="ev.extendedProps.event_type === 'service'">
@@ -149,10 +158,11 @@
           <div class="absolute -left-2 -top-1.5 w-3 h-3 bg-red-500 rounded-full shadow-sm"></div>
         </div>
 
-        <div class="w-16 shrink-0 border-r border-slate-200 bg-white z-10 relative" v-if="store.currentView === 'day'">
-          <div v-for="hour in cal.calendarHours" :key="hour" class="h-[80px] border-b border-slate-100 flex justify-center items-start pt-1.5 text-[10px] font-black text-slate-400 relative">
+<div class="w-16 shrink-0 border-r border-slate-200 bg-white z-10 relative" v-if="store.currentView === 'day'">
+          <!-- Zmieniono h-[80px] na h-[120px] i top-[40px] na top-[60px] -->
+          <div v-for="hour in cal.calendarHours" :key="hour" class="h-[120px] border-b border-slate-100 flex justify-center items-start pt-1.5 text-[10px] font-black text-slate-400 relative">
             {{ hour }}:00
-            <div class="absolute top-[40px] w-2 border-t border-slate-300 right-0"></div>
+            <div class="absolute top-[60px] w-2 border-t border-slate-300 right-0"></div>
           </div>
         </div>
 
@@ -164,31 +174,33 @@
             <!-- KLIKALNA WARSTWA POD EVENTAMI Z OBSŁUGĄ offset Y -->
             <div class="absolute inset-0 z-0 pointer-events-auto"
                  @contextmenu.prevent="$emit('rotate-view')"
-                 @click.self="(e) => onEmptySlotClick(day.YYYY_MM_DD, e.offsetY / 80)"
+                 @click.self="(e) => onEmptySlotClick(day.YYYY_MM_DD, e.offsetY / 120)" 
                  @dragover.prevent="onDragOverColumn($event, day.YYYY_MM_DD)" 
                  @drop.stop="onDropDayColumn($event, day.YYYY_MM_DD)"
                  @dragleave="onDragLeaveColumn">
             </div>
 
-            <!-- TŁA DLA NIEOBECNOŚCI (Z uciętą blokadą myszki i wystającym przyciskiem usuwania) -->
-            <div v-for="abs in cal.absencesByDate.value[day.YYYY_MM_DD] || []" :key="'abs_'+abs.id"
-                 class="absolute inset-0 z-0 pointer-events-none opacity-80 flex flex-col items-center pt-2 border-r-[3px]"
-                 :style="`border-color: ${abs.extendedProps.techColor}; background-image: repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(239,68,68,0.06) 10px, rgba(239,68,68,0.06) 20px); background-color: rgba(254,242,242,0.5)`">
-                
-                <!-- Pływająca etykieta z przyciskiem zamykania -->
-                <div class="sticky top-2 z-20 pointer-events-auto bg-white/90 backdrop-blur px-2.5 py-1.5 rounded-lg shadow-sm border border-red-200 flex items-center gap-2 max-w-[90%]">
-                   <div class="flex flex-col">
-                     <span class="text-[9px] font-black uppercase tracking-widest text-red-600 leading-none mb-0.5">{{ abs.extendedProps.event_subtype }}</span>
-                     <span class="text-[10px] font-bold text-slate-700 leading-none truncate" :style="`color: ${abs.extendedProps.techColor}`">{{ abs.extendedProps.technicianName }}</span>
-                   </div>
-                   <button @click.stop="$emit('confirm-delete-event', abs.id)" class="text-red-400 hover:text-red-600 hover:bg-red-50 p-1 rounded transition-colors ml-1 border border-transparent hover:border-red-200">
-                     <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-                   </button>
+            <!-- NOWE: TŁO DLA NIEOBECNOŚCI - PRZEPUSZCZAJĄCE KLIKNIĘCIA, PŁYWAJĄCE KAFELKI -->
+            <div v-if="cal.absencesByDate.value[day.YYYY_MM_DD] && cal.absencesByDate.value[day.YYYY_MM_DD].length" 
+                 class="absence-background">
+                <!-- Wrapper, który przykleja się do góry podczas scrollowania -->
+                <div class="absence-sticky-container">
+                    <div v-for="abs in cal.absencesByDate.value[day.YYYY_MM_DD]" :key="'abs_'+abs.id"
+                         class="absence-label shadow-sm">
+                       <div class="flex flex-col">
+                         <span class="text-[9px] font-black uppercase tracking-widest text-slate-500 leading-none mb-0.5">{{ abs.extendedProps.event_subtype || 'Urlop' }}</span>
+                         <span class="text-[10px] font-bold text-slate-700 leading-none truncate" :style="`color: ${abs.extendedProps.techColor}`">{{ abs.extendedProps.technicianName }}</span>
+                       </div>
+                       <button @click.stop="$emit('confirm-delete-event', abs.id)" class="text-slate-400 hover:text-red-500 p-1 rounded transition-colors ml-1 border border-transparent hover:border-red-200">
+                         <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                       </button>
+                    </div>
                 </div>
             </div>
 
-            <div v-for="hour in cal.calendarHours" :key="'bg'+hour" class="h-[80px] border-b border-slate-100/60 w-full relative pointer-events-none z-0">
-              <div class="absolute inset-x-0 top-[40px] border-t border-dashed border-slate-100"></div>
+            <!-- Zmieniono h-[80px] na h-[120px] i top-[40px] na top-[60px] -->
+            <div v-for="hour in cal.calendarHours" :key="'bg'+hour" class="h-[120px] border-b border-slate-100/60 w-full relative pointer-events-none z-0">
+              <div class="absolute inset-x-0 top-[60px] border-t border-dashed border-slate-100"></div>
             </div>
 
             <div v-if="dragHoverSlot.active && dragHoverSlot.dateStr === day.YYYY_MM_DD"
@@ -197,9 +209,10 @@
                 <span class="text-[#58b347] font-black text-[10px] uppercase tracking-widest bg-white/90 px-3 py-1 rounded shadow-sm">{{ dragHoverSlot.text }}</span>
             </div>
 
+            <!-- Usunięto overflow-hidden, aby ikony nie ucinały się na krawędziach -->
             <div v-for="ev in cal.eventsByDate.value[day.YYYY_MM_DD] || []" :key="ev.id"
                  draggable="true" @dragstart="onDragStartEvent($event, ev)" @dragend="onGlobalDragEnd"
-                 class="absolute rounded-lg pt-1.5 px-2 pb-2 border text-xs cursor-grab transition-all duration-200 flex flex-col overflow-hidden group/card origin-top-left"
+                 class="absolute rounded-lg pt-1.5 px-2 pb-2 border text-xs cursor-grab transition-all duration-200 flex flex-col group/card origin-top-left"
                  :class="[
                    ev.extendedProps.event_type === 'absence' ? 'bg-red-50 border-red-200 text-red-800 opacity-90' :
                    ev.extendedProps.event_type === 'task' ? 'bg-[#58b347]/10 border-[#58b347]/40 text-slate-800 shadow-sm' :
@@ -233,17 +246,35 @@
                 </template>
               </div>
               
+              <!-- WIDOK TYGODNIA -->
               <template v-if="store.currentView === 'week'">
-                <div class="font-bold text-[10px] break-words leading-tight w-full text-slate-800 shrink-0 pointer-events-none">{{ ev.title }}</div>
-                <p class="text-[8px] text-slate-600 leading-tight line-clamp-2 overflow-hidden pointer-events-none mt-1">{{ ev.extendedProps.description }}</p>
+                <div class="font-bold text-[11px] break-words leading-tight w-full text-slate-800 shrink-0 pointer-events-none">{{ ev.title }}</div>
+                
+                <!-- NOWE: Duży alert zamiast opisu (Tydzień) - Bez tooltipa -->
+                <div v-if="hasAbsenceConflict(ev, day.YYYY_MM_DD)" class="mt-1.5 flex-1 relative flex items-center justify-center bg-red-50/90 rounded border border-red-200/60 overflow-hidden pointer-events-auto">
+                   <!-- Poprawiona ikona (zaokrąglone rogi, cieńsza linia zapobiegająca ucinaniu) -->
+                   <svg class="w-7 h-7 text-red-500 animate-pulse group-hover/card:opacity-0 transition-opacity duration-300 absolute" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                   <!-- Ukryty opis, pojawia się na hover -->
+                   <p class="text-[10px] text-slate-700 leading-snug line-clamp-3 opacity-0 group-hover/card:opacity-100 transition-opacity duration-300 relative z-10 p-1.5">{{ ev.extendedProps.description }}</p>
+                </div>
+                <p v-else class="text-[10px] text-slate-600 leading-snug line-clamp-3 overflow-hidden pointer-events-none mt-1.5">{{ ev.extendedProps.description }}</p>
               </template>
 
+              <!-- WIDOK DNIA -->
               <template v-else>
-                <div class="flex items-start justify-between w-full gap-2 shrink-0 pointer-events-none mb-1">
-                  <div class="font-bold text-[10px] break-words leading-tight text-slate-800 flex-1">{{ ev.title }}</div>
-                  <span class="text-[8px] font-black uppercase tracking-widest text-blue-500 bg-blue-50 border border-blue-100 px-1 py-0.5 rounded shrink-0">{{ ev.extendedProps.category || 'Zgłoszenie' }}</span>
+                <div class="flex items-start justify-between w-full gap-2 shrink-0 pointer-events-none mb-1.5">
+                  <div class="font-bold text-[11px] break-words leading-tight text-slate-800 flex-1">{{ ev.title }}</div>
+                  <span class="text-[9px] font-black uppercase tracking-widest text-blue-500 bg-blue-50 border border-blue-100 px-1.5 py-0.5 rounded shrink-0">{{ ev.extendedProps.category || 'Zgłoszenie' }}</span>
                 </div>
-                <p class="text-[9px] text-slate-600 leading-tight flex-1 overflow-hidden pointer-events-none">{{ ev.extendedProps.description }}</p>
+                
+                <!-- NOWE: Duży alert zamiast opisu (Dzień) - Bez tooltipa -->
+                <div v-if="hasAbsenceConflict(ev, day.YYYY_MM_DD)" class="mt-1 flex-1 relative flex items-center justify-center bg-red-50/90 rounded border border-red-200/60 overflow-hidden pointer-events-auto">
+                   <!-- Poprawiona ikona (zaokrąglone rogi, cieńsza linia zapobiegająca ucinaniu) -->
+                   <svg class="w-8 h-8 text-red-500 animate-pulse group-hover/card:opacity-0 transition-opacity duration-300 absolute" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                   <!-- Ukryty opis, pojawia się na hover -->
+                   <p class="text-[10px] text-slate-700 leading-relaxed opacity-0 group-hover/card:opacity-100 transition-opacity duration-300 relative z-10 p-2">{{ ev.extendedProps.description }}</p>
+                </div>
+                <p v-else class="text-[10px] text-slate-600 leading-relaxed flex-1 overflow-hidden pointer-events-none mt-1">{{ ev.extendedProps.description }}</p>
               </template>
 
               <div v-if="!ev.extendedProps.all_day && ev.extendedProps.event_type !== 'absence'" 
@@ -289,6 +320,14 @@ const emit = defineEmits(['confirm-delete-event', 'rotate-view'])
 const store = useScheduleStore()
 const cal = useCalendar()
 
+// --- NOWE: Funkcja sprawdzająca czy zadanie nakłada się z urlopem ---
+const hasAbsenceConflict = (ev, dateStr) => {
+  if (ev.extendedProps.event_type === 'absence') return false; // Urlop nie jest konfliktem sam dla siebie
+  const absences = cal.absencesByDate.value[dateStr] || [];
+  // Sprawdzamy czy technik z eventu znajduje się na liście nieobecnych w tym dniu
+  return absences.some(a => a.extendedProps.technicianName === ev.extendedProps.technicianName);
+};
+
 const dayViewScrollContainer = ref(null)
 
 const focusToday = () => {
@@ -297,7 +336,7 @@ const focusToday = () => {
     if (store.currentView === 'day') {
       const now = new Date()
       const exactHour = now.getHours() + (now.getMinutes() / 60)
-      dayViewScrollContainer.value.scrollTo({ top: Math.max(0, (exactHour * 80) - 100), behavior: 'smooth' })
+      dayViewScrollContainer.value.scrollTo({ top: Math.max(0, (exactHour * 120) - 100), behavior: 'smooth' })
     } else if (store.currentView === 'week') {
       dayViewScrollContainer.value.scrollTo({ top: 520, behavior: 'smooth' }) 
     }
@@ -361,7 +400,7 @@ const calculateDropPosition = (clientY, columnRect, dateStr) => {
   if (y < 0) y = 0
   
   // Obliczanie czasu na podstawie pozycji kursora (zaokrąglone do 30 min)
-  let hoursFloat = Math.round((y / 80) * 2) / 2
+  let hoursFloat = Math.round((y / 120) * 2) / 2
   let startMs = new Date(`${dateStr}T00:00:00`).getTime() + hoursFloat * 3600000
   const durationMs = p.durationMs
   let endMs = startMs + durationMs
@@ -446,6 +485,18 @@ const onDragOverColumn = (e, dateStr) => {
   if (targetTech === 'ALL') targetTech = p.data.technician_id || p.data.actualTechId
   if (!targetTech || targetTech === 'ALL') return
 
+  // --- NOWE ZABEZPIECZENIE: Ukryj zielony prostokąt, jeśli pracownik jest na urlopie ---
+  const techObj = store.techList.find(t => t.id === targetTech || t.name === targetTech)
+  const techName = techObj ? techObj.name : targetTech
+  const hasAbsence = (cal.absencesByDate.value[dateStr] || []).some(a => 
+     a.extendedProps.technicianName === techName || a.technician_id === targetTech
+  )
+  if (hasAbsence) {
+     dragHoverSlot.value.active = false
+     return
+  }
+  // -----------------------------------------------------------------------------------
+
   if (store.currentView === 'month') {
      dragHoverSlot.value = { active: true, dateStr: dateStr }
      return
@@ -459,8 +510,8 @@ const onDragOverColumn = (e, dateStr) => {
        const d0 = new Date(`${dateStr}T00:00:00`).getTime()
        dragHoverSlot.value = {
           active: true, dateStr: dateStr,
-          top: ((res.startMs - d0) / 3600000) * 80,
-          height: durHours * 80,
+          top: ((res.startMs - d0) / 3600000) * 120,
+          height: durHours * 120,
           text: 'ZAPISZ TUTAJ'
        }
     }
@@ -472,8 +523,8 @@ const onDragOverColumn = (e, dateStr) => {
     
     dragHoverSlot.value = {
         active: true, dateStr: dateStr,
-        top: ((startMs - d0) / 3600000) * 80,
-        height: durHours * 80,
+        top: ((startMs - d0) / 3600000) * 120,
+        height: durHours * 120,
         text: `${new Date(startMs).getHours()}:${String(new Date(startMs).getMinutes()).padStart(2,'0')} - AUTO`
     }
   }
@@ -490,6 +541,19 @@ const onDropDayColumn = (e, dateStr) => {
   let targetTech = store.selectedTechId
   if (targetTech === 'ALL') targetTech = p.data.technician_id || p.data.actualTechId
   if (!targetTech || targetTech === 'ALL') { alert("Wybierz technika przed upuszczeniem!"); dragPayload.value = null; return }
+
+  // --- NOWE ZABEZPIECZENIE: Zablokuj fizyczne upuszczenie z Backlogu ---
+  const techObj = store.techList.find(t => t.id === targetTech || t.name === targetTech)
+  const techName = techObj ? techObj.name : targetTech
+  const hasAbsence = (cal.absencesByDate.value[dateStr] || []).some(a => 
+     a.extendedProps.technicianName === techName || a.technician_id === targetTech
+  )
+  if (hasAbsence) {
+     alert(`Pracownik ${techName} ma w tym dniu urlop. Zgłoszenie nie może zostać zaplanowane.`);
+     dragPayload.value = null;
+     return;
+  }
+  // ---------------------------------------------------------------------
 
   let sTime, eTime
 
@@ -589,4 +653,43 @@ defineExpose({ focusToday, onGlobalDragEnd, openManualEventModal })
 .schedule-custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
 .schedule-custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.4); border-radius: 10px; }
 .schedule-custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(88, 179, 71, 0.8); }
+/* Główne, szare tło - musi przepuszczać kliknięcia w puste pole! */
+.absence-background {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: repeating-linear-gradient(45deg, #f8fafc, #f8fafc 15px, #f1f5f9 15px, #f1f5f9 30px);
+  z-index: 5;
+  padding: 0 4px;
+  /* TO KLUCZOWA ZMIANA: 'none' pozwala kliknąć w siatkę pod spodem, by dodać zadanie */
+  pointer-events: none; 
+}
+
+/* Nowy kontener na kafelki, który sprawia, że są cały czas na widoku podczas przewijania */
+.absence-sticky-container {
+  position: sticky;
+  top: 8px; /* Zawsze trzyma dystans od górnej krawędzi kalendarza */
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 8px;
+}
+
+/* Kafelek z nazwiskiem technika */
+.absence-label {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(2px);
+  border: 1px solid #cbd5e1;
+  border-left: 4px solid #94a3b8;
+  border-radius: 6px;
+  padding: 6px 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  z-index: 10;
+  /* Przywracamy klikalność tylko samemu kafelkowi (aby działał przycisk kosza) */
+  pointer-events: auto; 
+}
 </style>

@@ -1,6 +1,6 @@
 <template>
-  <div class="flex flex-col h-full bg-[#f4f6f8] relative z-10 overflow-hidden text-slate-800" @click="handleGlobalClick" @dragover.prevent @drop="onGlobalDrop">
-    
+  <div class="flex flex-col h-full bg-[#f4f6f8] relative z-10 overflow-y-auto text-slate-800" @click="handleGlobalClick" @dragover.prevent @drop="onGlobalDrop">
+
     <UniversalKpi 
       title="Harmonogram Serwisowy"
       subtitle="Zarządzanie widokiem, filtrami oraz przypisywanie zgłoszeń do techników."
