@@ -29,25 +29,35 @@
       @remove-row="(id) => store.searchQueriesMain = store.searchQueriesMain.filter(q => q.id !== id)"
     >
       <template #actions>
-        <div class="relative w-[240px] shrink-0" @click.self="isTechDropdownOpen = false">
-          <button @click.stop="isTechDropdownOpen = !isTechDropdownOpen" class="w-full bg-white border border-slate-200 text-slate-700 font-extrabold px-5 py-2.5 rounded-xl text-[12px] hover:border-[#58b347] transition-all flex items-center justify-between gap-2 h-[42px] shadow-sm">
-            <div class="flex items-center gap-2 truncate">
-              <span class="w-2 h-2 rounded-full shrink-0" :style="`background-color: ${currentTechColor};`"></span>
-              <span class="truncate uppercase tracking-widest text-[11px]">{{ currentTechName }}</span>
-            </div>
-            <svg class="w-4 h-4 text-slate-400 transition-transform duration-200" :class="isTechDropdownOpen ? 'rotate-180 text-[#58b347]' : ''" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg>
-          </button>
+        <div class="flex items-center gap-2">
           
-          <transition enter-active-class="transition duration-200 ease-out" enter-from-class="opacity-0 -translate-y-2" enter-to-class="opacity-100 translate-y-0" leave-active-class="transition duration-150 ease-in" leave-from-class="opacity-100 translate-y-0" leave-to-class="opacity-0 -translate-y-2">
-            <div v-show="isTechDropdownOpen" class="absolute top-full right-0 mt-2 w-full bg-white border border-slate-200 rounded-2xl shadow-xl z-[100] overflow-hidden flex flex-col max-h-64 overflow-y-auto schedule-custom-scrollbar">
-              <div @click="selectTech('ALL')" class="px-5 py-3 text-[11px] font-black uppercase tracking-widest cursor-pointer hover:bg-slate-50 border-b border-slate-100" :class="store.selectedTechId === 'ALL' ? 'text-[#58b347] bg-[#f2fcf2]' : 'text-slate-600'">CAŁA FLOTA (WSZYSCY)</div>
-              <div v-for="tech in store.techList" :key="tech.id" @click="selectTech(tech.id)" class="px-5 py-3 text-[11px] font-black uppercase tracking-widest cursor-pointer hover:bg-slate-50 border-b border-slate-100 flex items-center gap-2" :class="store.selectedTechId === tech.id ? 'text-[#58b347] bg-[#f2fcf2]' : 'text-slate-600'">
-                <span class="w-2 h-2 rounded-full shrink-0" :style="`background-color: ${tech.zone_color || tech.color || '#cbd5e1'};`"></span> {{ tech.name }}
+          <!-- DROPDOWN TECHNIKA (teraz po lewej) -->
+          <div class="relative w-[240px] shrink-0" @click.self="isTechDropdownOpen = false">
+            <button @click.stop="isTechDropdownOpen = !isTechDropdownOpen" class="w-full bg-white border border-slate-200 text-slate-700 font-extrabold px-5 py-2.5 rounded-xl text-[12px] hover:border-[#58b347] transition-all flex items-center justify-between gap-2 h-[42px] shadow-sm">
+              <div class="flex items-center gap-2 truncate">
+                <span class="w-2 h-2 rounded-full shrink-0" :style="`background-color: ${currentTechColor};`"></span>
+                <span class="truncate uppercase tracking-widest text-[11px]">{{ currentTechName }}</span>
               </div>
-            </div>
-          </transition>
+              <svg class="w-4 h-4 text-slate-400 transition-transform duration-200" :class="isTechDropdownOpen ? 'rotate-180 text-[#58b347]' : ''" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg>
+            </button>
+            
+            <transition enter-active-class="transition duration-200 ease-out" enter-from-class="opacity-0 -translate-y-2" enter-to-class="opacity-100 translate-y-0" leave-active-class="transition duration-150 ease-in" leave-from-class="opacity-100 translate-y-0" leave-to-class="opacity-0 -translate-y-2">
+              <div v-show="isTechDropdownOpen" class="absolute top-full right-0 mt-2 w-full bg-white border border-slate-200 rounded-2xl shadow-xl z-[100] overflow-hidden flex flex-col max-h-64 overflow-y-auto schedule-custom-scrollbar">
+                <div @click="selectTech('ALL')" class="px-5 py-3 text-[11px] font-black uppercase tracking-widest cursor-pointer hover:bg-slate-50 border-b border-slate-100" :class="store.selectedTechId === 'ALL' ? 'text-[#58b347] bg-[#f2fcf2]' : 'text-slate-600'">CAŁA FLOTA (WSZYSCY)</div>
+                <div v-for="tech in store.techList" :key="tech.id" @click="selectTech(tech.id)" class="px-5 py-3 text-[11px] font-black uppercase tracking-widest cursor-pointer hover:bg-slate-50 border-b border-slate-100 flex items-center gap-2" :class="store.selectedTechId === tech.id ? 'text-[#58b347] bg-[#f2fcf2]' : 'text-slate-600'">
+                  <span class="w-2 h-2 rounded-full shrink-0" :style="`background-color: ${tech.zone_color || tech.color || '#cbd5e1'};`"></span> {{ tech.name }}
+                </div>
+              </div>
+            </transition>
+          </div>
+
+          <!-- PRZYCISK DODAWANIA EVENTU (teraz po prawej) -->
+          <button @click.stop="openEventModalFromView" class="bg-[#58b347] text-white font-extrabold px-6 py-2.5 rounded-xl text-[12px] uppercase tracking-widest hover:bg-[#499b3a] shadow-md shadow-[#58b347]/20 transition-all flex items-center justify-center gap-2 h-[42px] shrink-0">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> ZAPLANUJ
+          </button>
+
         </div>
-      </template>
+      </template> 
     </UniversalSearch>
 
     <!-- ZEWNĘTRZNY KOMPONENT WIDOKU HARMONOGRAMU -->
@@ -99,6 +109,9 @@ const focusToday = () => {
 }
 const onGlobalDrop = () => {
   if (scheduleListRef.value) scheduleListRef.value.onGlobalDragEnd()
+}
+const openEventModalFromView = () => {
+  if (scheduleListRef.value) scheduleListRef.value.openManualEventModal()
 }
 
 const rotateView = () => {
@@ -324,9 +337,46 @@ const executeConfirm = () => {
 }
 
 onMounted(() => {
-  store.fetchScheduleData()
-  setTimeout(focusToday, 300)
-})
+  // --- INICJALIZACJA I NADPISYWANIE IKON ---
+  // Jeśli użytkownik ma już jakieś kafelki w pamięci lokalnej, 
+  // upewniamy się, że mają przypisane nasze nowe, docelowe ikony.
+  if (store.kpiTabs && store.kpiTabs.length > 0) {
+    let changed = false;
+    
+    // Zmiana ikony na trójkąt z wykrzyknikiem dla kafla PILNE SLA
+    const urgentTab = store.kpiTabs.find(t => t.id === 'URGENT');
+    const newAlertIcon = `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`;
+    
+    if (urgentTab && urgentTab.icon !== newAlertIcon) {
+      urgentTab.icon = newAlertIcon;
+      changed = true;
+    }
+
+    // Zmiana ikony na zielony kalendarz dla kafla WSZYSTKIE
+    const allTab = store.kpiTabs.find(t => t.id === 'ALL');
+    const newCalendarIcon = `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`;
+    
+    if (allTab && allTab.icon !== newCalendarIcon) {
+      allTab.icon = newCalendarIcon;
+      changed = true;
+    }
+    
+    // Zmiana ikony dla kafla ZAPLANOWANE DZIŚ
+    const todayTab = store.kpiTabs.find(t => t.id === 'TODAY');
+    if (todayTab && todayTab.icon !== newCalendarIcon) {
+      todayTab.icon = newCalendarIcon;
+      changed = true;
+    }
+
+    if (changed) {
+      store.saveTabsConfiguration();
+    }
+  }
+
+  // Uruchomienie docelowych funkcji harmonogramu
+  store.fetchScheduleData();
+  setTimeout(focusToday, 300);
+});
 </script>
 
 <style scoped>

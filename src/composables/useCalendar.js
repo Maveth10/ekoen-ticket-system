@@ -97,7 +97,11 @@ export function useCalendar() {
           qpCode: ticket ? ticket.t_qp : '',
           t_status: ticket ? ticket.t_status : '',
           category: ticket ? (ticket.t_category || ticket.t_type) : '',
-          description: ticket ? ticket.t_desc : ''
+          // Nowe pola z naszej modyfikacji
+          description: ev.description || (ticket ? ticket.t_desc : ''),
+          event_type: ev.event_type || 'service',
+          event_subtype: ev.event_subtype || '',
+          all_day: ev.all_day === 'TAK' || ev.all_day === true
         }
       })
     })
@@ -135,13 +139,16 @@ export function useCalendar() {
           const width = isDayView ? `calc(85% - ${offset + 8}px)` : `calc(100% - ${offset + 8}px)`
           const left = `${offset + 4}px`
 
+          const isAbsence = ev.extendedProps.event_type === 'absence'
+          const isTask = ev.extendedProps.event_type === 'task'
+          
           ev.computedStyle = { 
             top: `${top}px`, 
             height: `${height}px`, 
             width: width, 
             left: left, 
-            borderLeft: `6px solid ${ev.extendedProps.techColor}`, 
-            zIndex: 10 + techIndex 
+            borderLeft: isAbsence ? `6px solid #ef4444` : (isTask ? `6px solid #58b347` : `6px solid ${ev.extendedProps.techColor}`), 
+            zIndex: (isAbsence ? 0 : 10) + techIndex 
           }
         })
       }
@@ -275,11 +282,30 @@ export function useCalendar() {
     }
   }
 
+  // --- LOGIKA KLIKNIĘCIA PUSTEGO SLOTU W KALENDARZU ---
+  const handleEmptySlotClick = (dateStr, hour) => {
+    const defaultTech = store.selectedTechId !== 'ALL' ? store.selectedTechId : null;
+    let targetTime = `${dateStr}T10:00:00`;
+
+    if (hour !== undefined) {
+      const pad = n => String(n).padStart(2, '0');
+      const h = Math.floor(hour);
+      const m = hour % 1 === 0.5 ? 30 : 0;
+      targetTime = `${dateStr}T${pad(h)}:${pad(m)}:00`;
+    }
+
+    // Zamieniamy naszą wyliczoną datę z powrotem na poprawny ISO string uwzględniający strefę
+    return { 
+      startDate: formatISO(new Date(targetTime)), 
+      techId: defaultTech 
+    };
+  }
+
   return {
     currentDate, calendarHours, currentTimeLineStyle,
     activeDaysArray, activeMonthArray, calendarTitleDisplay,
     eventsByDate, 
     navigateCalendar, navigateToday, formatISO, checkOverlap, findNextAvailableSlot,
-    startResize
+    startResize, handleEmptySlotClick // <--- WYEKSPORTOWANO
   }
 }

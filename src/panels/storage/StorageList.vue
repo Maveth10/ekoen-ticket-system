@@ -47,15 +47,15 @@
         
         <!-- Wnętrze Akordeonu (Czysta Tabela) -->
         <div v-show="isExpanded(group.id)" class="w-full overflow-x-auto custom-scrollbar rounded-b-2xl bg-white">
-          <table class="w-full text-left border-collapse table-fixed min-w-[800px]">
+          <table class="w-full text-left border-collapse table-fixed min-w-[950px]">
             <thead class="text-[9px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">
               <tr>
                 <th class="py-3 px-6 w-32">SKU / Indeks</th>
-                <th class="py-3 px-4 w-auto min-w-[200px]">Nazwa Części</th>
+                <th class="py-3 px-4 w-auto min-w-[200px] pr-8">Nazwa Części</th>
                 <th class="py-3 px-2 w-24 text-center">{{ store.activeModule === 'mobile' ? 'W AUCIE' : 'MAGAZYN' }}</th>
                 <th v-if="store.activeModule !== 'mobile'" class="py-3 px-2 w-20 text-center">WAW</th>
-                <th class="py-3 px-2 w-20 text-center text-red-400">Zużyte</th>
-                <th class="py-3 px-6 w-[220px] text-right">Akcje</th>
+                <th class="py-3 px-4 w-24 text-center text-red-400">Zużyte</th>
+                <th class="py-3 px-6 w-[320px] text-right">Akcje</th>
               </tr>
             </thead>
             <tbody class="text-xs divide-y divide-slate-100">
@@ -79,32 +79,32 @@
                   {{ parseInt(p.warsaw_stock) || 0 }}
                 </td>
                 
-                <td class="py-4 px-2 align-middle text-center font-bold text-sm" :class="(parseInt(p.used_stock) || 0) > 0 ? 'text-red-600 font-black' : 'text-slate-300'">
+                <td class="py-4 px-4 align-middle text-center font-bold text-sm" :class="(parseInt(p.used_stock) || 0) > 0 ? 'text-red-600 font-black' : 'text-slate-300'">
                   {{ (parseInt(p.used_stock) || 0) > 0 ? parseInt(p.used_stock) : '-' }}
                 </td>
                 
                 <td class="py-4 px-6 align-middle">
-                  <div v-if="store.activeModule !== 'mobile'" class="flex justify-end gap-1.5 w-full whitespace-nowrap opacity-0 group-hover/row:opacity-100 transition-opacity">
+                  <div v-if="store.activeModule !== 'mobile'" class="flex justify-end gap-1.5 w-full opacity-0 group-hover/row:opacity-100 transition-opacity">
                     <!-- Magazyn: Przesunięcie ZG -> WAW -->
-                    <button @click.stop="$emit('open-movement', (p.id_sku || p.sku || p.id), 'PRZESUNIĘCIE', 'ZG', 'WAW')" class="text-[9px] font-extrabold border border-[#58b347]/30 text-[#499b3a] px-2 py-1.5 rounded-lg hover:bg-[#58b347]/10 shadow-sm uppercase tracking-widest transition-colors flex items-center gap-1 bg-white" title="Przesuń ZG ⇄ WAW">
+                    <button @click.stop="$emit('open-movement', (p.id_sku || p.sku || p.id), 'PRZESUNIĘCIE', 'ZG', 'WAW')" class="text-[9px] font-extrabold border border-[#58b347]/30 text-[#499b3a] px-2 py-1.5 rounded-lg hover:bg-[#58b347]/10 shadow-sm uppercase tracking-widest transition-colors flex items-center gap-1 bg-white shrink-0 whitespace-nowrap" title="Przesuń ZG ⇄ WAW">
                        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M17 3v18"/><path d="m21 7-4-4-4 4"/><path d="M7 21V3"/><path d="m3 17 4 4 4-4"/></svg> PRZESUŃ
                     </button>
                     <!-- Magazyn: Nowa Dostawa -->
-                    <button @click.stop="$emit('open-movement', (p.id_sku || p.sku || p.id), 'DOSTAWA', null, 'ZG')" class="text-[9px] font-extrabold border border-[#58b347]/30 text-[#499b3a] px-2.5 py-1.5 rounded-lg hover:bg-[#58b347]/10 shadow-sm uppercase tracking-widest transition-colors flex items-center gap-1 bg-white" title="Zarejestruj nową dostawę">
+                    <button @click.stop="$emit('open-movement', (p.id_sku || p.sku || p.id), 'DOSTAWA', null, 'ZG')" class="text-[9px] font-extrabold border border-[#58b347]/30 text-[#499b3a] px-2.5 py-1.5 rounded-lg hover:bg-[#58b347]/10 shadow-sm uppercase tracking-widest transition-colors flex items-center gap-1 bg-white shrink-0 whitespace-nowrap" title="Zarejestruj nową dostawę">
                        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> DOSTAWA
                     </button>
                     <!-- Magazyn: Bezpośrednie Zużycie z Centrali -->
-                    <button @click.stop="$emit('open-movement', (p.id_sku || p.sku || p.id), 'ZUŻYCIE', 'ZG', null)" class="text-[9px] font-extrabold border border-[#58b347] bg-[#58b347] text-white px-3 py-1.5 rounded-lg hover:bg-[#499b3a] shadow-sm uppercase tracking-widest flex items-center gap-1 transition-all">
+                    <button @click.stop="$emit('open-movement', (p.id_sku || p.sku || p.id), 'ZUŻYCIE', 'ZG', null)" class="text-[9px] font-extrabold border border-[#58b347] bg-[#58b347] text-white px-3 py-1.5 rounded-lg hover:bg-[#499b3a] shadow-sm uppercase tracking-widest flex items-center gap-1 transition-all shrink-0 whitespace-nowrap">
                        ZUŻYCIE <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
                     </button>
                   </div>
                   <div v-else class="flex justify-end gap-2 w-full whitespace-nowrap opacity-0 group-hover/row:opacity-100 transition-opacity">
                     <!-- Teren: Zwrot z auta na magazyn -->
-                    <button @click.stop="$emit('open-movement', (p.id_sku || p.sku || p.id), 'PRZESUNIĘCIE', group.id, 'ZG')" class="text-[9px] font-extrabold border border-[#58b347]/30 bg-white text-[#499b3a] px-3 py-1.5 rounded-lg hover:bg-[#58b347]/10 shadow-sm uppercase tracking-widest flex items-center gap-1 transition-colors">
+                    <button @click.stop="$emit('open-movement', (p.id_sku || p.sku || p.id), 'PRZESUNIĘCIE', group.id, 'ZG')" class="text-[9px] font-extrabold border border-[#58b347]/30 bg-white text-[#499b3a] px-3 py-1.5 rounded-lg hover:bg-[#58b347]/10 shadow-sm uppercase tracking-widest flex items-center gap-1 transition-colors shrink-0 whitespace-nowrap">
                        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M17 3v18"/><path d="m21 7-4-4-4 4"/><path d="M7 21V3"/><path d="m3 17 4 4 4-4"/></svg> ZWRÓĆ
                     </button>
                     <!-- Teren: Zużycie -->
-                    <button @click.stop="$emit('open-movement', (p.id_sku || p.sku || p.id), 'ZUŻYCIE', group.id, null)" class="text-[9px] font-extrabold border border-[#58b347]/30 bg-white text-[#499b3a] px-3 py-1.5 rounded-lg hover:bg-[#58b347]/10 shadow-sm uppercase tracking-widest flex items-center gap-1 transition-colors">
+                    <button @click.stop="$emit('open-movement', (p.id_sku || p.sku || p.id), 'ZUŻYCIE', group.id, null)" class="text-[9px] font-extrabold border border-[#58b347]/30 bg-white text-[#499b3a] px-3 py-1.5 rounded-lg hover:bg-[#58b347]/10 shadow-sm uppercase tracking-widest flex items-center gap-1 transition-colors shrink-0 whitespace-nowrap">
                        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> ZUŻYCIE
                     </button>
                   </div>

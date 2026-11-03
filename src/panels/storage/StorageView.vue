@@ -776,10 +776,7 @@ const performSilentRefresh = () => {
 };
 
 onMounted(() => {
-  if (!store.activeModule) {
-    store.activeModule = 'zg_central';
-  }
-
+  // 1. Twarda gwarancja inicjalizacji zakładek KPI
   if (!store.kpiTabs || store.kpiTabs.length === 0) {
     store.kpiTabs = [
       { 
@@ -787,30 +784,47 @@ onMounted(() => {
         name: 'Katalog Magazynu', 
         filter: 'ALL', 
         color: '#58b347', 
-        icon: 'data:image/svg+xml;base64,' + btoa('<svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m7.5 4.27 9 5.15"/><path d="M5.47 5.22l9 5.15"/><path d="M12 22V12"/></svg>')
+        icon: `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>` 
       },
       { 
         id: 'LOW_STOCK', 
         name: 'Niski Stan', 
         filter: 'LOW_STOCK', 
         color: '#ef4444', 
-        icon: 'data:image/svg+xml;base64,' + btoa('<svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>') 
+        icon: `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>` 
       }
     ];
+    saveUserConfig();
   } else {
+    // 2. TWARDE NADPISANIE IKON JEŚLI JUŻ ISTNIEJĄ W PAMIĘCI
+    let changed = false;
+    
     const allTab = store.kpiTabs.find(t => t.id === 'ALL');
-    if (allTab && (!allTab.icon || allTab.icon.startsWith('<svg'))) {
-      allTab.icon = 'data:image/svg+xml;base64,' + btoa('<svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m7.5 4.27 9 5.15"/><path d="M5.47 5.22l9 5.15"/><path d="M12 22V12"/></svg>');
-      store.kpiTabs = [...store.kpiTabs];
+    const newBoxIcon = `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>`;
+    if (allTab && allTab.icon !== newBoxIcon) {
+      allTab.icon = newBoxIcon;
+      changed = true;
     }
+    
+    const lowStockTab = store.kpiTabs.find(t => t.id === 'LOW_STOCK');
+    const newAlertIcon = `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`;
+    if (lowStockTab && lowStockTab.icon !== newAlertIcon) {
+      lowStockTab.icon = newAlertIcon;
+      changed = true;
+    }
+
+    if (changed) saveUserConfig();
   }
 
+  // 3. Gwarancja zaznaczenia głównego filtra na starcie
   if (!store.activeTabs || store.activeTabs.length === 0) {
     store.activeTabs = ['ALL'];
   }
 
+  // Natychmiastowe pobranie kompletu danych (w tym zleceń)
   loadAllStorageData(false);
 
+  // Cichy interwał w tle
   refreshInterval = setInterval(() => {
     performSilentRefresh();
   }, 60000);

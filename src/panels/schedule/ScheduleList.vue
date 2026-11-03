@@ -109,8 +109,13 @@
                <div class="absolute top-8 left-1 right-1 bottom-1 flex flex-col gap-1 overflow-y-auto schedule-custom-scrollbar pr-0.5">
                   <div v-for="ev in cal.eventsByDate.value[day.YYYY_MM_DD] || []" :key="ev.id"
                        draggable="true" @dragstart="onDragStartEvent($event, ev)" @dragend="onGlobalDragEnd"
-                       class="bg-white border border-slate-200 rounded px-1.5 py-1.5 text-[9px] font-bold text-slate-700 cursor-grab hover:shadow-md transition-all shrink-0 flex flex-col group/monthcard relative z-10"
-                       :class="{'opacity-40': isDragging && dragPayload?.data?.id === ev.id}"
+                       class="border rounded px-1.5 py-1.5 text-[9px] font-bold cursor-grab transition-all shrink-0 flex flex-col group/monthcard relative z-10"
+                       :class="[
+                         ev.extendedProps.event_type === 'absence' ? 'bg-red-50/90 border-red-200 text-red-700' :
+                         ev.extendedProps.event_type === 'task' ? 'bg-[#58b347]/10 border-[#58b347]/30 text-slate-700' :
+                         'bg-white border-slate-200 text-slate-700',
+                         isDragging && dragPayload?.data?.id === ev.id ? 'opacity-40' : 'hover:shadow-md'
+                       ]"
                        :style="ev.computedStyle" @contextmenu.stop @click.stop>
                      
                      <div class="flex justify-between items-start gap-1 w-full">
@@ -119,10 +124,18 @@
                      </div>
                      
                      <div class="flex flex-wrap items-center gap-1 mb-0.5 w-full mt-0.5 pointer-events-none">
-                       <span class="text-slate-500 bg-slate-100 rounded px-1 text-[8px] border border-slate-200 truncate">{{ ev.extendedProps.ticketCode }}</span>
-                       <span v-if="ev.extendedProps.qpCode" class="text-[#58b347] bg-[#58b347]/10 rounded px-1 text-[8px] border border-[#58b347]/20 truncate">{{ ev.extendedProps.qpCode }}</span>
+                       <template v-if="ev.extendedProps.event_type === 'service'">
+                         <span class="text-slate-500 bg-slate-100 rounded px-1 text-[8px] border border-slate-200 truncate">{{ ev.extendedProps.ticketCode }}</span>
+                         <span v-if="ev.extendedProps.qpCode" class="text-[#58b347] bg-[#58b347]/10 rounded px-1 text-[8px] border border-[#58b347]/20 truncate">{{ ev.extendedProps.qpCode }}</span>
+                       </template>
+                       <template v-else>
+                         <span class="rounded px-1 text-[8px] border font-black uppercase tracking-widest truncate"
+                               :class="ev.extendedProps.event_type === 'absence' ? 'bg-red-100 text-red-600 border-red-200' : 'bg-[#58b347]/20 text-[#499b3a] border-[#58b347]/30'">
+                           {{ ev.extendedProps.event_subtype }}
+                         </span>
+                       </template>
                      </div>
-                     <span class="truncate w-full block pointer-events-none">{{ ev.title }}</span>
+                     <span class="truncate w-full block pointer-events-none" :class="ev.extendedProps.event_type === 'absence' ? 'text-red-800' : ''">{{ ev.title }}</span>
                   </div>
                </div>
             </div>
@@ -148,6 +161,15 @@
                @dragover.prevent="onDragOverColumn($event, day.YYYY_MM_DD)"
                @drop.stop="onDropDayColumn($event, day.YYYY_MM_DD)">
             
+            <!-- DODANA NIEWIDZIALNA KLIKALNA WARSTWA POD EVENTAMI Z OBSŁUGĄ offset Y -->
+            <div class="absolute inset-0 z-0 pointer-events-auto"
+                 @contextmenu.prevent="$emit('rotate-view')"
+                 @click.self="(e) => onEmptySlotClick(day.YYYY_MM_DD, e.offsetY / 80)"
+                 @dragover.prevent="onDragOverColumn($event, day.YYYY_MM_DD)" 
+                 @drop.stop="onDropDayColumn($event, day.YYYY_MM_DD)"
+                 @dragleave="onDragLeaveColumn">
+            </div>
+
             <div v-for="hour in cal.calendarHours" :key="'bg'+hour" class="h-[80px] border-b border-slate-100/60 w-full relative pointer-events-none">
               <div class="absolute inset-x-0 top-[40px] border-t border-dashed border-slate-100"></div>
             </div>
@@ -160,19 +182,38 @@
 
             <div v-for="ev in cal.eventsByDate.value[day.YYYY_MM_DD] || []" :key="ev.id"
                  draggable="true" @dragstart="onDragStartEvent($event, ev)" @dragend="onGlobalDragEnd"
-                 class="absolute rounded-lg pt-1.5 px-2 pb-2 shadow-sm border border-slate-200 text-xs cursor-grab bg-white transition-all duration-200 flex flex-col overflow-hidden group/card origin-top-left"
-                 :class="isDragging && dragPayload?.data?.id === ev.id ? 'opacity-40' : 'hover:!z-[1000] hover:scale-[1.02] hover:shadow-2xl'"
-                 :style="ev.computedStyle"
+                 class="absolute rounded-lg pt-1.5 px-2 pb-2 border text-xs cursor-grab transition-all duration-200 flex flex-col overflow-hidden group/card origin-top-left"
+                 :class="[
+                   ev.extendedProps.event_type === 'absence' ? 'bg-red-50 border-red-200 text-red-800 opacity-90' :
+                   ev.extendedProps.event_type === 'task' ? 'bg-[#58b347]/10 border-[#58b347]/40 text-slate-800 shadow-sm' :
+                   'bg-white border-slate-200 text-slate-800 shadow-sm',
+                   isDragging && dragPayload?.data?.id === ev.id ? 'opacity-40' : 'hover:!z-[1000] hover:scale-[1.02] hover:shadow-2xl'
+                 ]"
+                 :style="[
+                   ev.computedStyle, 
+                   ev.extendedProps.event_type === 'absence' ? { backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(239,68,68,0.06) 10px, rgba(239,68,68,0.06) 20px)' } : {}
+                 ]"
                  @contextmenu.stop @click.stop> 
               
-              <div class="flex justify-between items-start mb-1 border-b border-slate-100/80 pb-1 shrink-0 gap-2">
+              <div class="flex justify-between items-start mb-1 border-b border-slate-900/5 pb-1 shrink-0 gap-2">
                 <span class="font-black text-[9px] uppercase tracking-wider truncate" :style="`color: ${ev.extendedProps.techColor}`">{{ ev.extendedProps.technicianName }}</span>
-                <button @click.stop="$emit('confirm-delete-event', ev.id)" class="text-slate-300 hover:text-red-500 hover:bg-red-50 p-0.5 rounded pointer-events-auto shrink-0 z-50 transition-colors -mt-0.5 -mr-0.5"><svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+                <button @click.stop="$emit('confirm-delete-event', ev.id)" class="text-slate-400 hover:text-red-500 hover:bg-red-50 p-0.5 rounded pointer-events-auto shrink-0 z-50 transition-colors -mt-0.5 -mr-0.5 bg-white/50 backdrop-blur"><svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
               </div>
               
               <div class="flex flex-wrap items-center gap-1 mb-1 shrink-0 pointer-events-none">
-                <span class="font-black text-[9px] truncate bg-slate-100 px-1.5 py-0.5 rounded text-slate-600 border border-slate-200">{{ ev.extendedProps.ticketCode }}</span>
-                <span v-if="ev.extendedProps.qpCode" class="font-black text-[9px] truncate bg-[#58b347]/10 px-1.5 py-0.5 rounded text-[#58b347] border border-[#58b347]/20">{{ ev.extendedProps.qpCode }}</span>
+                <template v-if="ev.extendedProps.event_type === 'service'">
+                  <span class="font-black text-[9px] truncate bg-white px-1.5 py-0.5 rounded text-slate-600 border border-slate-200 shadow-sm">{{ ev.extendedProps.ticketCode }}</span>
+                  <span v-if="ev.extendedProps.qpCode" class="font-black text-[9px] truncate bg-[#58b347]/10 px-1.5 py-0.5 rounded text-[#58b347] border border-[#58b347]/20">{{ ev.extendedProps.qpCode }}</span>
+                </template>
+                <template v-else>
+                  <span class="font-black text-[9px] uppercase tracking-widest truncate px-1.5 py-0.5 rounded border bg-white"
+                        :class="ev.extendedProps.event_type === 'absence' ? 'text-red-600 border-red-200' : 'text-[#499b3a] border-[#58b347]/30'">
+                    {{ ev.extendedProps.event_subtype }}
+                  </span>
+                  <span v-if="ev.extendedProps.all_day" class="font-black text-[8px] uppercase tracking-widest truncate px-1.5 py-0.5 rounded border bg-white/50 text-slate-500 border-slate-200">
+                    CAŁY DZIEŃ
+                  </span>
+                </template>
               </div>
               
               <template v-if="store.currentView === 'week'">
@@ -200,15 +241,24 @@
           </div>
         </div>
       </div>
-
+      
+      <!-- WŁAŚCIWY MODAL DO TWORZENIA EVENTÓW (Wyrzucony z hierarchii, zawsze na samym wierzchu) -->
+      <Teleport to="body">
+        <ScheduleFormModal 
+           :show="showEventModal" :initialData="editingEventData"
+           @close="showEventModal = false" @save="saveManualEvent"
+        />
+      </Teleport>
     </div>
   </div>
 </template>
 
 <script setup>
 import { ref, nextTick } from 'vue'
+import UniversalTabModal from '../../common/UniversalTabModal.vue'
 import { useScheduleStore } from '../../stores/useScheduleStore'
 import { useCalendar } from '../../composables/useCalendar'
+import ScheduleFormModal from '../../modals/ScheduleFormModal.vue'
 
 const props = defineProps({
   filteredTickets: Array,
@@ -407,9 +457,26 @@ const onDropDayColumn = (e, dateStr) => {
   }
 
   if (p.type === 'backlog') {
-    store.saveEventToCloud({ id: "EV_" + Date.now(), ticket_id: p.data.t_code || p.data.t_id, technician_id: targetTech, title: p.data.t_title, start_time: sTime, end_time: eTime, event_type: "service" })
+    store.saveEventToCloud({ 
+      id: "EV_" + Date.now(), 
+      ticket_id: p.data.ticket_code || p.data.id || p.data.t_code || p.data.t_id || '', 
+      technician_id: targetTech, 
+      // Zabezpieczenie przed pustym tytułem (szuka różnych wersji klucza z backendu):
+      title: p.data.title || p.data.subject || p.data.t_title || 'Awaria z backlogu', 
+      description: p.data.description || p.data.t_desc || '',
+      start_time: sTime, 
+      end_time: eTime, 
+      event_type: "service",
+      event_subtype: "Awaria",
+      all_day: "NIE"
+    })
   } else {
-    store.saveEventToCloud({ ...p.data, start_time: sTime, end_time: eTime, technician_id: targetTech })
+    store.saveEventToCloud({ 
+      ...p.data, 
+      start_time: sTime, 
+      end_time: eTime, 
+      technician_id: targetTech 
+    })
   }
   dragPayload.value = null
 }
@@ -420,8 +487,52 @@ const onGlobalDragEnd = () => {
   dragPayload.value = null
 }
 
+// --- LOGIKA MANUALNEGO DODAWANIA ZGŁOSZEŃ (LEWY KLIK W KALENDARZ) ---
+const showEventModal = ref(false)
+const editingEventData = ref({})
+
+// Z głównego przycisku:
+const openManualEventModal = () => {
+  const todayStr = new Date().toISOString().split('T')[0]
+  const payload = cal.handleEmptySlotClick(todayStr)
+  
+  editingEventData.value = {
+    id: "EV_" + Date.now(),
+    ticket_id: null,
+    technician_id: payload.techId || '',
+    title: '',
+    start_time: payload.startDate,
+    end_time: '',
+    event_type: 'service'
+  }
+  showEventModal.value = true
+}
+
+// Z lewego kliknięcia w siatkę godzin:
+const onEmptySlotClick = (dateStr, hour) => {
+  const payload = cal.handleEmptySlotClick(dateStr, hour)
+  
+  editingEventData.value = {
+    id: "EV_" + Date.now(),
+    ticket_id: null,
+    technician_id: payload.techId || '',
+    title: '',
+    start_time: payload.startDate,
+    end_time: '',
+    event_type: 'service'
+  }
+  showEventModal.value = true
+}
+
+// Po kliknięciu ZAPISZ w modalu:
+const saveManualEvent = (payload) => {
+  // Przekazanie do store'a (i Google Apps Script)
+  store.saveEventToCloud(payload)
+  showEventModal.value = false
+}
+
 // Pozwól widokowi zewnętrznemu korzystać z tych funkcji
-defineExpose({ focusToday, onGlobalDragEnd })
+defineExpose({ focusToday, onGlobalDragEnd, openManualEventModal })
 </script>
 
 <style scoped>

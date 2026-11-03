@@ -102,11 +102,10 @@
             <h4 class="text-[11px] font-black text-slate-800 uppercase tracking-widest">Wybierz widocznych</h4>
             <span class="text-[9px] font-bold px-2 py-1 rounded-md bg-blue-50 text-blue-600 uppercase tracking-wider">{{ visibleTechTabs.length }} z {{ techTabs.length }}</span>
           </div>
-          <div class="grid grid-cols-2 gap-2 max-h-[350px] overflow-y-auto ticket-custom-scrollbar pr-1 pb-1">
+          <div class="grid grid-cols-2 gap-2 max-h-[350px] overflow-y-auto ticket-custom-scrollbar pt-2 pb-2 px-1">
             <button v-for="t in techTabs" :key="t.id" @click="toggleTech(t.id)"
                     class="px-2 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all duration-200 border border-solid hover:-translate-y-0.5 truncate"
-                    :style="!t.isHidden ? `background-color: ${t.color}; color: white; border-color: ${t.color}; box-shadow: 0 4px 15px ${hexToRgba(t.color, 0.25)};` : 'background-color: transparent; color: #64748b; border-color: #cbd5e1;'"
-                    :title="t.name">
+                    :style="!t.isHidden ? `background-color: ${t.color}; color: white; border-color: ${t.color}; box-shadow: 0 4px 15px ${hexToRgba(t.color, 0.25)};` : 'background-color: transparent; color: #64748b; border-color: #cbd5e1;'">
               {{ t.name }}
             </button>
           </div>
