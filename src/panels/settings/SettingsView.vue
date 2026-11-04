@@ -112,16 +112,23 @@
                 <div class="flex gap-4">
                   <label class="cursor-pointer flex-1">
                     <input type="radio" v-model="store.ticketsViewMode" value="v1" class="peer sr-only" @change="save" />
-                    <div class="p-4 border-2 border-slate-200 rounded-xl peer-checked:border-[#58b347] peer-checked:bg-[#58b347]/5 transition-all text-center">
-                      <div class="font-black text-slate-700 peer-checked:text-[#499b3a]">Wersja 1 (Aktualna)</div>
-                      <div class="text-xs text-slate-500 mt-1 font-medium">Kompaktowa lista i szybkie filtry</div>
+                    <div class="p-4 border-2 border-slate-200 rounded-xl peer-checked:border-[#58b347] peer-checked:bg-[#58b347]/5 transition-all text-center h-full">
+                      <div class="font-black text-slate-700 peer-checked:text-[#499b3a] text-sm">Wersja 1 (Aktualna)</div>
+                      <div class="text-xs text-slate-500 mt-1 font-medium">Kompaktowa lista i KPI</div>
                     </div>
                   </label>
                   <label class="cursor-pointer flex-1">
                     <input type="radio" v-model="store.ticketsViewMode" value="v2" class="peer sr-only" @change="save" />
-                    <div class="p-4 border-2 border-slate-200 rounded-xl peer-checked:border-[#58b347] peer-checked:bg-[#58b347]/5 transition-all text-center">
-                      <div class="font-black text-slate-700 peer-checked:text-[#499b3a]">Wersja 2 (Alternatywna)</div>
-                      <div class="text-xs text-slate-500 mt-1 font-medium">Tablica Kanban i rozbudowane karty</div>
+                    <div class="p-4 border-2 border-slate-200 rounded-xl peer-checked:border-[#58b347] peer-checked:bg-[#58b347]/5 transition-all text-center h-full">
+                      <div class="font-black text-slate-700 peer-checked:text-[#499b3a] text-sm">Wersja 2 (Detale)</div>
+                      <div class="text-xs text-slate-500 mt-1 font-medium">Zwarta lista + osobny ekran szczegółów</div>
+                    </div>
+                  </label>
+                  <label class="cursor-pointer flex-1">
+                    <input type="radio" v-model="store.ticketsViewMode" value="v3" class="peer sr-only" @change="save" />
+                    <div class="p-4 border-2 border-slate-200 rounded-xl peer-checked:border-[#58b347] peer-checked:bg-[#58b347]/5 transition-all text-center h-full">
+                      <div class="font-black text-slate-700 peer-checked:text-[#499b3a] text-sm">Wersja 3 (Arkusz)</div>
+                      <div class="text-xs text-slate-500 mt-1 font-medium">Gęsta tabela z akcjami w wierszach (1 ekran)</div>
                     </div>
                   </label>
                 </div>

@@ -108,7 +108,7 @@
     <!-- ========================================================================= -->
     <!-- WIDOK ALTERNATYWNY (Wersja v2 - Master/Detail Screen) -->
     <!-- ========================================================================= -->
-    <template v-else>
+    <template v-else-if="settingsStore.ticketsViewMode === 'v2'">
       
       <!-- EKRAN A: GŁÓWNA LISTA ZGŁOSZEŃ -->
       <div v-if="!currentDetailTicket" class="flex flex-col h-full w-full">
@@ -326,6 +326,215 @@
     </template>
 
     <!-- ========================================================================================================================================== -->
+
+    <!-- ========================================================================= -->
+    <!-- WIDOK ARKUSZA (Wersja v3 - Wszystko na jednym ekranie, gęste dane) -->
+    <!-- ========================================================================= -->
+    <template v-else-if="settingsStore.ticketsViewMode === 'v3'">
+      <div class="flex flex-col h-full w-full bg-[#f4f6f8] overflow-hidden">
+        
+        <!-- Sekcja Górna: Karty KPI wzorowane na zrzucie ekranu -->
+        <div class="px-4 pt-4 pb-2 shrink-0 flex gap-4 overflow-x-auto custom-scrollbar">
+          <!-- Żółta Karta -->
+          <div class="bg-white border border-slate-200 border-l-4 border-l-amber-400 rounded-lg p-3 min-w-[200px] shadow-sm">
+            <div class="text-[10px] font-black text-amber-500 uppercase tracking-widest">Wymaga Części (Suma)</div>
+            <div class="text-2xl font-black text-amber-500 mt-1 leading-none">{{ tabCounts['TAB_CZY_COS_TAM'] || 0 }}</div>
+            <div class="text-[9px] text-slate-400 mt-1 font-bold">Części wymagane lub status</div>
+          </div>
+          <!-- Niebieska Karta -->
+          <div class="bg-white border border-slate-200 border-l-4 border-l-blue-500 rounded-lg p-3 min-w-[200px] shadow-sm">
+            <div class="text-[10px] font-black text-blue-600 uppercase tracking-widest">Do realizacji (Priorytet)</div>
+            <div class="text-2xl font-black text-blue-600 mt-1 leading-none">{{ store.tickets.filter(t => t.priority && t.priority.toLowerCase().includes('awaria')).length }}</div>
+            <div class="text-[9px] text-slate-400 mt-1 font-bold">Oczekuje na realizację</div>
+          </div>
+          <!-- Zielona Karta -->
+          <div class="bg-white border border-slate-200 border-l-4 border-l-[#58b347] rounded-lg p-3 min-w-[200px] shadow-sm">
+            <div class="text-[10px] font-black text-[#58b347] uppercase tracking-widest">Zrealizowano</div>
+            <div class="text-2xl font-black text-[#58b347] mt-1 leading-none">{{ store.tickets.filter(t => t.status === 'Zakończone' || t.status === 'Rozliczone').length }}</div>
+            <div class="text-[9px] text-slate-400 mt-1 font-bold">Zakończone zgłoszenia</div>
+          </div>
+          <!-- Szara Karta -->
+          <div class="bg-white border border-slate-200 border-l-4 border-l-slate-500 rounded-lg p-3 min-w-[200px] shadow-sm">
+            <div class="text-[10px] font-black text-slate-600 uppercase tracking-widest">Zlecenia (Razem)</div>
+            <div class="text-2xl font-black text-slate-700 mt-1 leading-none">{{ baseTicketsCount }}</div>
+            <div class="text-[9px] text-slate-400 mt-1 font-bold">Aktywne w aplikacji</div>
+          </div>
+          <!-- Karta Techników -->
+          <div class="bg-white border border-slate-200 border-l-4 border-l-teal-600 rounded-lg p-3 flex-1 min-w-[300px] shadow-sm">
+            <div class="text-[10px] font-black text-teal-700 uppercase tracking-widest mb-2">Zlecenia Serwisantów (Aktywne)</div>
+            <div class="flex flex-wrap gap-2">
+              <!-- Dodano v-if="typeof tech === 'string'" aby zapobiec błędowi tech.split is not a function -->
+              <template v-for="tech in store.techList" :key="tech">
+                <span v-if="typeof tech === 'string'" class="text-[10px] font-bold text-slate-600 bg-slate-50 border border-slate-200 px-2 py-1 rounded-md flex items-center gap-1.5">
+                  {{ tech.split(' ')[0] }} <span class="bg-[#115e59] text-white rounded-full px-1.5 py-0.5 text-[9px]">{{ store.tickets.filter(t => t.technician_id === tech && !isClosedTicket(t)).length }}</span>
+                </span>
+              </template>
+            </div>
+          </div>
+        </div>
+
+        <!-- Pasek Wyszukiwania v3 -->
+        <div class="px-4 py-2 flex items-end gap-4 shrink-0 bg-[#f4f6f8] border-b border-slate-200">
+          <div class="flex flex-col flex-1">
+            <span class="text-[10px] font-black text-slate-500 mb-1">Szukaj wszędzie (QP, klient, ID, miasto):</span>
+            <input 
+              type="text" 
+              placeholder="Wpisz np. 25034, miasto lub klienta..." 
+              class="w-full px-3 py-1.5 text-sm font-bold text-slate-700 bg-white border border-[#58b347]/50 focus:border-[#58b347] focus:ring-1 focus:ring-[#58b347] rounded outline-none shadow-sm"
+              :value="store.searchQueriesMain[0]?.text || ''"
+              @input="(e) => { if(store.searchQueriesMain.length === 0) store.searchQueriesMain.push({id: 'sq_1', logic: 'AND', text: e.target.value}); else store.searchQueriesMain[0].text = e.target.value; }"
+            >
+          </div>
+          <div class="flex flex-col w-56">
+            <span class="text-[10px] font-black text-slate-500 mb-1">Zakres bazy:</span>
+            <select class="w-full px-2 py-1.5 text-xs font-bold text-slate-700 bg-white border border-slate-300 rounded outline-none shadow-sm">
+              <option>Szukaj wszędzie (Bieżące + Archiwum)</option>
+            </select>
+          </div>
+          <div class="flex flex-col w-48">
+            <span class="text-[10px] font-black text-slate-500 mb-1">Serwisant:</span>
+            <select class="w-full px-2 py-1.5 text-xs font-bold text-slate-700 bg-white border border-slate-300 rounded outline-none shadow-sm">
+              <option value="ALL">Wszyscy technicy</option>
+              <option v-for="tech in store.techList" :key="tech" :value="tech">{{ tech }}</option>
+            </select>
+          </div>
+          <div class="flex flex-col w-48">
+            <span class="text-[10px] font-black text-slate-500 mb-1">Status roboczy:</span>
+            <select class="w-full px-2 py-1.5 text-xs font-bold text-slate-700 bg-white border border-slate-300 rounded outline-none shadow-sm">
+              <option value="ALL">Wszystkie statusy</option>
+            </select>
+          </div>
+          <div class="text-[11px] font-black text-slate-600 mb-2 ml-2">
+            Widoczne: {{ filteredTickets.length }}
+          </div>
+        </div>
+
+        <!-- Tabela V3 - Styl arkusza kalkulacyjnego -->
+        <div class="flex-1 overflow-auto bg-white custom-scrollbar" @scroll="handleScroll">
+          <table class="w-full text-left border-collapse table-fixed min-w-[1400px]">
+            <thead class="bg-[#0f4a36] text-white sticky top-0 z-10 shadow-md">
+              <tr>
+                <th class="py-2.5 px-3 w-[140px] text-[10px] font-black uppercase tracking-widest border-r border-[#1a654c]">STACJA QP</th>
+                <th class="py-2.5 px-3 w-[220px] text-[10px] font-black uppercase tracking-widest border-r border-[#1a654c]">KLIENT / MIASTO</th>
+                <th class="py-2.5 px-3 w-[120px] text-[10px] font-black uppercase tracking-widest border-r border-[#1a654c]">TECHNIK</th>
+                <th class="py-2.5 px-3 w-[100px] text-[10px] font-black uppercase tracking-widest text-center border-r border-[#1a654c]">CZĘŚCI</th>
+                <th class="py-2.5 px-3 w-[160px] text-[10px] font-black uppercase tracking-widest text-center border-r border-[#1a654c]">STATUS</th>
+                <th class="py-2.5 px-3 w-[100px] text-[10px] font-black uppercase tracking-widest text-center border-r border-[#1a654c]">AKCJA MAG.</th>
+                <th class="py-2.5 px-3 w-[120px] text-[10px] font-black uppercase tracking-widest text-center border-r border-[#1a654c]">PLANUJ / RAPORT</th>
+                <th class="py-2.5 px-3 text-[10px] font-black uppercase tracking-widest border-r border-[#1a654c]">SZCZEGÓŁOWY OPIS ZGŁOSZENIA</th>
+                <th class="py-2.5 px-3 w-[200px] text-[10px] font-black uppercase tracking-widest">NOTATKA I ZAŁĄCZNIKI</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-200">
+              <tr v-for="ticket in paginatedTickets" :key="ticket.id" class="bg-white hover:bg-slate-50 transition-colors align-top">
+                
+                <!-- Kolumna 1: Stacja QP -->
+                <td class="py-3 px-3 border-r border-slate-200">
+                  <div class="flex items-center gap-1.5 mb-1">
+                    <span class="font-black text-slate-800 text-sm cursor-pointer hover:text-blue-600" @click="copyValue(ticket.qp_id || ticket.qp_id_full)">{{ ticket.qp_id || ticket.qp_id_full || '-' }}</span>
+                    <span class="text-[8px] px-1 py-0.5 rounded font-black bg-[#58b347] text-white uppercase tracking-wider">Bieżące</span>
+                  </div>
+                  <div class="text-[9px] text-slate-500 mb-2 font-mono">ID: {{ ticket.id || ticket.ticket_code }}</div>
+                  <div class="flex flex-col gap-1 items-start">
+                    <span class="inline-flex items-center justify-center bg-[#005274] text-white text-[9px] font-black px-1.5 py-0.5 rounded">
+                      <svg class="w-3 h-3 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg> AC
+                    </span>
+                    <span v-if="ticket.priority && ticket.priority.toLowerCase().includes('awaria')" class="inline-flex items-center justify-center bg-red-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded uppercase">
+                      <svg class="w-3 h-3 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Priorytet
+                    </span>
+                    <span class="inline-flex items-center justify-center bg-[#0ea5e9] text-white text-[8px] font-black px-1.5 py-0.5 rounded uppercase max-w-full truncate">
+                      {{ ticket.status || 'Brak' }}
+                    </span>
+                  </div>
+                </td>
+
+                <!-- Kolumna 2: Klient i Miasto -->
+                <td class="py-3 px-3 border-r border-slate-200">
+                  <div class="font-black text-slate-800 text-xs mb-1 uppercase leading-tight">{{ ticket.client || 'Brak danych klienta' }}</div>
+                  <div class="flex items-start text-[10px] font-bold text-slate-500 gap-1 mt-1">
+                    <svg class="w-3 h-3 shrink-0 text-slate-400 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                    <span class="leading-tight">{{ ticket.city || 'Brak miasta' }}, {{ ticket.address || 'Brak adresu' }}</span>
+                  </div>
+                </td>
+
+                <!-- Kolumna 3: Technik -->
+                <td class="py-3 px-3 border-r border-slate-200">
+                  <div class="font-black text-slate-800 text-xs leading-tight mt-1">{{ ticket.technician_id || 'Brak' }}</div>
+                </td>
+
+                <!-- Kolumna 4: Części (Badge) -->
+                <td class="py-3 px-3 border-r border-slate-200 text-center">
+                  <div class="text-[8px] font-black uppercase tracking-widest px-1.5 py-1 rounded border inline-block w-full"
+                       :class="ticket.parts_str && ticket.parts_str.length > 5 ? 'border-amber-400 bg-amber-400 text-white shadow-sm' : 'border-slate-200 bg-white text-slate-400'">
+                    {{ ticket.parts_str && ticket.parts_str.length > 5 ? 'Wymagane' : 'Brak' }}
+                  </div>
+                </td>
+
+                <!-- Kolumna 5: Status (Wbudowany Select) -->
+                <td class="py-3 px-3 border-r border-slate-200">
+                  <select :value="ticket.ticket_status" @change="(e) => changeStatus(ticket, e.target.value)" class="w-full text-[10px] font-black text-slate-700 border border-slate-300 rounded px-2 py-1.5 bg-slate-50 focus:border-[#58b347] focus:bg-white outline-none uppercase tracking-wider transition-colors">
+                    <option value="NOWE">Nowe</option>
+                    <option value="OCZEKUJE NA CZĘŚCI">Oczekuje na części</option>
+                    <option value="W_REALIZACJI">W realizacji</option>
+                    <option value="WYKONANO">Wykonano</option>
+                    <option value="ZAKOŃCZONE">Zakończone</option>
+                  </select>
+                </td>
+
+                <!-- Kolumna 6: Akcja Mag. (Części) -->
+                <td class="py-3 px-3 border-r border-slate-200 text-center">
+                  <button @click="openDiagnose(ticket.id || ticket.ticket_code)" class="inline-flex w-full items-center justify-center gap-1 border border-orange-300 bg-white hover:bg-orange-50 text-orange-600 font-black text-[9px] uppercase tracking-widest px-2 py-1.5 rounded transition-colors">
+                    <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Części
+                  </button>
+                </td>
+
+                <!-- Kolumna 7: Planuj / Raport -->
+                <td class="py-3 px-3 border-r border-slate-200">
+                  <div class="flex flex-col gap-1.5">
+                    <button class="flex items-center justify-center gap-1.5 border border-blue-300 text-blue-600 bg-white hover:bg-blue-50 font-black text-[9px] uppercase tracking-widest px-2 py-1 rounded transition-colors w-full">
+                      <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Planuj
+                    </button>
+                    <button class="flex items-center justify-center gap-1.5 border border-[#58b347]/50 text-[#499b3a] bg-white hover:bg-[#58b347]/10 font-black text-[9px] uppercase tracking-widest px-2 py-1 rounded transition-colors w-full">
+                      <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg> Raport
+                    </button>
+                  </div>
+                </td>
+
+                <!-- Kolumna 8: Szczegółowy Opis -->
+                <td class="py-3 px-3 border-r border-slate-200">
+                  <div class="h-32 overflow-y-auto text-[10px] font-medium text-slate-700 custom-scrollbar pr-2 leading-relaxed border border-slate-200 rounded p-1.5 bg-slate-50/50">
+                    <div class="font-mono font-bold text-[9px] text-slate-500 mb-1 border-b border-dashed border-slate-200 pb-1">
+                      [TK-{{ ticket.id }}] {{ ticket.title || ticket.subject }}
+                    </div>
+                    <div class="mb-1.5 mt-1 leading-tight">
+                      <span class="font-black text-slate-800">Klient:</span> {{ ticket.client }}<br>
+                      <span class="font-black text-slate-800">Kontakt:</span> {{ ticket.contact_person || ticket.contact_name }} | {{ ticket.contact_phone }}<br>
+                      <span class="font-black text-slate-800">Kat.:</span> {{ ticket.category }} | <span class="font-black text-slate-800">Prior.:</span> {{ ticket.priority }}
+                    </div>
+                    <div class="font-black text-slate-800 mt-2 mb-0.5">Opis zgłoszenia:</div>
+                    <div class="whitespace-pre-wrap">{{ ticket.description || 'Brak opisu.' }}</div>
+                  </div>
+                </td>
+
+                <!-- Kolumna 9: Notatki i Załączniki -->
+                <td class="py-3 px-3">
+                  <textarea placeholder="Wpisz notatkę..." class="w-full h-24 text-[10px] font-medium text-slate-700 rounded bg-[#fefce8] border border-amber-200 p-2 outline-none focus:bg-white focus:border-amber-400 resize-none mb-1.5 placeholder-slate-400"></textarea>
+                  <button @click="openAttachmentsList(ticket.attachments_url || [])" class="w-full flex items-center justify-center gap-1.5 border border-orange-300 bg-white hover:bg-orange-50 text-orange-600 font-black text-[9px] uppercase tracking-widest px-2 py-1.5 rounded transition-colors shadow-sm">
+                    <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg> + Dodaj zdjęcie
+                  </button>
+                </td>
+
+              </tr>
+              <tr v-if="filteredTickets.length === 0">
+                <td colspan="9" class="p-8 text-center text-slate-500 font-bold">Brak wyników do wyświetlenia.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </template>
+
+        <!-- ========================================================================================================================================== -->
 
     <!-- MODAL 1: GALERIA ZAŁĄCZNIKÓW -->
     <div v-if="attachmentsModal.show" class="fixed inset-0 z-[30000] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-6 animate-fadeIn" @click.self="attachmentsModal.show = false">
