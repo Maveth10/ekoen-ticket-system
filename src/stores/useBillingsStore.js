@@ -41,6 +41,11 @@ export const useBillingsStore = defineStore('billings', {
     loadTabsConfiguration() {
       try {
         const localStore = JSON.parse(localStorage.getItem('EKOEN_BILLINGS_UI')) || {}
+        
+        // NOWE: Ładowanie techników z cache od razu po starcie
+        if (localStore.techList) this.techList = localStore.techList
+        if (localStore.techMap) this.techMap = localStore.techMap
+
         let savedTabs = localStore.billings_tabs || []
         
         if (savedTabs.length > 0) {
@@ -74,6 +79,9 @@ export const useBillingsStore = defineStore('billings', {
       try {
         const localStore = JSON.parse(localStorage.getItem('EKOEN_BILLINGS_UI')) || {}
         localStore.billings_tabs = this.kpiTabs
+        // Zapisujemy techników do cache, by kafelki ładowały się instantowo po odświeżeniu
+        localStore.techList = this.techList
+        localStore.techMap = this.techMap
         localStorage.setItem('EKOEN_BILLINGS_UI', JSON.stringify(localStore))
       } catch (e) {}
     },
@@ -117,17 +125,21 @@ export const useBillingsStore = defineStore('billings', {
     async fetchBillingsData() {
       this.isLoading = true
       this.billings = []
+      
       this.loadTabsConfiguration()
+      this.setupTechTabs() // Od razu renderujemy kafelki z pamięci podręcznej!
 
-      try {
-        const nbpRes = await fetch('https://api.nbp.pl/api/exchangerates/rates/a/eur/?format=json')
-        const nbpData = await nbpRes.json()
-        if (nbpData && nbpData.rates && nbpData.rates.length > 0) {
-          this.nbpRate = nbpData.rates[0].mid
-        }
-      } catch (e) {
-        console.warn('Nie udało się pobrać aktualnego kursu NBP. Używam domyślnego 4.30 PLN.', e)
-      }
+      // Puszczamy NBP w TLE (Promise), aby NIE blokowało ładowania bilingów!
+      fetch('https://api.nbp.pl/api/exchangerates/rates/a/eur/?format=json')
+        .then(res => res.json())
+        .then(nbpData => {
+          if (nbpData && nbpData.rates && nbpData.rates.length > 0) {
+            this.nbpRate = nbpData.rates[0].mid
+          }
+        })
+        .catch(e => {
+          console.warn('Nie udało się pobrać aktualnego kursu NBP. Używam domyślnego 4.30 PLN.', e)
+        })
 
       if (typeof google === 'undefined') {
         setTimeout(() => { this.isLoading = false }, 500)

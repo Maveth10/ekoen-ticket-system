@@ -95,14 +95,23 @@
     </div>
 
     <!-- DOLNA SEKCJA -->
-    <div class="mt-auto px-3 pb-6 pt-4 border-t border-slate-100 flex flex-col gap-2 shrink-0 w-full">
+    <div class="mt-auto pb-6 pt-4 border-t border-slate-100 flex flex-col gap-1.5 shrink-0 w-full">
       
-      <button @click="$emit('open-settings')" class="flex items-center justify-start w-full p-2.5 text-slate-400 hover:text-[#58b347] transition-all duration-300 group">
-        <svg class="w-6 h-6 shrink-0 transition-all duration-300 group-hover:drop-shadow-[0_0_10px_rgba(88,179,71,0.8)] group-hover:scale-110" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+      <!-- Przycisk Ustawień traktowany jak widok -->
+      <button @click="$emit('switch-view', 'settings')" :class="getBtnClass('settings')">
+        <div :class="getIndicatorClass('settings')"></div>
+        <div class="w-8 flex justify-center shrink-0">
+           <svg class="w-5 h-5 transition-all duration-300 group-hover:scale-110" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+        </div>
+        <span class="ml-3 text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-75">Ustawienia</span>
       </button>
 
-      <button @click="handleLogout" class="flex items-center justify-start w-full p-2.5 text-slate-400 hover:text-red-500 transition-all duration-300 group">
-        <svg class="w-6 h-6 shrink-0 scale-x-[-1] transition-all duration-300 group-hover:drop-shadow-[0_0_10px_rgba(239,68,68,0.85)] group-hover:scale-x-[-1.15] group-hover:scale-y-[1.15]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+      <!-- Przycisk Wyloguj (ujednolicony zresztą) -->
+      <button @click="handleLogout" class="nav-item relative flex items-center pl-5 py-3 mx-2 rounded-xl transition-all duration-200 min-w-max border border-transparent text-slate-500 font-medium hover:bg-red-50 hover:text-red-500 hover:border-red-200 group">
+        <div class="w-8 flex justify-center shrink-0">
+          <svg class="w-5 h-5 shrink-0 scale-x-[-1] transition-all duration-300 group-hover:drop-shadow-[0_0_10px_rgba(239,68,68,0.85)] group-hover:scale-x-[-1.15] group-hover:scale-y-[1.15]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+        </div>
+        <span class="ml-3 text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-75">Wyloguj</span>
       </button>
 
     </div>

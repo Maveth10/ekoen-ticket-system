@@ -131,6 +131,7 @@
       <StationsView v-else-if="currentActiveView == 'stations'" />
       <MapView v-else-if="currentActiveView == 'map'" />
       <OffersView v-else-if="currentActiveView === 'offers'" />
+      <SettingsView v-else-if="currentActiveView === 'settings'"/>
       
       <!-- Zaślepka dla pozostałych, jeszcze niezbudowanych zakładek -->
       <div v-else class="flex flex-col items-center justify-center h-full text-slate-400">
@@ -151,11 +152,12 @@ import StorageView from './panels/storage/StorageView.vue'
 import TechniciansView from './panels/technicians/TechniciansView.vue'
 import ClientsView from './panels/clients/ClientsView.vue'
 import ScheduleView from './panels/schedule/ScheduleView.vue' 
-import TicketsView from './panels/tickets/TicketsView.vue'
+https://mail.google.com/chat/u/0/#chat/welcomeimport TicketsView from './panels/tickets/TicketsView.vue'
 import BillingsView from './panels/billings/BillingsView.vue'
 import StationsView from './panels/stations/StationsView.vue'
 import MapView from './panels/map/MapView.vue'
 import OffersView from './panels/offers/OffersView.vue' 
+import SettingsView from './panels/settings/SettingsView.vue'
 
 // --- STANY APLIKACJI I NAWIGACJI ---
 const isSidebarHovered = ref(false)

@@ -1,8 +1,10 @@
 <template>
   <div class="flex flex-col h-full bg-[#f4f6f8] relative z-10 overflow-y-auto custom-scrollbar" @click="closeAllDropdowns">
     
-    <!-- GÓRNA SEKCJA: KPI i WYSZUKIWARKA -->
-    <div class="shrink-0">
+    <!-- AKTUALNY WIDOK (Wersja 1) -->
+    <template v-if="settingsStore.warehouseViewMode === 'v1'">
+      <!-- GÓRNA SEKCJA: KPI i WYSZUKIWARKA -->
+      <div class="shrink-0">
       <UniversalKpi 
         title="Magazyn i Flota"
         subtitle="Logistyka zasobów centralnych, mobilnych i zużyć."
@@ -221,8 +223,183 @@
           </div>
         </div>
       </template>
+    </div> <!-- Zakończenie <div class="px-8 pt-6 pb-8..."> -->
+    </template> <!-- Zakończenie głównego v-if dla widoku v1 -->
 
+<!-- ================================================================================================================================================ -->
+
+
+    <!-- ========================================================================= -->
+    <!-- ALTERNATYWNY WIDOK MAGAZYNU (Wersja v2 - Układ Skonsolidowany) -->
+    <!-- ========================================================================= -->
+    <div v-else class="flex flex-col h-full bg-[#f4f6f8] relative z-10 overflow-hidden w-full">
+      
+      <!-- NAGŁÓWEK V2 (Zastępuje UniversalKpi w tym trybie) -->
+      <div class="px-8 pt-8 pb-4 shrink-0 bg-[#f4f6f8]">
+        <h1 class="text-2xl font-black text-slate-900 tracking-tight">Magazyn Części & Ewidencja (EEP / Własne)</h1>
+        
+        <!-- Pasek zakładek nawigacyjnych v2 (Akcje Szybkie) -->
+        <div class="flex items-center gap-2 mt-6">
+          <button class="px-4 py-2 text-xs font-bold rounded-lg border border-[#58b347]/30 bg-[#58b347]/10 text-[#499b3a] transition-colors flex items-center gap-2 shadow-sm">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+            Stan Magazynu & Wydanie
+          </button>
+          <button @click="openMovementModal('', 'ZUŻYCIE', '', '')" class="px-4 py-2 text-xs font-bold rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition-colors flex items-center gap-2 shadow-sm">
+            <svg class="w-4 h-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            Zużycie na zleceniu (QP)
+          </button>
+          <button @click="openAddPartModal(null)" class="px-4 py-2 text-xs font-bold rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition-colors flex items-center gap-2 shadow-sm">
+            <svg class="w-4 h-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+            Przyjęcie dostawy
+          </button>
+        </div>
+      </div>
+
+      <!-- OBSZAR ROBOCZY V2 (Tabela Skonsolidowana + Dziennik) -->
+      <div class="px-8 pb-8 flex-1 flex flex-col gap-6 overflow-hidden">
+        
+        <!-- Główna Tabela Magazynu -->
+        <div class="flex-1 bg-white border border-slate-200 rounded-2xl shadow-sm flex flex-col overflow-hidden">
+          
+          <!-- Pasek narzędzi tabeli -->
+          <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0 bg-slate-50/50">
+            <div>
+              <h2 class="text-sm font-black text-slate-800 flex items-center gap-2">
+                <svg class="w-5 h-5 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+                Stan Magazynowy Skonsolidowany
+              </h2>
+              <p class="text-[10px] font-bold text-slate-400 mt-0.5">Wszystkie części z EEP i Magazynu Centralnego. Wartości 0 oznaczone na czerwono.</p>
+            </div>
+            
+            <div class="flex items-center gap-3">
+              <div class="relative">
+                <input type="text" placeholder="Szukaj kodu lub nazwy..." class="pl-9 pr-4 py-2 text-xs font-bold text-slate-700 bg-white border border-slate-200 rounded-lg w-64 focus:outline-none focus:border-blue-500 transition-colors">
+                <svg class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              </div>
+              <select class="py-2 pl-3 pr-8 text-xs font-bold text-slate-600 bg-white border border-slate-200 rounded-lg appearance-none outline-none focus:border-blue-500">
+                <option>Wszystkie źródła</option>
+                <option>Tylko EEP</option>
+                <option>Tylko Własne</option>
+              </select>
+              <select class="py-2 pl-3 pr-8 text-xs font-bold text-slate-600 bg-white border border-slate-200 rounded-lg appearance-none outline-none focus:border-blue-500">
+                <option>Wszystkie stany</option>
+                <option>Na wyczerpaniu</option>
+                <option>Dostępne</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Tabela z poziomym scrollem, jeśli dużo techników -->
+          <div class="flex-1 overflow-auto custom-scrollbar">
+            <table class="w-full text-left border-collapse min-w-[1200px]">
+              <thead class="bg-white sticky top-0 z-10 shadow-[0_1px_2px_rgba(0,0,0,0.05)] text-[10px] font-black text-slate-500 uppercase tracking-wider">
+                <tr>
+                  <th class="py-3 px-4 w-16 text-center border-b border-slate-200">Źródło</th>
+                  <th class="py-3 px-4 w-40 border-b border-slate-200">Indeks</th>
+                  <th class="py-3 px-4 border-b border-slate-200">Nazwa części</th>
+                  <th class="py-3 px-4 w-24 text-center border-b border-slate-200 bg-slate-50">Magazyn<br>Centralny (ZG)</th>
+                  <!-- Dynamiczni technicy w nagłówku -->
+                  <th v-for="tech in store.techs" :key="tech.id" class="py-3 px-3 w-20 text-center border-b border-slate-200 leading-tight">
+                    {{ tech.name.split(' ')[0] }}<br>{{ tech.name.split(' ').slice(1).join(' ') }}
+                  </th>
+                  <th class="py-3 px-4 w-28 text-center border-b border-slate-200 bg-slate-50">Suma w<br>obiegu</th>
+                  <th class="py-3 px-4 w-24 text-center border-b border-slate-200">Akcja</th>
+                </tr>
+              </thead>
+              <tbody class="text-[11px] font-bold divide-y divide-slate-100">
+                <tr v-for="part in filteredParts" :key="part.id" class="hover:bg-slate-50 transition-colors">
+                  <td class="py-3 px-4 text-center">
+                    <span class="text-[9px] px-1.5 py-0.5 rounded border border-[#58b347]/30 text-[#499b3a] bg-[#58b347]/10">EEP</span>
+                  </td>
+                  <td class="py-3 px-4 text-slate-500 font-mono tracking-wider">{{ part.id_sku || part.sku }}</td>
+                  <td class="py-3 px-4 text-slate-800 leading-tight pr-8">{{ part.name }}</td>
+                  
+                  <td class="py-3 px-4 text-center text-sm font-black bg-slate-50/50" :class="(parseInt(part.zg_stock)||0) === 0 ? 'text-red-500' : 'text-[#499b3a]'">
+                    <span v-if="(parseInt(part.zg_stock)||0) === 0" class="inline-block px-2 rounded bg-red-50 border border-red-100 text-[11px] py-0.5">0</span>
+                    <span v-else>{{ parseInt(part.zg_stock) || 0 }}</span>
+                  </td>
+                  
+                  <td v-for="tech in store.techs" :key="tech.id" class="py-3 px-3 text-center">
+                     <span v-if="(parseInt(part[tech.name])||0) === 0" class="inline-block px-1.5 rounded bg-red-50 border border-red-100 text-red-500 font-black text-[10px]">0</span>
+                     <span v-else class="text-[#499b3a] font-black text-sm">{{ parseInt(part[tech.name]) || 0 }}</span>
+                  </td>
+                  
+                  <td class="py-3 px-4 text-center bg-slate-50/50">
+                    <div class="inline-flex items-center gap-1 border border-amber-200 bg-amber-50 text-amber-700 px-2.5 py-1 rounded font-black text-xs">
+                      {{ (parseInt(part.zg_stock)||0) + store.techs.reduce((sum, t) => sum + (parseInt(part[t.name])||0), 0) }}
+                      <span class="text-[9px] font-bold uppercase text-amber-600/70">{{ part.unit || 'szt.' }}</span>
+                    </div>
+                  </td>
+                  
+                  <td class="py-3 px-4 text-center">
+                    <button @click="openMovementModal(part.id_sku || part.sku)" class="text-[9px] uppercase tracking-widest font-black text-white bg-teal-600 hover:bg-teal-700 px-3 py-1.5 rounded flex items-center justify-center gap-1.5 mx-auto transition-colors shadow-sm">
+                      <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m21 16-4 4-4-4"/><path d="M17 20V4"/><path d="m3 8 4-4 4 4"/><path d="M7 4v16"/></svg> Prześlij
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Dolny Dziennik Operacji (Zintegrowany) -->
+        <div class="h-64 shrink-0 bg-white border border-slate-200 rounded-2xl shadow-sm flex flex-col overflow-hidden">
+          <div class="px-6 py-3 border-b border-slate-100 flex items-center gap-2 bg-slate-50/50 shrink-0">
+            <svg class="w-4 h-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <h3 class="text-xs font-black text-slate-700 uppercase tracking-widest">Dziennik Operacji Magazynowych (Ostatnie 50)</h3>
+          </div>
+          <div class="flex-1 overflow-auto custom-scrollbar">
+            <table class="w-full text-left border-collapse table-fixed">
+              <thead class="bg-white sticky top-0 shadow-[0_1px_0_rgba(0,0,0,0.05)] text-[9px] font-black text-slate-500 uppercase tracking-wider">
+                <tr>
+                  <th class="py-2.5 px-4 w-[110px] border-b border-slate-100">Data</th>
+                  <th class="py-2.5 px-4 w-[110px] border-b border-slate-100">Operacja</th>
+                  <th class="py-2.5 px-4 w-[60px] text-center border-b border-slate-100">Źródło</th>
+                  <th class="py-2.5 px-4 border-b border-slate-100">Indeks & Nazwa</th>
+                  <th class="py-2.5 px-4 w-[60px] text-center border-b border-slate-100">Ilość</th>
+                  <th class="py-2.5 px-4 w-[150px] border-b border-slate-100">Wydający</th>
+                  <th class="py-2.5 px-4 w-[150px] border-b border-slate-100">Odbiorca</th>
+                  <th class="py-2.5 px-4 w-[110px] border-b border-slate-100">Zlecenie</th>
+                </tr>
+              </thead>
+              <tbody class="text-[10px] font-bold divide-y divide-slate-50">
+                <tr v-for="log in store.logs.slice(0, 50)" :key="log.id" class="hover:bg-slate-50/50 transition-colors">
+                  <td class="py-2 px-4 text-slate-400 font-mono">{{ log.date ? new Date(log.date).toLocaleString('pl-PL') : '-' }}</td>
+                  <td class="py-2 px-4">
+                    <span class="px-2 py-0.5 rounded text-white uppercase tracking-wider"
+                          :class="{
+                            'bg-teal-500': log.operation_type === 'DOSTAWA',
+                            'bg-blue-500': log.operation_type === 'PRZESUNIĘCIE',
+                            'bg-orange-500': log.operation_type === 'ZUŻYCIE',
+                            'bg-slate-500': !['DOSTAWA', 'PRZESUNIĘCIE', 'ZUŻYCIE'].includes(log.operation_type)
+                          }">
+                      {{ log.operation_type }}
+                    </span>
+                  </td>
+                  <td class="py-2 px-4 text-center">
+                    <span class="px-1.5 py-0.5 rounded border border-[#58b347]/30 text-[#499b3a] bg-[#58b347]/10">EEP</span>
+                  </td>
+                  <td class="py-2 px-4">
+                    <div class="truncate w-full" :title="getPartName(log.part_sku)">
+                       <span class="text-slate-800 font-black">{{ log.part_sku }}</span> <span class="text-slate-500 font-medium">- {{ getPartName(log.part_sku) }}</span>
+                    </div>
+                  </td>
+                  <td class="py-2 px-4 text-center text-slate-800 font-black text-sm">{{ log.quantity }}</td>
+                  <!-- Poniżej wywołujemy funkcję formatLocation, aby omijało surowe identyfikatory -->
+                  <td class="py-2 px-4 text-slate-600 break-words">{{ log.operation_type === 'DOSTAWA' ? 'Dostawca Zewnętrzny' : (formatLocation(log.technician_id).split('➔')[0] || formatLocation(log.technician_id)) }}</td>
+                  <td class="py-2 px-4 text-slate-600 break-words">{{ log.operation_type === 'ZUŻYCIE' ? 'Klient (Montaż)' : (formatLocation(log.technician_id).split('➔')[1] || formatLocation(log.technician_id)) }}</td>
+                  <td class="py-2 px-4 text-orange-500 font-mono truncate">{{ log.ticket_id || '-' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
     </div>
+
+    <!-- ================================================================================================================================================ -->
+
 
     <!-- POWIADOMIENIE TOAST -->
     <div v-show="toast.show" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] bg-[#58b347] text-white px-8 py-3.5 rounded-full shadow-[0_10px_30px_rgba(88,179,71,0.5)] flex items-center justify-center gap-3 border border-[#499b3a] transition-all duration-300">
@@ -267,6 +444,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useStorageStore } from '../../stores/useStorageStore'
+import { useSettingsStore } from '../../stores/useSettingsStore'
 import { useSearchFilters } from '../../composables/useSearchFilters'
 import { useSmartKpiFilters } from '../../composables/useSmartKpiFilters'
 
@@ -279,6 +457,7 @@ import StorageMovementModal from '../../modals/StorageMovementModal.vue'
 import StorageFormModal from '../../modals/StorageFormModal.vue'
 
 const store = useStorageStore()
+const settingsStore = useSettingsStore()
 
 const toast = ref({ show: false, msg: '' })
 const showTabModal = ref(false)
