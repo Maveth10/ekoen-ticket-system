@@ -1,7 +1,13 @@
 <template>
-  <div class="flex flex-col h-full bg-[#f4f6f8] relative z-10 overflow-auto ticket-custom-scrollbar" @click="closeAllDropdowns" @scroll="handleScroll">
-    
-    <!-- 1. UNIWERSALNE KPI -->
+  <div class="flex flex-col h-full bg-[#f4f6f8] relative z-10 overflow-hidden" @click="closeAllDropdowns">
+
+    <!-- ========================================================================= -->
+    <!-- WIDOK STANDARDOWY (Wersja v1) -->
+    <!-- ========================================================================= -->
+    <template v-if="settingsStore.ticketsViewMode === 'v1' || !settingsStore.ticketsViewMode">
+      <!-- 1. UNIWERSALNE KPI -->
+      <div class="overflow-auto ticket-custom-scrollbar max-h-[45vh] shrink-0" @scroll="handleScroll">
+
     <UniversalKpi 
       title="Centrum Zgłoszeń"
       subtitle="Dyspozytornia zadań operacyjnych i serwisowych."
@@ -94,8 +100,236 @@
       @drop-col="onHeaderDrop"
     />
 
+    </div>
+    </template>
+
+        <!-- ========================================================================================================================================== -->
+
+    <!-- ========================================================================= -->
+    <!-- WIDOK ALTERNATYWNY (Wersja v2 - Master/Detail Screen) -->
+    <!-- ========================================================================= -->
+    <template v-else>
+      
+      <!-- EKRAN A: GŁÓWNA LISTA ZGŁOSZEŃ -->
+      <div v-if="!currentDetailTicket" class="flex flex-col h-full w-full">
+        
+        <!-- Pasek narzędzi V2 -->
+        <div class="bg-[#115e59] text-white px-4 py-3 flex items-center justify-between shrink-0">
+          <div class="flex gap-4 w-[40%]">
+            <input 
+              type="text" 
+              placeholder="Szukaj wszędzie (QP, klient, ID, miasto)..." 
+              class="w-full px-3 py-1.5 text-sm text-slate-800 rounded bg-white border-0 outline-none placeholder-slate-400"
+              :value="store.searchQueriesMain[0]?.text || ''"
+              @input="(e) => { if(store.searchQueriesMain.length === 0) store.searchQueriesMain.push({id: 'sq_1', logic: 'AND', text: e.target.value}); else store.searchQueriesMain[0].text = e.target.value; }"
+            >
+          </div>
+          <div class="flex gap-4 items-center">
+            <div class="flex flex-col">
+              <span class="text-[10px] text-teal-100 font-bold mb-0.5">Serwisant:</span>
+              <select class="px-3 py-1.5 text-sm text-slate-800 rounded bg-white border-0 outline-none w-48">
+                <option value="ALL">Wszyscy technicy</option>
+                <option v-for="tech in store.techList" :key="tech" :value="tech">{{ tech }}</option>
+              </select>
+            </div>
+            <div class="flex flex-col">
+              <span class="text-[10px] text-teal-100 font-bold mb-0.5">Status roboczy:</span>
+              <select class="px-3 py-1.5 text-sm text-slate-800 rounded bg-white border-0 outline-none w-48">
+                <option value="ALL">Wszystkie statusy</option>
+                <option value="NOWE">Nowe</option>
+                <option value="W_REALIZACJI">W realizacji</option>
+                <option value="WYKONANE">Wykonane</option>
+              </select>
+            </div>
+            <div class="ml-4 text-xs font-bold text-teal-100">
+              Widoczne: <span class="text-white">{{ filteredTickets.length }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Uproszczona Tabela V2 -->
+        <div class="flex-1 overflow-auto bg-white custom-scrollbar">
+          <table class="w-full text-left border-collapse table-fixed">
+            <thead class="bg-[#115e59] text-white sticky top-0 z-10 shadow-md">
+              <tr>
+                <th class="py-2.5 px-4 w-[160px] text-[11px] font-bold uppercase tracking-wider border-r border-teal-700/50">Stacja QP</th>
+                <th class="py-2.5 px-4 w-[240px] text-[11px] font-bold uppercase tracking-wider border-r border-teal-700/50">Klient / Miasto</th>
+                <th class="py-2.5 px-4 w-[160px] text-[11px] font-bold uppercase tracking-wider border-r border-teal-700/50">Technik</th>
+                <th class="py-2.5 px-4 w-[160px] text-[11px] font-bold uppercase tracking-wider border-r border-teal-700/50 text-center">Status</th>
+                <th class="py-2.5 px-4 text-[11px] font-bold uppercase tracking-wider border-r border-teal-700/50">Opis Zgłoszenia</th>
+                <th class="py-2.5 px-4 w-[80px] text-center text-[11px] font-bold uppercase tracking-wider">Detale</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-200">
+              <tr v-for="ticket in filteredTickets.slice(0, 100)" :key="ticket.id" 
+                  class="hover:bg-slate-50 transition-colors cursor-pointer group"
+                  @click="openDetailScreen(ticket)">
+                
+                <td class="py-3 px-4 align-top border-r border-slate-100">
+                  <div class="font-black text-slate-800 text-[15px]">{{ ticket.qp_id || ticket.qp_id_full || '-' }}</div>
+                  <div class="text-[10px] text-slate-500 mb-1.5 font-mono">ID: {{ ticket.id || ticket.ticket_code }}</div>
+                  <span v-if="ticket.priority && ticket.priority.toLowerCase().includes('awaria')" class="inline-flex items-center justify-center bg-red-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded uppercase">Priorytet</span>
+                </td>
+
+                <td class="py-3 px-4 align-top border-r border-slate-100">
+                  <div class="font-bold text-slate-800 text-xs mb-1 uppercase">{{ ticket.client || 'Brak danych klienta' }}</div>
+                  <div class="text-[11px] text-slate-500">{{ ticket.city || 'Brak miasta' }}, {{ ticket.address || 'Brak adresu' }}</div>
+                </td>
+
+                <td class="py-3 px-4 align-top border-r border-slate-100">
+                  <div class="font-bold text-slate-800 text-xs leading-tight mt-1">{{ ticket.technician_id || 'Nie przypisano' }}</div>
+                </td>
+
+                <td class="py-3 px-4 align-top border-r border-slate-100 text-center">
+                  <div class="text-[10px] font-bold text-slate-700 border border-slate-200 rounded px-2 py-1 bg-white shadow-sm inline-block uppercase">
+                    {{ ticket.ticket_status || 'NOWE' }}
+                  </div>
+                  <div v-if="ticket.parts_str && ticket.parts_str.length > 5" class="mt-2 text-[9px] font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded border border-amber-200 inline-block">Części Wymagane</div>
+                </td>
+
+                <td class="py-3 px-4 align-top border-r border-slate-100">
+                  <div class="font-bold text-slate-700 text-xs mb-1 truncate">{{ ticket.title || ticket.subject }}</div>
+                  <div class="text-[11px] text-slate-500 line-clamp-3">{{ ticket.description || 'Brak opisu zgłoszenia.' }}</div>
+                </td>
+
+                <td class="py-3 px-4 align-middle text-center">
+                  <div class="w-8 h-8 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto group-hover:bg-[#58b347] group-hover:text-white transition-colors">
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+                  </div>
+                </td>
+
+              </tr>
+              <tr v-if="filteredTickets.length === 0">
+                <td colspan="6" class="p-8 text-center text-slate-500 font-bold">Brak wyników.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- EKRAN B: SZCZEGÓŁY KONKRETNEGO ZGŁOSZENIA (Zastępuje tabelę po kliknięciu) -->
+      <div v-else class="flex flex-col h-full w-full bg-[#f4f6f8] relative z-10 overflow-auto ticket-custom-scrollbar">
+        
+        <!-- Pasek powrotu i nagłówek detali -->
+        <div class="px-8 py-5 border-b border-slate-200 flex items-center gap-6 bg-white sticky top-0 z-20 shadow-sm shrink-0">
+          <button @click="closeDetailScreen" class="bg-white border border-slate-200 text-slate-600 px-4 py-2.5 rounded-xl font-black hover:bg-slate-50 hover:text-[#58b347] hover:border-[#58b347]/50 transition-all shadow-sm flex items-center gap-2">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg> Wróć do listy
+          </button>
+          <div class="flex-1 flex flex-col justify-center">
+            <div class="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-0.5">Zgłoszenie Serwisowe [{{ currentDetailTicket.id || currentDetailTicket.ticket_code }}]</div>
+            <div class="text-xl font-black text-slate-800 leading-tight">{{ currentDetailTicket.title || currentDetailTicket.subject }}</div>
+          </div>
+          <div>
+            <span class="inline-flex items-center justify-center bg-[#0ea5e9] text-white text-[11px] font-black px-4 py-2 rounded-lg uppercase tracking-widest shadow-sm">
+              Status Axon: {{ currentDetailTicket.status || 'Brak' }}
+            </span>
+          </div>
+        </div>
+        
+        <!-- Obszar dwukolumnowy ze szczegółami -->
+        <div class="p-8 grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+          
+          <!-- LEWA KOLUMNA: DANE I OPIS -->
+          <div class="lg:col-span-2 flex flex-col gap-6">
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+              <h2 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-4 border-b border-slate-100 pb-2">Informacje o Kliencie i Stacji</h2>
+              <div class="grid grid-cols-2 gap-y-4">
+                <div>
+                  <span class="block text-[10px] font-bold text-slate-400 uppercase">Klient / Firma</span>
+                  <span class="font-black text-slate-800 text-sm">{{ currentDetailTicket.client || 'Brak danych' }}</span>
+                </div>
+                <div>
+                  <span class="block text-[10px] font-bold text-slate-400 uppercase">Stacja (QP)</span>
+                  <span class="font-black text-blue-600 text-sm cursor-pointer hover:underline" @click="copyValue(currentDetailTicket.qp_id)">{{ currentDetailTicket.qp_id || currentDetailTicket.qp_id_full || 'Brak' }}</span>
+                </div>
+                <div>
+                  <span class="block text-[10px] font-bold text-slate-400 uppercase">Osoba Kontaktowa</span>
+                  <span class="font-bold text-slate-700 text-sm">{{ currentDetailTicket.contact_person || currentDetailTicket.contact_name || 'Brak' }}</span>
+                </div>
+                <div>
+                  <span class="block text-[10px] font-bold text-slate-400 uppercase">Telefon / Email</span>
+                  <span class="font-bold text-slate-700 text-sm">{{ currentDetailTicket.contact_phone || 'Brak telefonu' }} | {{ currentDetailTicket.contact_email || 'Brak email' }}</span>
+                </div>
+                <div class="col-span-2">
+                  <span class="block text-[10px] font-bold text-slate-400 uppercase">Adres</span>
+                  <span class="font-bold text-slate-700 text-sm">{{ currentDetailTicket.city }}, {{ currentDetailTicket.address }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+              <h2 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-4 border-b border-slate-100 pb-2">Pełny Opis Zgłoszenia</h2>
+              <p class="whitespace-pre-wrap text-sm font-medium text-slate-700 leading-relaxed">{{ currentDetailTicket.description || 'Brak opisu zgłoszenia.' }}</p>
+            </div>
+            
+            <div v-if="currentDetailTicket.raw_diagnoza || currentDetailTicket.parts_str" class="bg-amber-50 p-6 rounded-2xl shadow-sm border border-amber-200">
+              <h2 class="text-xs font-black text-amber-700 uppercase tracking-widest mb-4 border-b border-amber-200/50 pb-2 flex items-center gap-2">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+                Diagnoza i Części
+              </h2>
+              <p class="whitespace-pre-wrap text-sm font-bold text-amber-900 leading-relaxed mb-4">{{ currentDetailTicket.raw_diagnoza || 'Brak wpisanej diagnozy.' }}</p>
+              <div class="bg-white p-3 rounded-lg border border-amber-200/50 text-[11px] font-mono text-slate-600 whitespace-pre-wrap">{{ currentDetailTicket.parts_str || 'Brak zadysponowanych części.' }}</div>
+            </div>
+          </div>
+
+          <!-- PRAWA KOLUMNA: AKCJE, NOTATKI, ZAŁĄCZNIKI -->
+          <div class="flex flex-col gap-6">
+            
+            <!-- Akcje Operacyjne -->
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col gap-5">
+              <h2 class="text-xs font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-2">Zarządzanie Zgłoszeniem</h2>
+              
+              <div>
+                <label class="block text-[10px] font-black text-slate-500 uppercase mb-1.5">Zmień Status Roboczy</label>
+                <select :value="currentDetailTicket.ticket_status" @change="(e) => changeStatus(currentDetailTicket, e.target.value)" class="w-full text-xs font-black text-slate-700 border border-slate-300 rounded-lg px-3 py-2.5 bg-slate-50 shadow-sm focus:border-blue-500 focus:bg-white outline-none uppercase tracking-wider transition-colors">
+                  <option value="NOWE">Nowe</option>
+                  <option value="OCZEKUJE NA CZĘŚCI">Oczekuje na części</option>
+                  <option value="W_REALIZACJI">W realizacji</option>
+                  <option value="WYKONANO">Wykonano</option>
+                  <option value="ZAKOŃCZONE">Zakończone</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-[10px] font-black text-slate-500 uppercase mb-1.5">Przypisz Serwisanta</label>
+                <!-- Opcjonalnie podpinasz funkcję do Selecta, by zapisywała zmianę technika (np. handleTechChange) -->
+                <select class="w-full text-xs font-black text-slate-700 border border-slate-300 rounded-lg px-3 py-2.5 bg-slate-50 shadow-sm focus:border-blue-500 focus:bg-white outline-none uppercase tracking-wider transition-colors">
+                  <option value="">{{ currentDetailTicket.technician_id || 'Nie przypisano' }}</option>
+                  <option v-for="tech in store.techList" :key="tech" :value="tech">{{ tech }}</option>
+                </select>
+              </div>
+
+              <div class="pt-2">
+                 <button @click="openDiagnose(currentDetailTicket.id || currentDetailTicket.ticket_code)" class="w-full flex items-center justify-center gap-2 border border-orange-200 bg-white hover:bg-orange-50 text-orange-600 font-black text-xs uppercase tracking-widest px-4 py-3 rounded-xl transition-all shadow-sm">
+                   <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Wystaw Części (Magazyn)
+                 </button>
+              </div>
+            </div>
+
+            <!-- Notatki i Załączniki -->
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col gap-4">
+              <h2 class="text-xs font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-2">Dokumentacja i Raporty</h2>
+              <textarea placeholder="Wpisz szybką notatkę operacyjną..." class="w-full h-28 text-xs font-medium text-slate-700 rounded-xl bg-slate-50 border border-slate-200 p-3 outline-none focus:bg-white focus:border-[#58b347] focus:ring-2 focus:ring-[#58b347]/20 resize-none placeholder-slate-400 transition-all"></textarea>
+              <button class="bg-slate-800 text-white hover:bg-slate-700 font-black text-xs px-4 py-2.5 rounded-lg w-full transition-colors uppercase tracking-widest">Zapisz Notatkę</button>
+              
+              <hr class="border-slate-100 my-1">
+              
+              <button @click="openAttachmentsList(currentDetailTicket.attachments_url || [])" class="w-full flex items-center justify-center gap-2 border border-[#58b347]/30 bg-[#58b347]/5 hover:bg-[#58b347]/10 text-[#499b3a] font-black text-[11px] uppercase tracking-widest px-4 py-3 rounded-xl transition-colors shadow-sm">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg> Zarządzaj Załącznikami / Zdjęciami
+              </button>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+    </template>
+
+    <!-- ========================================================================================================================================== -->
+
     <!-- MODAL 1: GALERIA ZAŁĄCZNIKÓW -->
     <div v-if="attachmentsModal.show" class="fixed inset-0 z-[30000] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-6 animate-fadeIn" @click.self="attachmentsModal.show = false">
+
       <div class="relative w-full max-w-5xl bg-slate-50 rounded-[32px] overflow-hidden shadow-2xl flex flex-col h-[85vh]">
         <div class="px-8 py-6 border-b border-slate-200 flex justify-between items-center bg-white shrink-0">
           <h3 class="text-sm font-black text-slate-800 uppercase tracking-widest flex items-center gap-3">
@@ -192,6 +426,7 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue' 
 import { useTicketsStore } from '../../stores/useTicketsStore'
 import { useBillingsStore } from '../../stores/useBillingsStore'
+import { useSettingsStore } from '../../stores/useSettingsStore'
 import { useSearchFilters } from '../../composables/useSearchFilters'
 import { useSmartKpiFilters } from '../../composables/useSmartKpiFilters'
 
@@ -208,6 +443,7 @@ import SettlementModal from '../../modals/SettlementModal.vue'
 
 const store = useTicketsStore()
 const billingsStore = useBillingsStore()
+const settingsStore = useSettingsStore()
 const { checkTicketSearch } = useSearchFilters()
 
 const isClosedTicket = (t) => {
@@ -265,6 +501,18 @@ const selectedTicketIdForDiagnose = ref(null)
 
 const showSettlementModal = ref(false)
 const selectedTicketIdForSettlement = ref(null)
+
+// --- ZARZĄDZANIE EKRANEM DETALI (Tylko dla trybu V2) ---
+const currentDetailId = ref(null)
+const currentDetailTicket = computed(() => store.tickets.find(t => t.id === currentDetailId.value || t.ticket_code === currentDetailId.value))
+
+const openDetailScreen = (ticket) => {
+  currentDetailId.value = ticket.id || ticket.ticket_code
+}
+const closeDetailScreen = () => {
+  currentDetailId.value = null
+}
+// -------------------------------------------------------
 
 const columns = ref([
   { id: 'actions', label: '', visible: true, locked: true, sortable: false, width: '60px' },
