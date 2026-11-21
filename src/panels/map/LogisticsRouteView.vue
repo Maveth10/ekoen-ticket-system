@@ -538,8 +538,14 @@ const calculateOptimalRoute = async () => {
   const groupedByDate = {}
   technicianEvents.forEach(ev => {
     if (!ev.start_time) return
-    const dStr = String(ev.start_time).split('T')[0].split(' ')[0]
-    if (plannerMode.value === 'DAY' && selectedDate.value !== 'ALL' && dStr !== selectedDate.value) return
+    
+    // NAPRAWA STREFY CZASOWEJ (Rozwiązuje problem cofniętych dni)
+    const d = new Date(ev.start_time);
+    const dStr = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    
+    // Twarde wymuszenie filtrowania po wybranym dniu z górnego menu
+    if (selectedDate.value !== 'ALL' && dStr !== selectedDate.value) return
+    
     if (!groupedByDate[dStr]) groupedByDate[dStr] = []
     groupedByDate[dStr].push(ev)
   })

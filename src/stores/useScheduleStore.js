@@ -174,7 +174,6 @@ export const useScheduleStore = defineStore('schedule', {
     async fetchScheduleData() {
       this.loadTabsConfiguration()
       
-      // 1. SZYBKIE ŁADOWANIE Z CACHE
       const cachedData = localStorage.getItem('CACHE_SCHEDULE_DATA')
       if (cachedData) {
         try {
@@ -192,12 +191,11 @@ export const useScheduleStore = defineStore('schedule', {
       }
 
       if (typeof google === 'undefined' || !google.script || !google.script.run) {
-        console.warn("Brak dostępu do google.script.run w fetchScheduleData.");
+        console.warn("Brak dostępu do google.script.run w fetchScheduleData - działanie lokalne.");
         setTimeout(() => { this.isLoading = false }, 500)
         return
       }
 
-      // 2. DOCIĄGANIE W TLE (Poprawiono nazwę funkcji wywoływanej na backendzie)
       google.script.run
         .withSuccessHandler((response) => {
           try {
@@ -226,7 +224,6 @@ export const useScheduleStore = defineStore('schedule', {
                    }
                 }
                 
-                // Od razu wtłaczamy extendedProps przy ładowaniu
                 if (mappedEv) {
                    const tech = rawTechList.find(t => t.id === mappedEv.technician_id || t.name === mappedEv.technician_id)
                    mappedEv.extendedProps = {
@@ -251,7 +248,6 @@ export const useScheduleStore = defineStore('schedule', {
                 if (t.name) this.usersMap[t.name.toUpperCase()] = t
               })
 
-              // Aktualizacja Cache'u
               localStorage.setItem('CACHE_SCHEDULE_DATA', JSON.stringify({
                  events: this.events,
                  techList: this.techList,
@@ -264,8 +260,9 @@ export const useScheduleStore = defineStore('schedule', {
         .withFailureHandler(() => {
           this.isLoading = false
         })
-        .getScheduleData() // <--- TUTAJ BYŁ BŁĄD. Zmienione z getScheduleDataForFrontend
+        .getScheduleData()
     },
+    
     saveEventToCloud(evData) {
       // ZABEZPIECZENIE: Wymuszamy, by do bazy trafiało UUID, a nie imię!
       const activeTechId = evData.technician_id || evData.tech_id || evData.techName || '';

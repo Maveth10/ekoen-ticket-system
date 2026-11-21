@@ -118,13 +118,12 @@
         <!-- Pływający formularz wyboru dla logistyki -->
         <div class="bg-white/95 backdrop-blur-xl border border-slate-200 shadow-lg rounded-xl flex items-center p-1.5 gap-2 z-[100] relative flex-wrap max-w-full">
            
-           <!-- Wybór technika i daty (DODANY v-model) -->
-           <select v-model="routeTech" class="text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 outline-none hover:border-blue-400 focus:bg-white w-40">
+           <select id="route-tech-select" v-model="routeTech" class="text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 outline-none hover:border-blue-400 focus:bg-white w-40">
               <option value="">-- Technik --</option>
               <option v-for="tech in store.techs" :key="tech.id" :value="tech.id">{{ tech.name }}</option>
            </select>
            
-           <select v-model="routeDate" class="text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 outline-none hover:border-blue-400 focus:bg-white w-32">
+           <select id="route-date-select" v-model="routeDate" class="text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 outline-none hover:border-blue-400 focus:bg-white w-32">
               <option value="ALL">Wszystkie dni</option>
               <option v-for="date in availableRouteDates" :key="date" :value="date">{{ date }}</option>
            </select>
@@ -133,7 +132,7 @@
            <div class="w-px h-6 bg-slate-200 mx-1"></div>
 
            <!-- Wybór Punktu Startowego -->
-           <select v-model="routeStartType" class="text-xs font-bold text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-2 py-1.5 outline-none hover:border-blue-400 focus:bg-white w-40">
+           <select id="route-start-select" v-model="routeStartType" class="text-xs font-bold text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-2 py-1.5 outline-none hover:border-blue-400 focus:bg-white w-40">
               <option value="ZG">📍 Start: Zielona Góra</option>
               <option value="WAW">📍 Start: Warszawa</option>
               <option value="GPS">🛰️ Start: GPS (Lokalizacja)</option>
@@ -141,11 +140,11 @@
            </select>
 
            <!-- Ukryte pole na własny adres -->
-           <input v-show="routeStartType === 'CUSTOM'" type="text" placeholder="Wpisz np. Poznań, Główna 1" class="text-xs font-bold text-slate-700 bg-white border border-blue-300 rounded-lg px-3 py-1.5 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 w-48 shadow-inner transition-all" />
+           <input id="route-custom-address" v-show="routeStartType === 'CUSTOM'" type="text" placeholder="Wpisz np. Poznań, Główna 1" class="text-xs font-bold text-slate-700 bg-white border border-blue-300 rounded-lg px-3 py-1.5 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 w-48 shadow-inner transition-all" />
 
-           <!-- Przycisk Oblicz (DODANY @click i stan ładowania) -->
-           <button @click="calculateRoute" :disabled="isRoutingInProgress" class="bg-blue-600 text-white font-black text-[11px] uppercase tracking-widest px-4 py-2 rounded-lg transition-all shadow-sm hover:bg-blue-700 whitespace-nowrap ml-1 disabled:bg-slate-400">
-             {{ isRoutingInProgress ? 'Liczenie...' : 'Wyznacz Trasę' }}
+           <!-- Przycisk Oblicz (Tylko ID, nasłuchuje go panel Google) -->
+           <button id="route-calc-btn" class="bg-blue-600 text-white font-black text-[11px] uppercase tracking-widest px-4 py-2 rounded-lg transition-all shadow-sm hover:bg-blue-700 whitespace-nowrap ml-1">
+             Wyznacz Trasę
            </button>
         </div>
       </template>
@@ -229,6 +228,71 @@
     <!-- ======================= -->
 
   </div>
+
+<!-- ========================================== -->
+    <!-- 🕵️‍♂️ WIZUALNY DEBUGGER (ZAAWANSOWANY) -->
+    <!-- ========================================== -->
+    <div class="fixed bottom-0 right-0 z-[9999999] bg-slate-900/95 text-green-400 p-4 font-mono text-xs w-[450px] max-h-[90vh] overflow-y-auto rounded-tl-2xl shadow-[0_0_50px_rgba(0,0,0,0.5)] border-l-2 border-t-2 border-slate-700 custom-scrollbar">
+      <div class="font-bold text-white mb-3 border-b border-slate-700 pb-2 flex justify-between items-center">
+        <span>🕵️‍♂️ DEBUGGER DANYCH</span>
+        <button @click="store.isLoading = false; ticketsStore.isLoading = false; scheduleStore.isLoading = false;" class="bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded text-[10px] font-black transition-colors">
+          ODBLOKUJ EKRAN
+        </button>
+      </div>
+      
+      <!-- Podsumowanie stanu ładowania -->
+      <div class="grid grid-cols-3 gap-2 mb-4 border-b border-slate-700 pb-3 text-[10px]">
+        <div>Map: <span :class="store.isLoading ? 'text-red-400 animate-pulse font-bold' : 'text-green-400'">{{ store.isLoading }}</span></div>
+        <div>Tix: <span :class="ticketsStore.isLoading ? 'text-red-400 animate-pulse font-bold' : 'text-green-400'">{{ ticketsStore.isLoading }}</span></div>
+        <div>Sched: <span :class="scheduleStore.isLoading ? 'text-red-400 animate-pulse font-bold' : 'text-green-400'">{{ scheduleStore.isLoading }}</span></div>
+      </div>
+
+      <!-- BAZA: STACJE -->
+      <details class="mb-2 group">
+        <summary class="cursor-pointer text-white font-bold bg-slate-800 p-2 rounded select-none hover:bg-slate-700 transition-colors flex justify-between">
+          <span>📍 store.stations</span>
+          <span class="text-blue-400">Wyników: {{ store.stations?.length || 0 }}</span>
+        </summary>
+        <div class="p-2 bg-slate-950 text-slate-300 mt-1 rounded overflow-x-auto text-[10px]">
+          <div v-if="store.stations && store.stations.length > 0">
+            <div class="text-amber-400 mb-2 font-bold break-words">KLUCZE: {{ Object.keys(store.stations[0]).join(', ') }}</div>
+            <pre class="text-green-300">{{ JSON.stringify(store.stations[0], null, 2) }}</pre>
+          </div>
+          <div v-else class="text-red-400">Brak danych w store.stations</div>
+        </div>
+      </details>
+
+      <!-- BAZA: ZGŁOSZENIA -->
+      <details class="mb-2 group">
+        <summary class="cursor-pointer text-white font-bold bg-slate-800 p-2 rounded select-none hover:bg-slate-700 transition-colors flex justify-between">
+          <span>🎫 ticketsStore.tickets</span>
+          <span class="text-blue-400">Wyników: {{ ticketsStore.tickets?.length || 0 }}</span>
+        </summary>
+        <div class="p-2 bg-slate-950 text-slate-300 mt-1 rounded overflow-x-auto text-[10px]">
+          <div v-if="ticketsStore.tickets && ticketsStore.tickets.length > 0">
+            <div class="text-amber-400 mb-2 font-bold break-words">KLUCZE: {{ Object.keys(ticketsStore.tickets[0]).join(', ') }}</div>
+            <pre class="text-green-300">{{ JSON.stringify(ticketsStore.tickets[0], null, 2) }}</pre>
+          </div>
+          <div v-else class="text-red-400">Brak danych w ticketsStore.tickets</div>
+        </div>
+      </details>
+
+      <!-- BAZA: KALENDARZ -->
+      <details class="mb-2 group">
+        <summary class="cursor-pointer text-white font-bold bg-slate-800 p-2 rounded select-none hover:bg-slate-700 transition-colors flex justify-between">
+          <span>📅 scheduleStore.events</span>
+          <span class="text-blue-400">Wyników: {{ scheduleStore.events?.length || 0 }}</span>
+        </summary>
+        <div class="p-2 bg-slate-950 text-slate-300 mt-1 rounded overflow-x-auto text-[10px]">
+          <div v-if="scheduleStore.events && scheduleStore.events.length > 0">
+            <div class="text-amber-400 mb-2 font-bold break-words">KLUCZE: {{ Object.keys(scheduleStore.events[0]).join(', ') }}</div>
+            <pre class="text-green-300">{{ JSON.stringify(scheduleStore.events[0], null, 2) }}</pre>
+          </div>
+          <div v-else class="text-red-400">Brak wydarzeń w kalendarzu</div>
+        </div>
+      </details>
+    </div>
+
 </template>
 
 <script setup>
@@ -301,9 +365,10 @@ const availableRouteDates = computed(() => {
   scheduleStore.events.forEach(ev => {
     if (ev.start_time) {
       try {
-        // Bezpieczne cięcie stringa: z "2026-11-04 07:00:00" lub "2026-11-04T07:00:00" wyciągnie "2026-11-04"
-        const d = String(ev.start_time).split('T')[0].split(' ')[0];
-        dates.add(d);
+        // NAPRAWA STREFY CZASOWEJ (Rozwiązuje problem cofniętych dni)
+        const d = new Date(ev.start_time);
+        const dStr = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+        dates.add(dStr);
       } catch (e) {
         console.warn('❌ Błąd parsowania daty dla:', ev.start_time);
       }
@@ -586,103 +651,403 @@ function applyFilters() {
   map.value.getSource('stations-data').setData({ type: 'FeatureCollection', features });
 }
 
-async function calculateRoute() {
-  if (!routeTech.value) { alert("Najpierw wybierz technika z listy!"); return; }
-  isRoutingInProgress.value = true;
+const calculateOptimalRoute = async () => {
+  errorMessage.value = ''
+  totalHotelsSuggested.value = 0
+  estimatedKmSaved.value = 0
+  activeDayTab.value = 'ALL'
+
+  if (!mapInstance) return
+  isCalculating.value = true
   
-  try {
-    let stationsToVisit = [];
-    
-    // 1. Zdobądź nazwę i ID technika (w różnych miejscach bazy używane są zamiennie)
-    const selectedTechObj = store.techs.find(t => t.id === routeTech.value);
-    const techName = selectedTechObj ? selectedTechObj.name : routeTech.value;
+  clearAllMapObjects()
 
-    if (routeDate.value && routeDate.value !== 'ALL') {
-      // SCENARIUSZ A: Wybrano konkretny dzień. Skanujemy KALENDARZ!
-      const targetDateStr = routeDate.value;
-      
-      const eventsForTechAndDate = scheduleStore.events.filter(ev => {
-         const isMatchTech = (ev.technician_id === routeTech.value || ev.technician_id === techName || ev.extendedProps?.technicianName === techName);
-         const isMatchDate = String(ev.start_time).startsWith(targetDateStr);
-         return isMatchTech && isMatchDate;
-      });
-
-      // Wyciągamy z wydarzeń zgłoszenia, a z nich ID stacji
-      const qpIds = new Set();
-      eventsForTechAndDate.forEach(ev => {
-         const t = ticketsStore.tickets.find(tick => String(tick.id) === String(ev.ticket_id) || String(tick.ticket_code) === String(ev.ticket_id));
-         if (t) {
-            const qp = t.qp_id || t.station_id || t.qp_id_full;
-            if (qp) qpIds.add(String(qp).toLowerCase().trim());
-         }
-      });
-
-      // Zbieramy stacje z koordynatami GPS
-      stationsToVisit = store.stations.filter(s => {
-         const sId = String(s.id).toLowerCase().trim();
-         const sPub = String(s.public_id).toLowerCase().trim();
-         return (qpIds.has(sId) || qpIds.has(sPub)) && s.gps_lat && s.gps_lng;
-      });
-
-    } else {
-      // SCENARIUSZ B: "Wszystkie dni" - szukamy po prostu po przypisaniu stacji w bazie
-      stationsToVisit = store.stations.filter(s => {
-         const isAssigned = (s.technician_id === routeTech.value || s.technician_id === techName);
-         return isAssigned && s.gps_lat && s.gps_lng;
-      });
-    }
-
-    if (stationsToVisit.length === 0) { 
-      alert(`Brak punktów do odwiedzenia (lub brak wpisanego GPS) dla technika ${techName} w dniu ${routeDate.value}.`); 
-      clearRoute(); 
-      return; 
-    }
-
-    // 2. Układanie listy koordynatów dla trasy (format: "lng,lat;lng,lat")
-    let coordsList = stationsToVisit.map(s => `${parseFloat(s.gps_lng.toString().replace(',','.'))},${parseFloat(s.gps_lat.toString().replace(',','.'))}`);
-
-    // Dodawanie wybranego punktu startowego (wymusza start trasy z bazy)
-    let startCoord = null;
-    if (routeStartType.value === 'ZG') startCoord = "15.4851,51.9427";       // Siedziba Zielona Góra
-    else if (routeStartType.value === 'WAW') startCoord = "20.9728,52.1706"; // Oddział Warszawa
-    else if (routeStartType.value === 'GPS') {
-      // Ewentualny start z GPS przeglądarki (wymaga async geolocation) - na razie pomijamy jako null
-    }
-
-    if (startCoord) {
-      coordsList.unshift(startCoord); // Doklejamy punkt startowy na sam początek trasy
-    }
-
-    if (coordsList.length < 2) {
-       alert("Za mało punktów z GPS, by wyznaczyć trasę (minimum to start + 1 stacja)."); 
-       clearRoute(); 
-       return; 
-    }
-
-    // 3. Wysłanie zapytań do serwera trasującego OSRM
-    const joinedCoords = coordsList.join(';');
-    const res = await fetch(`https://router.project-osrm.org/trip/v1/driving/${joinedCoords}?source=first&roundtrip=false&geometries=geojson`);
-    if (!res.ok) throw new Error("Błąd serwera nawigacji (OSRM)");
-    
-    const data = await res.json();
-    if (data.code !== 'Ok' || !data.trips || data.trips.length === 0) { 
-        alert("Serwer nie odnalazł drogi lądowej pomiędzy tymi punktami."); 
-        return; 
-    }
-
-    // 4. Rysowanie trasy na mapie
-    map.value.getSource('optimized-route').setData(data.trips[0].geometry);
-    const bounds = data.trips[0].geometry.coordinates.reduce((b, c) => b.extend(c), new maplibregl.LngLatBounds(data.trips[0].geometry.coordinates[0], data.trips[0].geometry.coordinates[0]));
-    map.value.fitBounds(bounds, { padding: 80, duration: 1500 });
-    
-    isRoutingActive.value = true;
-    activeMenu.value = null;
-
-  } catch (e) { 
-    alert("Błąd wyznaczania trasy: " + e.message); 
-  } finally { 
-    isRoutingInProgress.value = false; 
+  if (!selectedTech.value) {
+    errorMessage.value = 'Proszę najpierw wybrać technika z listy u góry.'
+    isCalculating.value = false
+    return
   }
+
+  // 1. Zabezpieczenie danych technika
+  const selectedTechObj = props.techs.find(t => t.id === selectedTech.value)
+  const techName = selectedTechObj ? selectedTechObj.name : selectedTech.value
+
+  const technicianEvents = props.calendarEvents.filter(ev => 
+    String(ev.technician_id) === String(selectedTech.value) || 
+    String(ev.technician_id) === String(techName) || 
+    String(ev.extendedProps?.technicianName) === String(techName)
+  )
+
+  if (technicianEvents.length === 0) {
+    errorMessage.value = 'Wybrany technik nie ma zaplanowanych zadań w kalendarzu.'
+    isCalculating.value = false
+    return
+  }
+
+  const groupedByDate = {}
+  technicianEvents.forEach(ev => {
+    if (!ev.start_time) return
+    const dStr = String(ev.start_time).split('T')[0].split(' ')[0]
+    if (plannerMode.value === 'DAY' && selectedDate.value !== 'ALL' && dStr !== selectedDate.value) return
+    if (!groupedByDate[dStr]) groupedByDate[dStr] = []
+    groupedByDate[dStr].push(ev)
+  })
+
+  const sortedDates = Object.keys(groupedByDate).sort()
+  if (sortedDates.length === 0) {
+    errorMessage.value = 'Brak zgłoszeń serwisowych w wybranym terminie.'
+    isCalculating.value = false
+    return
+  }
+
+  const daysData = []
+  sortedDates.forEach(date => {
+    const events = groupedByDate[date]
+    const routePoints = []
+    const seenStationIds = new Set()
+
+    events.forEach(ev => {
+      // MEGA ODPORNE WYSZUKIWANIE STACJI (bez polegania na ticketsStore)
+      const evTitle = String(ev.title || '').toUpperCase();
+      let qpIdToFind = null;
+      let ticket = null;
+
+      // Szukamy frazy QP-XXXX w tytule za pomocą Regex
+      const qpMatch = evTitle.match(/(QP-\d+)/);
+      if (qpMatch && qpMatch[1]) {
+         qpIdToFind = qpMatch[1].toLowerCase().trim();
+      } else {
+         // Fallback dla zgłoszeń zaczynających się od ST-
+         const stMatch = evTitle.match(/(ST-\d+)/);
+         if (stMatch && stMatch[1]) qpIdToFind = stMatch[1].toLowerCase().trim();
+      }
+
+      // Jeśli regex nie znalazł, próbujemy klasycznie przez tablicę tickets (jeśli jest załadowana)
+      if (!qpIdToFind) {
+          const tId = String(ev.ticket_id || '').toLowerCase().trim();
+          ticket = props.tickets.find(tick => String(tick.id).toLowerCase().trim() === tId || String(tick.ticket_code).toLowerCase().trim() === tId);
+          if (ticket) qpIdToFind = ticket.qp_id || ticket.station_id || ticket.qp_id_full;
+      }
+
+      if (!qpIdToFind) return;
+
+      const searchId = String(qpIdToFind).toLowerCase().trim();
+      if (seenStationIds.has(searchId)) return;
+
+      // Szukamy w bazie stacji
+      const cleanQp = searchId.replace('qp-', '').replace('st-', '').trim();
+      const station = props.stations.find(s => {
+          const sId = String(s.id).toLowerCase().trim();
+          const sPub = String(s.public_id).toLowerCase().trim();
+          const sName = String(s.name).toLowerCase().trim();
+          return sId === searchId || sPub === searchId || sName === searchId || 
+                 (cleanQp.length > 2 && (sPub.includes(cleanQp) || sName.includes(cleanQp)));
+      });
+      
+      let lat = null, lng = null, addressStr = ''
+
+      const tCity = ticket?.city || ticket?.miasto || ''
+      const tStreet = ticket?.address || ticket?.street || ticket?.ulica || ticket?.adres || ''
+      
+      if (tCity || tStreet) {
+        addressStr = `${tStreet}, ${tCity}, Polska`.replace(/^[\s,]+|[\s,]+$/g, '')
+      } else if (station && station.gps_lat && station.gps_lng) {
+        lat = parseFloat(String(station.gps_lat).replace(',', '.'))
+        lng = parseFloat(String(station.gps_lng).replace(',', '.'))
+      } else if (station && (station.city || station.street)) {
+        addressStr = `${station.street_number || station.street || ''}, ${station.city || ''}, Polska`.replace(/^[\s,]+|[\s,]+$/g, '')
+      }
+
+      if (lat !== null || addressStr !== '') {
+        seenStationIds.add(searchId)
+        routePoints.push({
+          ticket: ticket || { ticket_code: ev.ticket_id, description: ev.title || 'Zadanie z kalendarza' },
+          station: station || { qp_id: searchId.toUpperCase() },
+          lat,
+          lng,
+          queryAddress: addressStr,
+          city: tCity || station?.city || ''
+        })
+      }
+    })
+
+    if (routePoints.length > 0) {
+      daysData.push({ date, routePoints })
+    }
+  })
+
+  if (daysData.length === 0) {
+    errorMessage.value = 'Żadne ze zgłoszeń nie posiada adresu ani współrzędnych.'
+    isCalculating.value = false
+    return
+  }
+
+  globalBounds = new window.google.maps.LatLngBounds()
+  let carriedOverOrigin = null
+  let carriedOverCity = ''
+
+  for (let dIdx = 0; dIdx < daysData.length; dIdx++) {
+    const dayEntry = daysData[dIdx]
+    const currentDate = dayEntry.date
+    const routePoints = dayEntry.routePoints
+    const dayColor = DAY_COLORS[dIdx % DAY_COLORS.length]
+
+    let dayOriginWaypoint = null
+    let dayOriginLabel = ''
+    let isHotelStart = false
+
+    if (accommodationPolicy.value === 'SMART_HOTEL' && carriedOverOrigin) {
+      dayOriginWaypoint = carriedOverOrigin
+      dayOriginLabel = `Nocleg: ${carriedOverCity}`
+      isHotelStart = true
+      carriedOverOrigin = null 
+    } else {
+      if (selectedStartType.value === 'WAW') {
+        dayOriginWaypoint = { address: 'Postępu 13, Warszawa, Polska' }
+        dayOriginLabel = 'Biuro EKOEN Warszawa'
+      } else if (selectedStartType.value === 'CUSTOM' && customStartAddress.value) {
+        dayOriginWaypoint = { address: customStartAddress.value }
+        dayOriginLabel = customStartAddress.value
+      } else {
+        dayOriginWaypoint = { address: 'Rozwojowa 9, Nowy Kisielin, Zielona Góra, Polska' }
+        dayOriginLabel = 'Biuro EKOEN Zielona Góra'
+      }
+    }
+
+    const baseLat = 51.93
+    const baseLng = 15.54
+    let farthestIdx = 0
+    let maxDist = -1
+
+    routePoints.forEach((pt, idx) => {
+      const pLat = pt.lat || 52.2
+      const pLng = pt.lng || 21.0
+      const d = Math.hypot(pLat - baseLat, pLng - baseLng)
+      if (d > maxDist) {
+        maxDist = d
+        farthestIdx = idx
+      }
+    })
+
+    const destinationPoint = routePoints[farthestIdx]
+    const destinationWaypoint = (destinationPoint.lat !== null && !isNaN(destinationPoint.lat))
+      ? { location: { latLng: { latitude: destinationPoint.lat, longitude: destinationPoint.lng } } }
+      : { address: destinationPoint.queryAddress }
+
+    const intermediateWaypoints = []
+    const intermediateData = []
+
+    routePoints.forEach((pt, idx) => {
+      if (idx !== farthestIdx) {
+        intermediateData.push(pt)
+        intermediateWaypoints.push((pt.lat !== null && !isNaN(pt.lat))
+          ? { location: { latLng: { latitude: pt.lat, longitude: pt.lng } } }
+          : { address: pt.queryAddress }
+        )
+      }
+    })
+
+    const reqBody = {
+      origin: dayOriginWaypoint,
+      destination: destinationWaypoint,
+      travelMode: 'DRIVE',
+      routingPreference: 'TRAFFIC_UNAWARE',
+      languageCode: 'pl',
+      units: 'METRIC'
+    }
+
+    if (intermediateWaypoints.length > 0) {
+      reqBody.intermediates = intermediateWaypoints
+      reqBody.optimizeWaypointOrder = true
+    }
+
+    try {
+      const resp = await fetch('https://routes.googleapis.com/directions/v2:computeRoutes', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Goog-Api-Key': API_KEY,
+          'X-Goog-FieldMask': 'routes.duration,routes.distanceMeters,routes.polyline.encodedPolyline,routes.legs.duration,routes.legs.distanceMeters,routes.legs.startLocation,routes.legs.endLocation,routes.legs.steps.navigationInstruction,routes.legs.steps.distanceMeters,routes.optimizedIntermediateWaypointIndex'
+        },
+        body: JSON.stringify(reqBody)
+      })
+
+      const data = await resp.json()
+      
+      if (data.error) {
+        console.error("Błąd API Google:", data.error.message)
+        errorMessage.value = `Błąd Google: ${data.error.message}`
+        continue
+      }
+      
+      if (!data.routes || data.routes.length === 0) continue
+
+      const route = data.routes[0]
+      const decodedCoords = decodePolyline(route.polyline.encodedPolyline)
+      const dayBounds = new window.google.maps.LatLngBounds()
+
+      decodedCoords.forEach(c => {
+        dayBounds.extend(c)
+        globalBounds.extend(c)
+      })
+
+      const poly = new window.google.maps.Polyline({
+        path: decodedCoords,
+        geodesic: true,
+        strokeColor: dayColor,
+        strokeOpacity: 0.9,
+        strokeWeight: 6,
+        map: mapInstance
+      })
+      globalPolylines.push(poly) 
+
+      const dayMarkers = []
+      const dayInfoWindows = []
+      const daySteps = []
+
+      const startLoc = { lat: route.legs[0].startLocation.latLng.latitude, lng: route.legs[0].startLocation.latLng.longitude }
+      const startMarker = new window.google.maps.Marker({
+        position: startLoc,
+        map: mapInstance,
+        icon: {
+          url: createCustomPinSvg('S', isHotelStart ? '#d97706' : '#16a34a'),
+          scaledSize: new window.google.maps.Size(34, 42),
+          anchor: new window.google.maps.Point(17, 42)
+        },
+        title: dayOriginLabel,
+        zIndex: 1000
+      })
+      dayMarkers.push(startMarker)
+      globalMarkers.push(startMarker) 
+
+      daySteps.push({
+        isStartPoint: true,
+        isHotelStart: isHotelStart,
+        label: dayOriginLabel,
+        marker: startMarker
+      })
+
+      route.legs.forEach((leg, lIdx) => {
+        let stepData = (lIdx < route.legs.length - 1)
+          ? intermediateData[route.optimizedIntermediateWaypointIndex ? route.optimizedIntermediateWaypointIndex[lIdx] : lIdx]
+          : destinationPoint
+
+        const legSec = parseInt(String(leg.duration).replace('s', ''), 10) || 0
+        const isSame = (leg.distanceMeters || 0) < 50
+        const endPos = { lat: leg.endLocation.latLng.latitude, lng: leg.endLocation.latLng.longitude }
+
+        const qp = stepData.station?.qp_id || stepData.station?.public_id || stepData.ticket?.qp_id || 'QP'
+        const marker = new window.google.maps.Marker({
+          position: endPos,
+          map: mapInstance,
+          icon: {
+            url: createCustomPinSvg(String(lIdx + 1), dayColor),
+            scaledSize: new window.google.maps.Size(34, 42),
+            anchor: new window.google.maps.Point(17, 42)
+          },
+          title: `${qp} (#${stepData.ticket?.ticket_code || stepData.ticket?.id})`,
+          zIndex: 1001 + lIdx
+        })
+
+        const infoWindow = new window.google.maps.InfoWindow({
+          content: `
+            <div style="font-family: inherit; padding: 4px; min-width: 200px;">
+              <div style="font-weight: 800; color: ${dayColor}; margin-bottom: 2px;">${qp} | ${currentDate}</div>
+              <div style="font-size: 11px; font-weight: 700; color: #334155;">${stepData.station?.city || stepData.city || ''}</div>
+              <div style="font-size: 10px; color: #dc2626; margin-top: 4px; background: #fef2f2; padding: 4px; border-radius: 4px;">
+                ${stepData.ticket?.description || stepData.ticket?.title || 'Zadanie serwisowe'}
+              </div>
+            </div>
+          `
+        })
+
+        marker.addListener('click', () => infoWindow.open({ anchor: marker, map: mapInstance }))
+        dayMarkers.push(marker)
+        dayInfoWindows.push(infoWindow)
+        
+        globalMarkers.push(marker)
+        globalInfoWindows.push(infoWindow)
+
+        const navSteps = (leg.steps || []).map(s => ({
+          instruction: s.navigationInstruction?.instructions || 'Jedź trasą',
+          maneuver: s.navigationInstruction?.maneuver || '',
+          distanceText: (s.distanceMeters >= 1000) ? `${(s.distanceMeters / 1000).toFixed(1)} km` : `${s.distanceMeters} m`
+        }))
+
+        const prevLoc = lIdx === 0 ? startLoc : { lat: route.legs[lIdx-1].endLocation.latLng.latitude, lng: route.legs[lIdx-1].endLocation.latLng.longitude }
+        const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${prevLoc.lat},${prevLoc.lng}&destination=${endPos.lat},${endPos.lng}&travelmode=driving`
+
+        daySteps.push({
+          ...stepData,
+          legDuration: isSame ? 'Na miejscu' : formatDuration(legSec),
+          isSameLocation: isSame,
+          navigationSteps: navSteps,
+          showNav: false,
+          googleMapsUrl: googleMapsUrl,
+          marker: marker,
+          infoWindow: infoWindow
+        })
+      })
+
+      const lastLegEnd = route.legs[route.legs.length - 1].endLocation.latLng
+      const nextDayEntry = daysData[dIdx + 1]
+
+      if (nextDayEntry && accommodationPolicy.value === 'SMART_HOTEL') {
+        const nextFirstPt = nextDayEntry.routePoints[0]
+        const currentEndCity = (destinationPoint.city || destinationPoint.station?.city || '').toLowerCase().trim()
+        const nextCity = (nextFirstPt.city || nextFirstPt.station?.city || '').toLowerCase().trim()
+
+        const distToBase = getDistanceBetweenCoords(lastLegEnd.latitude, lastLegEnd.longitude, baseLat, baseLng)
+        let isNextNear = false
+
+        if (currentEndCity && nextCity && (currentEndCity.includes(nextCity) || nextCity.includes(currentEndCity))) {
+          isNextNear = true
+        } else if (nextFirstPt.lat && nextFirstPt.lng) {
+          const distToNext = getDistanceBetweenCoords(lastLegEnd.latitude, lastLegEnd.longitude, nextFirstPt.lat, nextFirstPt.lng)
+          if (distToNext < 120) isNextNear = true
+        } else {
+          if (distToBase > 150) isNextNear = true
+        }
+
+        if (distToBase > 120 && isNextNear) {
+          daySteps[daySteps.length - 1].isSuggestedHotelAfter = true
+          totalHotelsSuggested.value++
+          estimatedKmSaved.value += Math.round(distToBase * 1.8)
+
+          carriedOverOrigin = { location: { latLng: { latitude: lastLegEnd.latitude, longitude: lastLegEnd.longitude } } }
+          carriedOverCity = destinationPoint.city || destinationPoint.station?.city || 'Hotel w trasie'
+        }
+      }
+
+      const totalDaySec = parseInt(String(route.duration).replace('s', ''), 10) || 0
+      const totalDayMeters = route.distanceMeters || 0
+
+      weekSchedule.value.push({
+        date: currentDate,
+        dateName: new Date(currentDate).toLocaleDateString('pl-PL', { weekday: 'short', day: 'numeric', month: 'numeric' }),
+        color: dayColor,
+        polyline: poly,
+        markers: dayMarkers,
+        infoWindows: dayInfoWindows,
+        steps: daySteps,
+        bounds: dayBounds,
+        taskCount: daySteps.length - 1,
+        distanceMeters: totalDayMeters,
+        durationSec: totalDaySec,
+        dayStatsText: `${(totalDayMeters / 1000).toFixed(1)} km | ${formatDuration(totalDaySec)}`
+      })
+
+    } catch (e) {
+      console.error(`Błąd trasy dla dnia ${currentDate}:`, e)
+      errorMessage.value = `Błąd trasy: ${e.message}`
+    }
+  }
+
+  if (weekSchedule.value.length > 0) {
+    updateMapVisibility()
+  }
+
+  isCalculating.value = false
 }
 
 function clearRoute() {
@@ -848,17 +1213,22 @@ function initMap() {
 
 async function loadGeoJsonBoundaries() {
     const fetchGeoJSONHybrid = (src) => {
-        return new Promise((resolve, reject) => {
+        return new Promise((resolve) => {
             if (typeof google !== 'undefined' && google.script) {
                 google.script.run
-                    .withSuccessHandler((data) => resolve({ code: src.code, data: typeof data === 'string' ? JSON.parse(data) : data }))
-                    .withFailureHandler(reject)
+                    .withSuccessHandler((data) => {
+                        let parsed = null;
+                        try { parsed = typeof data === 'string' ? JSON.parse(data) : data } catch(e) {}
+                        resolve({ code: src.code, data: parsed });
+                    })
+                    .withFailureHandler((err) => {
+                        console.warn(`[GeoJSON] Błąd pobierania z Drive dla ${src.code}:`, err);
+                        // ZAMIAST REJECT: Zwracamy null, żeby nie zawiesić mapy!
+                        resolve({ code: src.code, data: null });
+                    })
                     .fetchGeoJSONFromDrive(src.url)
             } else {
-                fetch(`/geojson/${src.code}.geojson`)
-                    .then(res => res.json())
-                    .then(data => resolve({ code: src.code, data }))
-                    .catch(reject)
+                resolve({ code: src.code, data: null })
             }
         })
     };
