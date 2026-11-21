@@ -2,10 +2,9 @@
   <div id="app-root" class="bg-[#f4f6f8] text-slate-800 font-sans h-screen w-screen overflow-hidden flex flex-row relative">
     
     <!-- ========================================== -->
-    <!-- EKRAN LOGOWANIA I USTAWIANIA HASŁA -->
-    <!-- (Pokrywa całą aplikację, gdy nie jesteśmy zalogowani) -->
+    <!-- EKRAN WYBORU DOSTĘPU (Google / Bez logowania) -->
     <!-- ========================================== -->
-    <div v-if="!isAuthenticated" class="fixed inset-0 z-[999999] bg-slate-50 flex flex-col items-center justify-center font-sans">
+    <div v-if="!isAuthenticated" class="fixed inset-0 z-[999999] bg-slate-50 flex flex-col items-center justify-center font-sans p-4">
       
       <!-- Tło dekoracyjne -->
       <div class="absolute inset-0 overflow-hidden pointer-events-none">
@@ -14,7 +13,7 @@
       </div>
 
       <!-- BOX GŁÓWNY -->
-      <div class="bg-white w-full max-w-md p-8 md:p-10 rounded-[2rem] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] border border-slate-100 relative z-10">
+      <div class="bg-white w-full max-w-md p-8 md:p-10 rounded-[2rem] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] border border-slate-100 relative z-10 animate-fadeIn">
         
         <!-- LOGO -->
         <div class="flex justify-center mb-8">
@@ -32,121 +31,107 @@
           </div>
         </div>
 
-        <!-- KROK 1: STANDARDOWE LOGOWANIE -->
-        <div v-if="!requirePasswordSetup" class="animate-fadeIn">
-          <div class="text-center mb-8">
-            <h2 class="text-xl font-black text-slate-800 tracking-tight">Witaj w systemie</h2>
-            <p class="text-xs text-slate-500 font-medium mt-1.5">Zaloguj się na konto pracownicze</p>
-          </div>
-
-          <div class="space-y-4">
-            <div>
-              <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1.5 ml-1">Nazwa użytkownika</label>
-              <div class="relative flex items-center">
-                <svg class="w-4 h-4 text-slate-400 absolute left-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                <input v-model="loginData.username" @keyup.enter="handleLogin" type="text" placeholder="np. jan.kowalski" class="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-[13px] font-bold text-slate-700 focus:outline-none focus:bg-white focus:border-[#58b347] focus:ring-2 focus:ring-[#58b347]/20 transition-all">
-              </div>
-            </div>
-            <div>
-              <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1.5 ml-1">Hasło</label>
-              <div class="relative flex items-center">
-                <svg class="w-4 h-4 text-slate-400 absolute left-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                <input v-model="loginData.password" @keyup.enter="handleLogin" type="password" placeholder="••••••••" class="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-[13px] font-bold text-slate-700 focus:outline-none focus:bg-white focus:border-[#58b347] focus:ring-2 focus:ring-[#58b347]/20 transition-all">
-              </div>
-            </div>
-
-            <div v-if="authError" class="text-center text-xs font-bold text-red-500 pt-1 animate-pulse">
-              {{ authError }}
-            </div>
-
-            <button @click="handleLogin" :disabled="isLoading" class="w-full bg-[#58b347] text-white font-black py-3.5 px-4 rounded-xl text-[13px] uppercase tracking-widest hover:bg-[#499b3a] transition-all shadow-[0_5px_15px_rgba(88,179,71,0.3)] mt-2 flex items-center justify-center gap-2 disabled:bg-slate-400">
-              <span>{{ isLoading ? 'Weryfikacja...' : 'Zaloguj się' }}</span>
-              <svg v-if="isLoading" class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
-            </button>
-          </div>
+        <div class="text-center mb-8">
+          <h2 class="text-xl font-black text-slate-800 tracking-tight">Witaj w systemie</h2>
+          <p class="text-xs text-slate-500 font-medium mt-1.5">Zaloguj się kontem Google lub zgłoś usterkę jako gość</p>
         </div>
 
-        <!-- KROK 2: USTAWIANIE HASŁA -->
-        <div v-else class="animate-fadeIn">
-          <div class="text-center mb-6">
-            <h2 class="text-xl font-black text-slate-800 tracking-tight">Nowe Konto</h2>
-            <p class="text-xs text-slate-500 font-medium mt-1.5">Zabezpiecz swoje konto nowym hasłem.</p>
+        <div v-if="authError" class="text-center text-xs font-bold text-red-500 pb-4 animate-pulse">
+          {{ authError }}
+        </div>
+
+        <div class="space-y-4">
+          <!-- OPCJA 1: LOGOWANIE PRZYCISKIEM GOOGLE -->
+          <button
+            @click="loginWithGoogle"
+            :disabled="isLoading"
+            type="button"
+            class="w-full bg-white hover:bg-slate-50 text-slate-700 font-bold py-3.5 px-4 rounded-xl text-[13px] border border-slate-200 shadow-sm transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+          >
+            <svg v-if="!isLoading" class="w-5 h-5 shrink-0" viewBox="0 0 24 24">
+              <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17Z"/>
+              <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.11-6.72-4.96H1.29v3.14C3.26 21.3 7.31 24 12 24Z"/>
+              <path fill="#FBBC05" d="M5.28 14.24c-.24-.72-.38-1.49-.38-2.24s.14-1.52.38-2.24V6.62H1.29C.47 8.24 0 10.06 0 12s.47 3.76 1.29 5.38l3.99-3.14Z"/>
+              <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.62l3.99 3.14c.95-2.85 3.6-4.96 6.72-4.96Z"/>
+            </svg>
+            <svg v-else class="w-4 h-4 animate-spin text-[#58b347]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+              <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+            </svg>
+            <span>{{ isLoading ? 'Autoryzacja Google...' : 'Kontynuuj z Google' }}</span>
+          </button>
+
+          <!-- SEPARATOR -->
+          <div class="flex items-center gap-3 py-1">
+            <div class="flex-1 h-px bg-slate-200"></div>
+            <span class="text-[10px] font-black uppercase tracking-widest text-slate-400">LUB</span>
+            <div class="flex-1 h-px bg-slate-200"></div>
           </div>
 
-          <div class="space-y-4">
-            <div>
-              <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1.5 ml-1">Nowe hasło</label>
-              <input v-model="setupData.pass1" type="password" placeholder="Minimum 4 znaki" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-[13px] font-bold text-slate-700 focus:outline-none focus:border-[#58b347] transition-all">
-            </div>
-            <div>
-              <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1.5 ml-1">Powtórz hasło</label>
-              <input v-model="setupData.pass2" @keyup.enter="handleSetupPassword" type="password" placeholder="Potwierdź nowe hasło" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-[13px] font-bold text-slate-700 focus:outline-none focus:border-[#58b347] transition-all">
-            </div>
-
-            <div v-if="setupError" class="text-center text-xs font-bold text-red-500 pt-1">
-              {{ setupError }}
-            </div>
-
-            <button @click="handleSetupPassword" :disabled="isLoading" class="w-full bg-[#58b347] text-white font-black py-3.5 px-4 rounded-xl text-[13px] uppercase tracking-widest hover:bg-[#499b3a] transition-all shadow-[0_5px_15px_rgba(88,179,71,0.3)] mt-2 flex items-center justify-center gap-2 disabled:bg-slate-400">
-              <span>{{ isLoading ? 'Zapisywanie...' : 'Zapisz i Wejdź' }}</span>
-            </button>
-          </div>
+          <!-- OPCJA 2: BEZ LOGOWANIA (GOŚĆ / KIEROWCA) -->
+          <button
+            @click="enterAsGuest"
+            :disabled="isLoading"
+            type="button"
+            class="w-full bg-[#58b347] hover:bg-[#499b3a] text-white font-black py-3.5 px-4 rounded-xl text-[12px] uppercase tracking-widest transition-all shadow-[0_5px_15px_rgba(88,179,71,0.3)] flex items-center justify-center gap-2 disabled:bg-slate-400"
+          >
+            <span>🚨 Zgłoś usterkę bez logowania</span>
+          </button>
         </div>
         
       </div>
     </div>
 
     <!-- ========================================== -->
-    <!-- GŁÓWNA APLIKACJA (Pokazuje się po zalogowaniu) -->
+    <!-- GŁÓWNA APLIKACJA (Zależnie od Roli)        -->
     <!-- ========================================== -->
-    
-    <!-- Animowany pasek trzymający przestrzeń (efekt kinowy) -->
-    <div v-show="isAuthenticated"
-      class="h-full shrink-0 border-r border-slate-200 bg-white z-30 transition-all duration-300 ease-in-out"
-      :class="isSidebarHovered ? 'w-[260px]' : 'w-[72px]'"
-    ></div>
-    
-    <!-- MENU BOCZNE -->
-    <div v-show="isAuthenticated"
-      class="absolute top-0 left-0 h-full z-40"
-      @mouseenter="isSidebarHovered = true" 
-      @mouseleave="isSidebarHovered = false"
-    >
-      <Sidebar 
-        :currentView="currentActiveView" 
-        @switch-view="changeView"
-        @logout="handleLogout"
-      />
-    </div>
-    
-    <!-- GŁÓWNA PRZESTRZEŃ (PANELE) -->
-    <main v-if="isAuthenticated" class="flex-1 relative h-full overflow-hidden z-10" id="main-content-area">
-      <!-- Dynamiczne przełączanie widoków -->
-      <TicketsView v-if="currentActiveView === 'tickets'" />
-      <ClientsView v-else-if="currentActiveView === 'clients'" />
-      <ScheduleView v-else-if="currentActiveView === 'schedule'" />
-      <BillingsView v-else-if="currentActiveView === 'billings'" />
-      <StorageView v-else-if="currentActiveView === 'storage'" />
-      <TechniciansView v-else-if="currentActiveView == 'technicians'" />
-      <StationsView v-else-if="currentActiveView == 'stations'" />
-      <MapView v-else-if="currentActiveView == 'map'" />
-      <OffersView v-else-if="currentActiveView === 'offers'" />
-      <SettingsView v-else-if="currentActiveView === 'settings'"/>
+    <template v-if="isAuthenticated">
       
-      <!-- Zaślepka dla pozostałych, jeszcze niezbudowanych zakładek -->
-      <div v-else class="flex flex-col items-center justify-center h-full text-slate-400">
-        <svg class="w-16 h-16 mb-4 opacity-50" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-        <h2 class="text-xl font-black uppercase tracking-widest text-slate-300">Moduł w budowie</h2>
-      </div>
-    </main>
+      <!-- WIDOK A: PANEL PRACOWNIKA (EKOEN) -->
+      <template v-if="userRole === 'EMPLOYEE'">
+        <div class="h-full shrink-0 border-r border-slate-200 bg-white z-30 transition-all duration-300 ease-in-out" :class="isSidebarHovered ? 'w-[260px]' : 'w-[72px]'"></div>
+        
+        <div class="absolute top-0 left-0 h-full z-40" @mouseenter="isSidebarHovered = true" @mouseleave="isSidebarHovered = false">
+          <Sidebar :currentView="currentActiveView" @switch-view="changeView" @logout="handleLogout" />
+        </div>
+        
+        <main class="flex-1 relative h-full overflow-hidden z-10" id="main-content-area">
+          <TicketsView v-if="currentActiveView === 'tickets'" />
+          <ClientsView v-else-if="currentActiveView === 'clients'" />
+          <ScheduleView v-else-if="currentActiveView === 'schedule'" />
+          <BillingsView v-else-if="currentActiveView === 'billings'" />
+          <StorageView v-else-if="currentActiveView === 'storage'" />
+          <TechniciansView v-else-if="currentActiveView == 'technicians'" />
+          <StationsView v-else-if="currentActiveView == 'stations'" />
+          <MapView v-else-if="currentActiveView == 'map'" />
+          <OffersView v-else-if="currentActiveView === 'offers'" />
+          <SettingsView v-else-if="currentActiveView === 'settings'"/>
+          
+          <div v-else class="flex flex-col items-center justify-center h-full text-slate-400">
+            <svg class="w-16 h-16 mb-4 opacity-50" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            <h2 class="text-xl font-black uppercase tracking-widest text-slate-300">Moduł w budowie</h2>
+          </div>
+        </main>
+      </template>
+
+      <!-- WIDOK B: PORTAL KLIENTA (Zalogowany z historią LUB Gość bez logowania) -->
+      <template v-else-if="userRole === 'CLIENT'">
+        <ClientPortal 
+          class="w-full h-full" 
+          :userEmail="userEmail" 
+          :isGuest="isGuest" 
+          @logout="handleLogout" 
+        />
+      </template>
+
+    </template>
 
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 
-// Importy komponentów bazowych i paneli
+// Importy komponentów pracownika
 import Sidebar from './components/sidebar/Sidebar.vue'
 import StorageView from './panels/storage/StorageView.vue'
 import TechniciansView from './panels/technicians/TechniciansView.vue'
@@ -159,26 +144,52 @@ import MapView from './panels/map/MapView.vue'
 import OffersView from './panels/offers/OffersView.vue' 
 import SettingsView from './panels/settings/SettingsView.vue'
 
-// --- STANY APLIKACJI I NAWIGACJI ---
-const isSidebarHovered = ref(false)
-const currentActiveView = ref('map')
+// Import portalu klienta (dopasuj ścieżkę jeśli folder jest w src/clientportal/)
+import ClientPortal from './clientportal/ClientPortal.vue'
 
-const changeView = (viewName) => {
-  currentActiveView.value = viewName
+// --- KONFIGURACJA GOOGLE OAUTH REDIRECT ---
+const GOOGLE_CLIENT_ID = '398779552235-ssklkk7togd0ie05ati1pt1nbm5g158u.apps.googleusercontent.com'
+const GAS_EXEC_URL = 'https://script.google.com/macros/s/AKfycbyMqe87OuhNHgqI4OScTPc4RSJ3fDF3QhhC1S3-OFTC6ho7mphyS_Q8nE0gvDluybU8ww/exec'
+
+const getRedirectUri = () => {
+  return window.location.hostname === 'localhost' ? 'http://localhost:5173' : GAS_EXEC_URL
 }
 
-// --- STANY LOGOWANIA ---
+// --- STANY NAWIGACJI ---
+const isSidebarHovered = ref(false)
+const currentActiveView = ref('map')
+const changeView = (viewName) => { currentActiveView.value = viewName }
+
+// --- STANY AUTORYZACJI ---
 const isAuthenticated = ref(false)
-const requirePasswordSetup = ref(false)
+const userRole = ref('') // 'EMPLOYEE' | 'CLIENT'
+const userEmail = ref('')
+const isGuest = ref(false)
+
 const isLoading = ref(false)
 const authError = ref('')
-const setupError = ref('')
 
-const loginData = reactive({ username: '', password: '' })
-const setupData = reactive({ pass1: '', pass2: '' })
-
-// Sprawdzamy sesję przy starcie
 onMounted(() => {
+  // 1. Obsługa powrotu z logowania Google (?code=...)
+  const urlCode = new URLSearchParams(window.location.search).get('code')
+  const gasCode = window.__GAS_OAUTH_CODE__ || urlCode || ''
+
+  if (gasCode) {
+    window.__GAS_OAUTH_CODE__ = ''
+    if (window.location.hostname === 'localhost') {
+      window.history.replaceState({}, document.title, '/')
+    }
+    completeGoogleOAuth(gasCode)
+    return
+  }
+
+  // 2. Wejście z kodu QR (#/client) -> otwiera od razu w trybie gościa
+  if (window.location.hash.includes('/client')) {
+    enterAsGuest()
+    return
+  }
+
+  // 3. Sprawdzenie zapisanej sesji w LocalStorage
   const savedSession = localStorage.getItem('ekoen_user_session')
   if (savedSession) {
     try {
@@ -190,107 +201,88 @@ onMounted(() => {
   }
 })
 
-// --- GŁÓWNA FUNKCJA LOGOWANIA ---
-function handleLogin() {
-  if (!loginData.username.trim()) {
-    authError.value = "Podaj nazwę użytkownika."
-    return
-  }
-
-  authError.value = ""
+// --- PRZEKIEROWANIE DO GOOGLE ---
+function loginWithGoogle() {
   isLoading.value = true
+  authError.value = ''
 
-  if (typeof google !== 'undefined') {
-    google.script.run
-      .withSuccessHandler((res) => {
-        isLoading.value = false
-        if (res.success) {
-          if (res.requirePasswordSetup) {
-            requirePasswordSetup.value = true
-          } else {
-            grantAccess(res)
-          }
-        } else {
-          authError.value = res.message || "Nieprawidłowe dane."
-        }
-      })
-      .withFailureHandler(() => {
-        isLoading.value = false
-        authError.value = "Błąd połączenia z serwerem."
-      })
-      .verifySystemLogin(loginData.username, loginData.password)
-  } else {
-    // MOCK
-    setTimeout(() => {
-      isLoading.value = false
-      if (loginData.username === 'admin' && loginData.password === 'admin') {
-        grantAccess({ username: 'admin', panels: '*', success: true })
-      } else if (loginData.username === 'nowy' && !loginData.password) {
-        requirePasswordSetup.value = true
-      } else {
-        authError.value = "Błędne dane (mock)."
-      }
-    }, 1000)
-  }
+  const params = new URLSearchParams({
+    client_id: GOOGLE_CLIENT_ID,
+    redirect_uri: getRedirectUri(),
+    response_type: 'code',
+    scope: 'openid email profile',
+    prompt: 'select_account'
+  })
+
+  window.top.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`
 }
 
-// --- FUNKCJA ZAPISU NOWEGO HASŁA ---
-function handleSetupPassword() {
-  setupError.value = ""
-  
-  if (setupData.pass1.length < 4) {
-    setupError.value = "Hasło musi mieć min. 4 znaki."
-    return
-  }
-  if (setupData.pass1 !== setupData.pass2) {
-    setupError.value = "Hasła nie są identyczne."
-    return
-  }
-
+// --- WYMIANA KODU Z GOOGLE NA SESJĘ ---
+function completeGoogleOAuth(code) {
   isLoading.value = true
+  authError.value = ''
 
-  if (typeof google !== 'undefined') {
+  if (typeof google !== 'undefined' && google.script) {
     google.script.run
       .withSuccessHandler((res) => {
         isLoading.value = false
         if (res.success) {
           grantAccess(res)
         } else {
-          setupError.value = res.message || "Błąd zapisu."
+          authError.value = res.message || 'Błąd weryfikacji konta Google.'
         }
       })
       .withFailureHandler(() => {
         isLoading.value = false
-        setupError.value = "Błąd połączenia z serwerem."
+        authError.value = 'Błąd połączenia z serwerem Google.'
       })
-      .setNewUserPassword(loginData.username, setupData.pass1)
+      .exchangeGoogleCode(code, getRedirectUri())
   } else {
     setTimeout(() => {
       isLoading.value = false
-      grantAccess({ username: loginData.username, panels: '*', success: true })
-    }, 1000)
+      grantAccess({ email: 'dev@ekoen.pl', role: 'EMPLOYEE', panels: '*', success: true })
+    }, 500)
   }
 }
 
-// --- FUNKCJA WPUSZCZAJĄCA DO APLIKACJI ---
-function grantAccess(userData) {
-  localStorage.setItem('ekoen_user_session', JSON.stringify(userData))
-  sessionStorage.setItem('user_panels', userData.panels || "")
-  
-  requirePasswordSetup.value = false
+// --- WEJŚCIE BEZ LOGOWANIA (GOŚĆ) ---
+function enterAsGuest() {
+  userRole.value = 'CLIENT'
+  userEmail.value = ''
+  isGuest.value = true
   isAuthenticated.value = true
 }
 
-// --- IDEALNIE DZIAŁAJĄCY LOGOUT ---
+// --- WPUSZCZENIE ZALOGOWANEGO UŻYTKOWNIKA ---
+function grantAccess(userData) {
+  userRole.value = userData.role || 'CLIENT'
+  userEmail.value = userData.email || userData.username || ''
+  isGuest.value = false
+
+  localStorage.setItem('ekoen_user_session', JSON.stringify(userData))
+  sessionStorage.setItem('user_panels', userData.panels || '*')
+  
+  isAuthenticated.value = true
+}
+
+// --- WYLOGOWANIE ---
 function handleLogout() {
   localStorage.removeItem('ekoen_user_session')
   sessionStorage.removeItem('user_panels')
   
-  loginData.username = ''
-  loginData.password = ''
-  setupData.pass1 = ''
-  setupData.pass2 = ''
-  
+  userRole.value = ''
+  userEmail.value = ''
+  isGuest.value = false
   isAuthenticated.value = false
 }
 </script>
+
+<style scoped>
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease-out;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+</style>
