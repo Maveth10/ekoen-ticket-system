@@ -589,22 +589,100 @@ function applyFilters() {
 async function calculateRoute() {
   if (!routeTech.value) { alert("Najpierw wybierz technika z listy!"); return; }
   isRoutingInProgress.value = true;
+  
   try {
-    const stationsToVisit = store.stations.filter(s => s.technician_id === routeTech.value && s.status === 'Awaria' && s.gps_lat && s.gps_lng);
-    if (stationsToVisit.length < 2) { alert("Wybrany technik ma mniej niż 2 otwarte awarie. Trasa nie jest wymagana."); clearRoute(); return; }
+    let stationsToVisit = [];
+    
+    // 1. Zdobądź nazwę i ID technika (w różnych miejscach bazy używane są zamiennie)
+    const selectedTechObj = store.techs.find(t => t.id === routeTech.value);
+    const techName = selectedTechObj ? selectedTechObj.name : routeTech.value;
 
-    const coordsStr = stationsToVisit.map(s => `${parseFloat(s.gps_lng.toString().replace(',','.'))},${parseFloat(s.gps_lat.toString().replace(',','.'))}`).join(';');
-    const res = await fetch(`https://router.project-osrm.org/trip/v1/driving/${coordsStr}?source=first&roundtrip=false&geometries=geojson`);
-    if (!res.ok) throw new Error("Błąd OSRM");
+    if (routeDate.value && routeDate.value !== 'ALL') {
+      // SCENARIUSZ A: Wybrano konkretny dzień. Skanujemy KALENDARZ!
+      const targetDateStr = routeDate.value;
+      
+      const eventsForTechAndDate = scheduleStore.events.filter(ev => {
+         const isMatchTech = (ev.technician_id === routeTech.value || ev.technician_id === techName || ev.extendedProps?.technicianName === techName);
+         const isMatchDate = String(ev.start_time).startsWith(targetDateStr);
+         return isMatchTech && isMatchDate;
+      });
+
+      // Wyciągamy z wydarzeń zgłoszenia, a z nich ID stacji
+      const qpIds = new Set();
+      eventsForTechAndDate.forEach(ev => {
+         const t = ticketsStore.tickets.find(tick => String(tick.id) === String(ev.ticket_id) || String(tick.ticket_code) === String(ev.ticket_id));
+         if (t) {
+            const qp = t.qp_id || t.station_id || t.qp_id_full;
+            if (qp) qpIds.add(String(qp).toLowerCase().trim());
+         }
+      });
+
+      // Zbieramy stacje z koordynatami GPS
+      stationsToVisit = store.stations.filter(s => {
+         const sId = String(s.id).toLowerCase().trim();
+         const sPub = String(s.public_id).toLowerCase().trim();
+         return (qpIds.has(sId) || qpIds.has(sPub)) && s.gps_lat && s.gps_lng;
+      });
+
+    } else {
+      // SCENARIUSZ B: "Wszystkie dni" - szukamy po prostu po przypisaniu stacji w bazie
+      stationsToVisit = store.stations.filter(s => {
+         const isAssigned = (s.technician_id === routeTech.value || s.technician_id === techName);
+         return isAssigned && s.gps_lat && s.gps_lng;
+      });
+    }
+
+    if (stationsToVisit.length === 0) { 
+      alert(`Brak punktów do odwiedzenia (lub brak wpisanego GPS) dla technika ${techName} w dniu ${routeDate.value}.`); 
+      clearRoute(); 
+      return; 
+    }
+
+    // 2. Układanie listy koordynatów dla trasy (format: "lng,lat;lng,lat")
+    let coordsList = stationsToVisit.map(s => `${parseFloat(s.gps_lng.toString().replace(',','.'))},${parseFloat(s.gps_lat.toString().replace(',','.'))}`);
+
+    // Dodawanie wybranego punktu startowego (wymusza start trasy z bazy)
+    let startCoord = null;
+    if (routeStartType.value === 'ZG') startCoord = "15.4851,51.9427";       // Siedziba Zielona Góra
+    else if (routeStartType.value === 'WAW') startCoord = "20.9728,52.1706"; // Oddział Warszawa
+    else if (routeStartType.value === 'GPS') {
+      // Ewentualny start z GPS przeglądarki (wymaga async geolocation) - na razie pomijamy jako null
+    }
+
+    if (startCoord) {
+      coordsList.unshift(startCoord); // Doklejamy punkt startowy na sam początek trasy
+    }
+
+    if (coordsList.length < 2) {
+       alert("Za mało punktów z GPS, by wyznaczyć trasę (minimum to start + 1 stacja)."); 
+       clearRoute(); 
+       return; 
+    }
+
+    // 3. Wysłanie zapytań do serwera trasującego OSRM
+    const joinedCoords = coordsList.join(';');
+    const res = await fetch(`https://router.project-osrm.org/trip/v1/driving/${joinedCoords}?source=first&roundtrip=false&geometries=geojson`);
+    if (!res.ok) throw new Error("Błąd serwera nawigacji (OSRM)");
+    
     const data = await res.json();
-    if (data.code !== 'Ok' || !data.trips || data.trips.length === 0) { alert("Punkty nieosiągalne drogą publiczną."); return; }
+    if (data.code !== 'Ok' || !data.trips || data.trips.length === 0) { 
+        alert("Serwer nie odnalazł drogi lądowej pomiędzy tymi punktami."); 
+        return; 
+    }
 
+    // 4. Rysowanie trasy na mapie
     map.value.getSource('optimized-route').setData(data.trips[0].geometry);
     const bounds = data.trips[0].geometry.coordinates.reduce((b, c) => b.extend(c), new maplibregl.LngLatBounds(data.trips[0].geometry.coordinates[0], data.trips[0].geometry.coordinates[0]));
     map.value.fitBounds(bounds, { padding: 80, duration: 1500 });
+    
     isRoutingActive.value = true;
     activeMenu.value = null;
-  } catch (e) { alert("Błąd wyznaczania trasy: " + e.message); } finally { isRoutingInProgress.value = false; }
+
+  } catch (e) { 
+    alert("Błąd wyznaczania trasy: " + e.message); 
+  } finally { 
+    isRoutingInProgress.value = false; 
+  }
 }
 
 function clearRoute() {
