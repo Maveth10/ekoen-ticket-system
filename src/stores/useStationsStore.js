@@ -135,7 +135,8 @@ export const useStationsStore = defineStore('stations', () => {
       isLoading.value = true
     }
 
-    if (typeof google === 'undefined') {
+    if (typeof google === 'undefined' || !google.script || !google.script.run) {
+      console.warn("Brak dostępu do google.script.run w fetchStationsData.");
       setTimeout(() => { isLoading.value = false }, 500)
       return
     }
@@ -315,8 +316,8 @@ export const useStationsStore = defineStore('stations', () => {
           s.gps_lng = data[0].lon
           successCount++
           
-          if(typeof google !== 'undefined' && google.script) {
-             const cleanPayload = JSON.parse(JSON.stringify({
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            const cleanPayload = JSON.parse(JSON.stringify({
                 id: s.id, public_id: s.public_id, client_id: s.client_id,
                 model: s.model, inspection_date: s.inspection_date,
                 country: s.country, city: s.city, street: s.street, street_number: s.street_number,

@@ -141,10 +141,11 @@ export const useBillingsStore = defineStore('billings', {
           console.warn('Nie udało się pobrać aktualnego kursu NBP. Używam domyślnego 4.30 PLN.', e)
         })
 
-      if (typeof google === 'undefined') {
-        setTimeout(() => { this.isLoading = false }, 500)
-        return
-      }
+        if (typeof google === 'undefined' || !google.script || !google.script.run) {
+          console.warn("Brak dostępu do google.script.run w fetchBillingsData - środowisko lokalne.");
+          setTimeout(() => { this.isLoading = false }, 500)
+          return
+        }
 
       google.script.run
         .withSuccessHandler((resStr) => {

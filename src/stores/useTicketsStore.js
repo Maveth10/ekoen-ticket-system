@@ -158,7 +158,8 @@ export const useTicketsStore = defineStore('tickets', {
       
       const requestedModule = this.activeModule
 
-      if (typeof google === 'undefined') {
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        console.warn("Brak dostępu do google.script.run w fetchTicketsData.");
         setTimeout(() => { this.isLoading = false }, 500)
         return
       }

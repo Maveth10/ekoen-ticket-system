@@ -82,7 +82,8 @@ export const useStorageStore = defineStore('storage', () => {
     isLoading.value = true
     loadTabsConfiguration()
 
-    if (typeof google === 'undefined') {
+    if (typeof google === 'undefined' || !google.script || !google.script.run) {
+      console.warn("Brak dostępu do google.script.run w fetchStorageData.");
       setTimeout(() => { isLoading.value = false }, 500)
       return
     }

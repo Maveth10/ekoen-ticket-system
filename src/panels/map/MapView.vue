@@ -32,108 +32,130 @@
     <!-- KONTENER MAPY -->
     <div ref="mapContainer" class="absolute inset-0 w-full h-full"></div>
 
-    <!-- NAKŁADKI UI: TOP LEFT -->
-    <div v-if="!store.isLoading" class="absolute top-6 left-6 z-20 flex flex-row items-center gap-2 flex-nowrap w-max" :class="isSidebarExpanded ? 'translate-x-[184px]' : 'translate-x-0'" style="transition: transform 0.3s ease-out;">
+    <!-- NAKŁADKI UI: TOP LEFT (Zależne od mapMode) -->
+    <div v-if="!store.isLoading" class="absolute top-6 left-6 z-[60] flex flex-row items-center gap-2 flex-nowrap w-max" :class="isSidebarExpanded ? 'translate-x-[184px]' : 'translate-x-0'" style="transition: transform 0.3s ease-out;">
       
-      <button @click="openAddStation" class="shrink-0 box-border bg-white/90 backdrop-blur-xl border border-white/50 shadow-lg px-4 rounded-xl text-slate-700 font-bold hover:bg-white hover:text-[#58b347] transition-all flex items-center gap-2 text-[13px] h-[42px] whitespace-nowrap">
-        <svg class="w-4 h-4 text-[#58b347]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14"/><path d="M12 5v14"/></svg> Dodaj stację
-      </button>
-
-      <button @click="openSectorEditorFromUI" class="shrink-0 box-border bg-white/90 backdrop-blur-xl border border-white/50 shadow-lg px-4 rounded-xl text-slate-700 font-bold hover:bg-white hover:text-blue-500 transition-all flex items-center gap-2 text-[13px] h-[42px] whitespace-nowrap" :class="isSectorEditorOpen ? '!border-blue-500 text-blue-500 bg-blue-50' : ''">
-        <svg class="w-4 h-4" :class="isSectorEditorOpen ? 'text-blue-500' : 'text-slate-400'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" x2="9" y1="3" y2="18"/><line x1="15" x2="15" y1="6" y2="21"/></svg>
-        Edytor Terytoriów
-      </button>
-
-      <button @click="toggleSectors" class="shrink-0 box-border bg-white/90 backdrop-blur-xl border border-white/50 shadow-lg px-4 rounded-xl text-slate-700 font-bold hover:bg-white transition-all flex items-center gap-2 text-[13px] h-[42px] whitespace-nowrap">
-        <svg class="w-4 h-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 17 22 12"/></svg>
-        {{ showSectors ? 'Ukryj strefy' : 'Pokaż strefy' }}
-      </button>
-
-      <!-- FILTRY MAPY VUE -->
-      <div class="relative flex items-center shrink-0 box-border h-[42px]">
-        <button @click="toggleMenu('filter')" class="bg-white/90 backdrop-blur-xl border shadow-lg px-4 rounded-xl font-bold transition-all flex items-center gap-2 text-[13px] h-[42px] whitespace-nowrap cursor-pointer shrink-0 box-border" :class="filterStatus !== '' || filterTech !== '' ? 'border-red-200 text-red-600 bg-red-50' : 'border-slate-200/80 text-slate-700 hover:bg-slate-50'">
-          <svg class="w-4 h-4" :class="filterStatus !== '' || filterTech !== '' ? 'text-red-500' : 'text-slate-400'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg> 
-          {{ filterStatus !== '' ? 'Zgłoszenia / Status' : filterTech !== '' ? 'Wybrany Technik' : 'Filtry mapy' }}
+      <!-- STAN 1: TRYB TERYTORIÓW -->
+      <template v-if="mapMode === 'territory'">
+        <button @click="openAddStation" class="shrink-0 box-border bg-white/90 backdrop-blur-xl border border-white/50 shadow-lg px-4 rounded-xl text-slate-700 font-bold hover:bg-white hover:text-[#58b347] transition-all flex items-center gap-2 text-[13px] h-[42px] whitespace-nowrap">
+          <svg class="w-4 h-4 text-[#58b347]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14"/><path d="M12 5v14"/></svg> Dodaj stację
         </button>
-        
-        <div v-show="activeMenu === 'filter'" class="absolute top-[48px] left-0 w-80 bg-white/95 backdrop-blur-2xl rounded-2xl shadow-[0_15px_40px_-10px_rgba(0,0,0,0.1)] border border-slate-200 p-5 z-[100] flex flex-col gap-4 animate-fadeIn">
-          <div class="border-b border-slate-100/60 pb-2 flex justify-between items-center">
-            <h3 class="font-bold text-slate-800 text-sm">Filtruj stacje i zgłoszenia</h3>
-            <button v-if="filterStatus !== '' || filterTech !== ''" @click="setFilterStatus(''); setFilterTech('')" class="text-xs text-red-500 hover:text-red-700 font-bold uppercase tracking-widest">Wyczyść</button>
-          </div>
-          <div class="space-y-4">
-            <div>
-              <label class="block text-xs font-bold text-slate-500 mb-1.5">Typ / Status / Kategoria</label>
-              <div class="relative">
-                  <div @click="toggleDropdown('status')" :class="activeDropdown === 'status' ? 'border-[#58b347] ring-2 ring-[#58b347]/20' : 'border-slate-200'" class="bg-slate-50 border rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-700 flex justify-between items-center cursor-pointer hover:border-[#58b347]/50 transition-colors shadow-inner">
-                    <span :class="filterStatus === '' ? 'text-slate-400' : 'text-slate-800'">{{ getStatusLabel(filterStatus) }}</span>
-                    <svg class="w-4 h-4 text-slate-400 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-                  </div>
-                  <ul v-show="activeDropdown === 'status'" class="absolute left-0 right-0 top-full mt-1 bg-white/95 backdrop-blur-xl border border-slate-200 rounded-xl shadow-xl z-50 p-1.5 custom-scrollbar max-h-56 overflow-y-auto">
-                    <li @click="setFilterStatus('')" class="px-3 py-2 text-sm font-bold text-slate-500 hover:bg-slate-100 rounded-lg cursor-pointer transition-colors">Wszystkie stacje</li>
-                    <li @click="setFilterStatus('HAS_TICKET')" class="px-3 py-2 text-sm font-bold text-red-500 hover:bg-red-50 rounded-lg cursor-pointer transition-colors">Aktywne zgłoszenia</li>
-                    <div class="px-3 py-1.5 mt-1 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">Status stacji w bazie</div>
-                    <li @click="setFilterStatus('CAT_REPAIR')" class="px-3 py-2 text-sm font-bold text-red-600 hover:bg-red-50 rounded-lg cursor-pointer transition-colors">Naprawa</li>
-                    <li @click="setFilterStatus('CAT_INSPECTION')" class="px-3 py-2 text-sm font-bold text-blue-600 hover:bg-blue-50 rounded-lg cursor-pointer transition-colors">Przegląd</li>
-                    <li @click="setFilterStatus('CAT_COMMISSIONING')" class="px-3 py-2 text-sm font-bold text-yellow-600 hover:bg-yellow-50 rounded-lg cursor-pointer transition-colors">Uruchomienie</li>
-                    <div class="px-3 py-1.5 mt-1 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">Zgłoszenia operacyjne</div>
-                    <li @click="setFilterStatus('TICK_OCZEKUJE_CZESCI')" class="px-3 py-2 text-sm font-bold text-orange-500 hover:bg-orange-50 rounded-lg cursor-pointer transition-colors">Oczekuje na Części</li>
-                    <li @click="setFilterStatus('TICK_OCZEKUJE_REALIZACJA')" class="px-3 py-2 text-sm font-bold text-indigo-500 hover:bg-indigo-50 rounded-lg cursor-pointer transition-colors">Oczekuje na Realizację</li>
-                    <li @click="setFilterStatus('TICK_WYKONANO')" class="px-3 py-2 text-sm font-bold text-emerald-500 hover:bg-emerald-50 rounded-lg cursor-pointer transition-colors">Wykonano</li>
-                  </ul>
-              </div>
-            </div>
 
-            <div>
-              <label class="block text-xs font-bold text-slate-500 mb-1.5">Przypisany Technik (Grep)</label>
-               <div class="relative">
-                  <div @click="toggleDropdown('tech')" :class="activeDropdown === 'tech' ? 'border-[#58b347] ring-2 ring-[#58b347]/20' : 'border-slate-200'" class="bg-slate-50 border rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-700 flex justify-between items-center cursor-pointer hover:border-[#58b347]/50 transition-colors shadow-inner">
-                    <span :class="filterTech === '' ? 'text-slate-400' : 'text-slate-800'">{{ filterTech === '' ? 'Wszyscy technicy' : getTechLabel(filterTech) }}</span>
-                    <svg class="w-4 h-4 text-slate-400 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-                  </div>
-                  <ul v-show="activeDropdown === 'tech'" class="absolute left-0 right-0 top-full mt-1 bg-white/95 backdrop-blur-xl border border-slate-200 rounded-xl shadow-xl z-50 p-1.5 custom-scrollbar max-h-48 overflow-y-auto">
-                    <li @click="setFilterTech('')" class="px-3 py-2 text-sm font-bold text-slate-700 hover:bg-[#58b347]/10 hover:text-[#58b347] rounded-lg cursor-pointer transition-colors">Wszyscy technicy</li>
-                    <li v-for="t in uniqueTechNames" :key="t" @click="setFilterTech(t)" class="px-3 py-2 text-sm font-bold text-slate-700 hover:bg-[#58b347]/10 hover:text-[#58b347] rounded-lg cursor-pointer transition-colors">{{ t }}</li>
-                  </ul>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- TRASY LOGISTYCZNE VUE -->
-      <div class="relative flex items-center shrink-0 box-border h-[42px]">
-        <button @click="toggleMenu('route')" class="bg-white/90 backdrop-blur-xl border shadow-lg px-4 rounded-xl font-bold transition-all flex items-center gap-2 text-[13px] h-[42px] whitespace-nowrap shrink-0 box-border" :class="isRoutingActive ? 'border-blue-300 bg-blue-50 text-blue-600' : 'border-slate-200/80 text-slate-700 hover:bg-slate-50'">
-          <svg class="w-4 h-4" :class="isRoutingActive ? 'text-blue-500' : 'text-slate-400'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="6" cy="19" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/><circle cx="18" cy="5" r="3"/></svg> Trasy logistyczne
+        <button @click="openSectorEditorFromUI" class="shrink-0 box-border bg-white/90 backdrop-blur-xl border border-white/50 shadow-lg px-4 rounded-xl text-slate-700 font-bold hover:bg-white hover:text-blue-500 transition-all flex items-center gap-2 text-[13px] h-[42px] whitespace-nowrap" :class="isSectorEditorOpen ? '!border-blue-500 text-blue-500 bg-blue-50' : ''">
+          <svg class="w-4 h-4" :class="isSectorEditorOpen ? 'text-blue-500' : 'text-slate-400'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" x2="9" y1="3" y2="18"/><line x1="15" x2="15" y1="6" y2="21"/></svg>
+          Edytor Terytoriów
         </button>
-        <div v-show="activeMenu === 'route'" class="absolute top-[48px] left-0 w-80 bg-white/95 backdrop-blur-2xl rounded-2xl shadow-[0_15px_40px_-10px_rgba(0,0,0,0.1)] border border-slate-200 p-5 z-[100] flex flex-col gap-4 animate-fadeIn">
-          <div class="border-b border-slate-100/60 pb-2">
-            <h3 class="font-bold text-slate-800 text-sm">Wyznacz optymalną trasę</h3>
-            <p class="text-xs text-slate-500 mt-1">Połącz otwarte awarie z rejonu technika.</p>
-          </div>
-          <div class="space-y-3">
-             <div class="relative">
-                <div @click="toggleDropdown('routeTech')" :class="activeDropdown === 'routeTech' ? 'border-[#58b347] ring-2 ring-[#58b347]/20' : 'border-slate-200'" class="bg-slate-50 border rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-700 flex justify-between items-center cursor-pointer hover:border-[#58b347]/50 transition-colors shadow-inner">
-                  <span :class="routeTech === '' ? 'text-slate-400 font-medium' : 'text-slate-800 font-medium'">{{ routeTech === '' ? 'Wybierz...' : getRouteTechLabel(routeTech) }}</span>
-                  <svg class="w-4 h-4 text-slate-400 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+
+        <button @click="toggleSectors" class="shrink-0 box-border bg-white/90 backdrop-blur-xl border border-white/50 shadow-lg px-4 rounded-xl text-slate-700 font-bold hover:bg-white transition-all flex items-center gap-2 text-[13px] h-[42px] whitespace-nowrap">
+          <svg class="w-4 h-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 17 22 12"/></svg>
+          {{ showSectors ? 'Ukryj strefy' : 'Pokaż strefy' }}
+        </button>
+
+        <!-- FILTRY MAPY (Standardowe) -->
+        <div class="relative flex items-center shrink-0 box-border h-[42px]">
+          <button @click="toggleMenu('filter')" class="bg-white/90 backdrop-blur-xl border shadow-lg px-4 rounded-xl font-bold transition-all flex items-center gap-2 text-[13px] h-[42px] whitespace-nowrap cursor-pointer shrink-0 box-border" :class="filterStatus !== '' || filterTech !== '' ? 'border-red-200 text-red-600 bg-red-50' : 'border-slate-200/80 text-slate-700 hover:bg-slate-50'">
+            <svg class="w-4 h-4" :class="filterStatus !== '' || filterTech !== '' ? 'text-red-500' : 'text-slate-400'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg> 
+            {{ filterStatus !== '' ? 'Zgłoszenia / Status' : filterTech !== '' ? 'Wybrany Technik' : 'Filtry mapy' }}
+          </button>
+          
+          <div v-show="activeMenu === 'filter'" class="absolute top-[48px] left-0 w-80 bg-white/95 backdrop-blur-2xl rounded-2xl shadow-[0_15px_40px_-10px_rgba(0,0,0,0.1)] border border-slate-200 p-5 z-[100] flex flex-col gap-4 animate-fadeIn">
+            <div class="border-b border-slate-100/60 pb-2 flex justify-between items-center">
+              <h3 class="font-bold text-slate-800 text-sm">Filtruj stacje i zgłoszenia</h3>
+              <button v-if="filterStatus !== '' || filterTech !== ''" @click="setFilterStatus(''); setFilterTech('')" class="text-xs text-red-500 hover:text-red-700 font-bold uppercase tracking-widest">Wyczyść</button>
+            </div>
+            <div class="space-y-4">
+              <div>
+                <label class="block text-xs font-bold text-slate-500 mb-1.5">Typ / Status / Kategoria</label>
+                <div class="relative">
+                    <div @click="toggleDropdown('status')" :class="activeDropdown === 'status' ? 'border-[#58b347] ring-2 ring-[#58b347]/20' : 'border-slate-200'" class="bg-slate-50 border rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-700 flex justify-between items-center cursor-pointer hover:border-[#58b347]/50 transition-colors shadow-inner">
+                      <span :class="filterStatus === '' ? 'text-slate-400' : 'text-slate-800'">{{ getStatusLabel(filterStatus) }}</span>
+                      <svg class="w-4 h-4 text-slate-400 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                    </div>
+                    <ul v-show="activeDropdown === 'status'" class="absolute left-0 right-0 top-full mt-1 bg-white/95 backdrop-blur-xl border border-slate-200 rounded-xl shadow-xl z-50 p-1.5 custom-scrollbar max-h-56 overflow-y-auto">
+                      <li @click="setFilterStatus('')" class="px-3 py-2 text-sm font-bold text-slate-500 hover:bg-slate-100 rounded-lg cursor-pointer transition-colors">Wszystkie stacje</li>
+                      <li @click="setFilterStatus('HAS_TICKET')" class="px-3 py-2 text-sm font-bold text-red-500 hover:bg-red-50 rounded-lg cursor-pointer transition-colors">Aktywne zgłoszenia</li>
+                      <div class="px-3 py-1.5 mt-1 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">Status stacji w bazie</div>
+                      <li @click="setFilterStatus('CAT_REPAIR')" class="px-3 py-2 text-sm font-bold text-red-600 hover:bg-red-50 rounded-lg cursor-pointer transition-colors">Naprawa</li>
+                      <li @click="setFilterStatus('CAT_INSPECTION')" class="px-3 py-2 text-sm font-bold text-blue-600 hover:bg-blue-50 rounded-lg cursor-pointer transition-colors">Przegląd</li>
+                      <li @click="setFilterStatus('CAT_COMMISSIONING')" class="px-3 py-2 text-sm font-bold text-yellow-600 hover:bg-yellow-50 rounded-lg cursor-pointer transition-colors">Uruchomienie</li>
+                      <div class="px-3 py-1.5 mt-1 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">Zgłoszenia operacyjne</div>
+                      <li @click="setFilterStatus('TICK_OCZEKUJE_CZESCI')" class="px-3 py-2 text-sm font-bold text-orange-500 hover:bg-orange-50 rounded-lg cursor-pointer transition-colors">Oczekuje na Części</li>
+                      <li @click="setFilterStatus('TICK_OCZEKUJE_REALIZACJA')" class="px-3 py-2 text-sm font-bold text-indigo-500 hover:bg-indigo-50 rounded-lg cursor-pointer transition-colors">Oczekuje na Realizację</li>
+                      <li @click="setFilterStatus('TICK_WYKONANO')" class="px-3 py-2 text-sm font-bold text-emerald-500 hover:bg-emerald-50 rounded-lg cursor-pointer transition-colors">Wykonano</li>
+                    </ul>
                 </div>
-                <ul v-show="activeDropdown === 'routeTech'" class="absolute left-0 right-0 top-full mt-1 bg-white/95 backdrop-blur-xl border border-slate-200 rounded-xl shadow-xl z-50 p-1.5 custom-scrollbar max-h-48 overflow-y-auto">
-                  <li v-for="t in store.techs" :key="t.id" @click="setRouteTech(t.id)" class="px-3 py-2 text-sm font-bold text-slate-700 hover:bg-[#58b347]/10 hover:text-[#58b347] rounded-lg cursor-pointer transition-colors">{{ t.name }}</li>
-                </ul>
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-500 mb-1.5">Przypisany Technik (Grep)</label>
+                 <div class="relative">
+                    <div @click="toggleDropdown('tech')" :class="activeDropdown === 'tech' ? 'border-[#58b347] ring-2 ring-[#58b347]/20' : 'border-slate-200'" class="bg-slate-50 border rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-700 flex justify-between items-center cursor-pointer hover:border-[#58b347]/50 transition-colors shadow-inner">
+                      <span :class="filterTech === '' ? 'text-slate-400' : 'text-slate-800'">{{ filterTech === '' ? 'Wszyscy technicy' : getTechLabel(filterTech) }}</span>
+                      <svg class="w-4 h-4 text-slate-400 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                    </div>
+                    <ul v-show="activeDropdown === 'tech'" class="absolute left-0 right-0 top-full mt-1 bg-white/95 backdrop-blur-xl border border-slate-200 rounded-xl shadow-xl z-50 p-1.5 custom-scrollbar max-h-48 overflow-y-auto">
+                      <li @click="setFilterTech('')" class="px-3 py-2 text-sm font-bold text-slate-700 hover:bg-[#58b347]/10 hover:text-[#58b347] rounded-lg cursor-pointer transition-colors">Wszyscy technicy</li>
+                      <li v-for="t in uniqueTechNames" :key="t" @click="setFilterTech(t)" class="px-3 py-2 text-sm font-bold text-slate-700 hover:bg-[#58b347]/10 hover:text-[#58b347] rounded-lg cursor-pointer transition-colors">{{ t }}</li>
+                    </ul>
+                </div>
+              </div>
             </div>
-            <button @click="calculateRoute" :disabled="isRoutingInProgress" class="w-full bg-[#58b347] text-white font-bold py-2.5 rounded-xl text-sm hover:bg-[#499b3a] transition-all shadow-[0_4px_14px_rgba(88,179,71,0.2)] disabled:bg-slate-300 disabled:shadow-none">
-              {{ isRoutingInProgress ? 'Wyznaczanie...' : 'Oblicz optymalną trasę' }}
-            </button>
-            <button @click="clearRoute" class="w-full text-xs text-slate-400 hover:text-red-500 font-bold py-1.5 transition-colors">Wyczyść linię z mapy</button>
           </div>
         </div>
-      </div>
+
+        <!-- Przycisk przejścia do tras logistycznych -->
+        <button @click="mapMode = 'logistics'" class="shrink-0 box-border bg-white/90 backdrop-blur-xl border border-blue-200 shadow-lg px-4 rounded-xl text-blue-600 font-bold hover:bg-blue-50 transition-all flex items-center gap-2 text-[13px] h-[42px] whitespace-nowrap ml-2">
+          <svg class="w-4 h-4 text-blue-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="6" cy="19" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/><circle cx="18" cy="5" r="3"/></svg> Trasy logistyczne
+        </button>
+      </template>
+
+      <!-- STAN 2: TRYB TRAS LOGISTYCZNYCH (LOGISTICS) -->
+      <template v-else-if="mapMode === 'logistics'">
+        
+        <button @click="mapMode = 'territory'" class="shrink-0 box-border bg-white/90 backdrop-blur-xl border shadow-lg px-4 rounded-xl text-slate-600 font-bold hover:bg-slate-50 transition-all flex items-center gap-2 text-[13px] h-[42px] whitespace-nowrap z-[100] relative border-slate-200">
+          <svg class="w-4 h-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg> Wróć do Terytoriów
+        </button>
+
+        <!-- Pływający formularz wyboru dla logistyki -->
+        <div class="bg-white/95 backdrop-blur-xl border border-slate-200 shadow-lg rounded-xl flex items-center p-1.5 gap-2 z-[100] relative flex-wrap max-w-full">
+           
+           <!-- Wybór technika i daty (DODANY v-model) -->
+           <select v-model="routeTech" class="text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 outline-none hover:border-blue-400 focus:bg-white w-40">
+              <option value="">-- Technik --</option>
+              <option v-for="tech in store.techs" :key="tech.id" :value="tech.id">{{ tech.name }}</option>
+           </select>
+           
+           <select v-model="routeDate" class="text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 outline-none hover:border-blue-400 focus:bg-white w-32">
+              <option value="ALL">Wszystkie dni</option>
+              <option v-for="date in availableRouteDates" :key="date" :value="date">{{ date }}</option>
+           </select>
+
+           <!-- Pionowa kreska rozdzielająca -->
+           <div class="w-px h-6 bg-slate-200 mx-1"></div>
+
+           <!-- Wybór Punktu Startowego -->
+           <select v-model="routeStartType" class="text-xs font-bold text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-2 py-1.5 outline-none hover:border-blue-400 focus:bg-white w-40">
+              <option value="ZG">📍 Start: Zielona Góra</option>
+              <option value="WAW">📍 Start: Warszawa</option>
+              <option value="GPS">🛰️ Start: GPS (Lokalizacja)</option>
+              <option value="CUSTOM">✏️ Start: Własny adres</option>
+           </select>
+
+           <!-- Ukryte pole na własny adres -->
+           <input v-show="routeStartType === 'CUSTOM'" type="text" placeholder="Wpisz np. Poznań, Główna 1" class="text-xs font-bold text-slate-700 bg-white border border-blue-300 rounded-lg px-3 py-1.5 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 w-48 shadow-inner transition-all" />
+
+           <!-- Przycisk Oblicz (DODANY @click i stan ładowania) -->
+           <button @click="calculateRoute" :disabled="isRoutingInProgress" class="bg-blue-600 text-white font-black text-[11px] uppercase tracking-widest px-4 py-2 rounded-lg transition-all shadow-sm hover:bg-blue-700 whitespace-nowrap ml-1 disabled:bg-slate-400">
+             {{ isRoutingInProgress ? 'Liczenie...' : 'Wyznacz Trasę' }}
+           </button>
+        </div>
+      </template>
+
     </div>
 
     <!-- ZEWNĘTRZNY EDYTOR STREF ZINTEGROWANY JAKO PLUGIN -->
     <SectorEditor 
       ref="sectorEditorRef"
-      v-if="!store.isLoading"
+      v-if="!store.isLoading && mapMode === 'territory'"
       :class="isSidebarExpanded ? 'translate-x-[184px]' : 'translate-x-0'"
       class="transition-transform duration-300 ease-out"
       :isOpen="isSectorEditorOpen"
@@ -151,7 +173,7 @@
       @deleteSector="clearSectorGeom"
       @hardDeleteEntity="deleteEntityCompletely"
       @toggleVisibility="handleToggleVisibility"
-      @createNewArea="createNewAreaVue"
+      @createNewAreaVue="createNewAreaVue"
       @refreshData="refreshMapVue"
       @savingStateChanged="(val) => isSavingZone = val"
     />
@@ -176,12 +198,23 @@
        </div>
     </div>
 
-  <!-- === WKLEJ TO TUTAJ === -->
+  <!-- MODE 1: INFO STACJI (TERRITORY) -->
   <StationInfoPanel 
+      v-if="mapMode === 'territory'"
       ref="stationInfoPanelRef" 
       @editStation="(data) => stationFormModalRef.open(true, data.gps_lat, data.gps_lng, data)"
       @openTicket="handleOpenTicket" 
-    />
+  />
+
+  <!-- MODE 2: PANEL TRASY (LOGISTICS) -->
+  <LogisticsRouteView 
+      v-if="mapMode === 'logistics'"
+      class="absolute inset-0 z-10"
+      :techs="store.techs"
+      :stations="store.stations"
+      :tickets="ticketsStore.tickets"
+      :calendar-events="scheduleStore.events" 
+  />
     
     <StationFormModal 
       ref="stationFormModalRef" 
@@ -208,6 +241,8 @@ import StationFormModal from '../../modals/StationFormModal.vue'
 import StationInfoPanel from '../../components/StationInfoPanel.vue'
 import TicketsFormModal from '../../modals/TicketsFormModal.vue'
 import { useTicketsStore } from '../../stores/useTicketsStore'
+import { useScheduleStore } from '../../stores/useScheduleStore'
+import LogisticsRouteView from './LogisticsRouteView.vue'
 
 import * as maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
@@ -218,6 +253,7 @@ import * as turf from '@turf/turf'
 const props = defineProps({ isSidebarExpanded: Boolean })
 const store = useMapStore()
 const ticketsStore = useTicketsStore()
+const scheduleStore = useScheduleStore()
 
 const mapContainer = ref(null)
 const map = shallowRef(null)
@@ -233,6 +269,9 @@ const showSectors = ref(true)
 const isSectorEditorOpen = ref(false)
 const sectorEditorTab = ref('technicians')
 
+const mapMode = ref('territory')
+const routeStartType = ref('ZG')
+
 const activeMenu = ref(null)
 const activeDropdown = ref(null)
 
@@ -244,8 +283,37 @@ const hoveredStateId = ref(null)
 const filterStatus = ref('')
 const filterTech = ref('')
 const routeTech = ref('')
+const routeDate = ref('ALL')
 const isRoutingInProgress = ref(false)
 const isRoutingActive = ref(false)
+
+// --- DYNAMICZNE DATY DO TRAS LOGISTYCZNYCH ---
+const availableRouteDates = computed(() => {
+  console.log('--- [DEBUG MAPVIEW] ---');
+  console.log('1. Wydarzenia w kalendarzu:', scheduleStore.events);
+  
+  if (!scheduleStore.events || scheduleStore.events.length === 0) {
+    console.log('❌ Kalendarz jest pusty lub niezainicjowany!');
+    return [];
+  }
+  
+  const dates = new Set();
+  scheduleStore.events.forEach(ev => {
+    if (ev.start_time) {
+      try {
+        // Bezpieczne cięcie stringa: z "2026-11-04 07:00:00" lub "2026-11-04T07:00:00" wyciągnie "2026-11-04"
+        const d = String(ev.start_time).split('T')[0].split(' ')[0];
+        dates.add(d);
+      } catch (e) {
+        console.warn('❌ Błąd parsowania daty dla:', ev.start_time);
+      }
+    }
+  });
+  
+  const result = Array.from(dates).sort();
+  console.log('2. Wygenerowana lista dat do dropdownu:', result);
+  return result;
+});
 
 const contextMenu = ref({ show: false, x: 0, y: 0, lat: null, lng: null })
 
@@ -854,6 +922,17 @@ onMounted(() => {
 
   store.fetchMapData(); 
   ticketsStore.fetchTicketsData();
+  
+  // NOWE: Pobieramy dane do kalendarza! 
+  // (Upewnij się, że nazwa funkcji 'fetchEvents' lub 'fetchScheduleData' zgadza się z tą w Twoim useScheduleStore.js)
+  if (scheduleStore.fetchScheduleData) {
+      scheduleStore.fetchScheduleData();
+  } else if (scheduleStore.fetchEvents) {
+      scheduleStore.fetchEvents();
+  } else if (scheduleStore.fetchData) {
+      scheduleStore.fetchData();
+  }
+
   setTimeout(() => { initMap() }, 300);
   startAutoRefresh();
 })

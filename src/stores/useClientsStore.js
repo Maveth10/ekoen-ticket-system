@@ -60,30 +60,34 @@ export const useClientsStore = defineStore('clients', () => {
     isLoading.value = true
     error.value = null
 
-    if (typeof google !== 'undefined' && google.script) {
-      google.script.run
-        .withSuccessHandler((response) => {
-          try {
-            const res = typeof response === 'string' ? JSON.parse(response) : response
-            if (res && res.success) {
-              clients.value = res.data?.clients || res.clients || []
-              stations.value = res.data?.stations || res.stations || []
-            } else {
-              error.value = "Odpowiedź serwera nie zawiera danych."
-            }
-          } catch(e) {
-            error.value = "Błąd parsowania danych."
-            console.error(e)
-          } finally {
-            isLoading.value = false
-          }
-        })
-        .withFailureHandler((err) => {
-          error.value = err.message || "Błąd sieci."
-          isLoading.value = false
-        })
-        .getClientsData()
+    if (typeof google === 'undefined' || !google.script || !google.script.run) {
+      console.warn("Brak dostępu do google.script.run w fetchClientsData - środowisko lokalne.");
+      isLoading.value = false
+      return
     }
+
+    google.script.run
+      .withSuccessHandler((response) => {
+        try {
+          const res = typeof response === 'string' ? JSON.parse(response) : response
+          if (res && res.success) {
+            clients.value = res.data?.clients || res.clients || []
+            stations.value = res.data?.stations || res.stations || []
+          } else {
+            error.value = "Odpowiedź serwera nie zawiera danych."
+          }
+        } catch(e) {
+          error.value = "Błąd parsowania danych."
+          console.error(e)
+        } finally {
+          isLoading.value = false
+        }
+      })
+      .withFailureHandler((err) => {
+        error.value = err.message || "Błąd sieci."
+        isLoading.value = false
+      })
+      .getClientsData()
   }
 
   const saveClientToBase = (payload) => {

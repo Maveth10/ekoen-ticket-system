@@ -191,7 +191,8 @@ export const useScheduleStore = defineStore('schedule', {
         this.isLoading = true
       }
 
-      if (typeof google === 'undefined') {
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        console.warn("Brak dostępu do google.script.run w fetchScheduleData.");
         setTimeout(() => { this.isLoading = false }, 500)
         return
       }

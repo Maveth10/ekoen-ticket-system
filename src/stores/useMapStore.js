@@ -51,7 +51,8 @@ export const useMapStore = defineStore('map', () => {
     
     loadMapSettings()
 
-    if (typeof google === 'undefined') {
+    if (typeof google === 'undefined' || !google.script || !google.script.run) {
+      console.warn("Brak dostępu do google.script.run w fetchMapData.");
       setTimeout(() => { isLoading.value = false; isSilentLoading.value = false }, 500)
       return
     }
