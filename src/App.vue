@@ -2,7 +2,7 @@
   <div id="app-root" class="bg-[#f4f6f8] text-slate-800 font-sans h-screen w-screen overflow-hidden flex flex-row relative">
     
     <!-- ========================================== -->
-    <!-- EKRAN WYBORU DOSTĘPU (Google / Bez logowania) -->
+    <!-- EKRAN WYBORU DOSTĘPU (Zależnie od Roli)   -->
     <!-- ========================================== -->
     <div v-if="!isAuthenticated" class="fixed inset-0 z-[999999] bg-slate-50 flex flex-col items-center justify-center font-sans p-4">
       
@@ -12,7 +12,7 @@
         <div class="absolute -bottom-[20%] -right-[10%] w-[60%] h-[60%] rounded-full bg-gradient-to-tl from-blue-500/10 to-transparent blur-3xl opacity-50"></div>
       </div>
 
-      <!-- BOX GŁÓWNY -->
+      <!-- BOX GŁÓWNY (Ekran logowania) -->
       <div class="bg-white w-full max-w-md p-8 md:p-10 rounded-[2rem] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] border border-slate-100 relative z-10 animate-fadeIn">
         
         <!-- LOGO -->
@@ -33,50 +33,50 @@
 
         <div class="text-center mb-8">
           <h2 class="text-xl font-black text-slate-800 tracking-tight">Witaj w systemie</h2>
-          <p class="text-xs text-slate-500 font-medium mt-1.5">Zaloguj się kontem Google lub zgłoś usterkę jako gość</p>
+          <p class="text-xs text-slate-500 font-medium mt-1.5">Zaloguj się, aby uzyskać dostęp do panelu</p>
         </div>
 
-        <div v-if="authError" class="text-center text-xs font-bold text-red-500 pb-4 animate-pulse">
-          {{ authError }}
-        </div>
-
-        <div class="space-y-4">
-          <!-- OPCJA 1: LOGOWANIE PRZYCISKIEM GOOGLE -->
-          <button
-            @click="loginWithGoogle"
-            :disabled="isLoading"
-            type="button"
-            class="w-full bg-white hover:bg-slate-50 text-slate-700 font-bold py-3.5 px-4 rounded-xl text-[13px] border border-slate-200 shadow-sm transition-all flex items-center justify-center gap-3 disabled:opacity-50"
-          >
-            <svg v-if="!isLoading" class="w-5 h-5 shrink-0" viewBox="0 0 24 24">
-              <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17Z"/>
-              <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.11-6.72-4.96H1.29v3.14C3.26 21.3 7.31 24 12 24Z"/>
-              <path fill="#FBBC05" d="M5.28 14.24c-.24-.72-.38-1.49-.38-2.24s.14-1.52.38-2.24V6.62H1.29C.47 8.24 0 10.06 0 12s.47 3.76 1.29 5.38l3.99-3.14Z"/>
-              <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.62l3.99 3.14c.95-2.85 3.6-4.96 6.72-4.96Z"/>
-            </svg>
-            <svg v-else class="w-4 h-4 animate-spin text-[#58b347]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
-              <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
-            </svg>
-            <span>{{ isLoading ? 'Autoryzacja Google...' : 'Kontynuuj z Google' }}</span>
-          </button>
-
-          <!-- SEPARATOR -->
-          <div class="flex items-center gap-3 py-1">
-            <div class="flex-1 h-px bg-slate-200"></div>
-            <span class="text-[10px] font-black uppercase tracking-widest text-slate-400">LUB</span>
-            <div class="flex-1 h-px bg-slate-200"></div>
+        <form @submit.prevent="handleFormLogin" class="flex flex-col gap-5">
+        
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2 ml-1">Adres E-mail / Login</label>
+            <div class="relative">
+              <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+              </div>
+              <input type="text" v-model="formEmail" class="w-full bg-slate-50 border border-slate-200 rounded-xl pl-11 pr-4 py-3.5 text-sm font-bold text-slate-800 focus:outline-none focus:border-[#58b347] focus:ring-1 focus:ring-[#58b347] transition-all" placeholder="nazwa@firma.pl" required>
+            </div>
           </div>
 
-          <!-- OPCJA 2: BEZ LOGOWANIA (GOŚĆ / KIEROWCA) -->
-          <button
-            @click="enterAsGuest"
-            :disabled="isLoading"
-            type="button"
-            class="w-full bg-[#58b347] hover:bg-[#499b3a] text-white font-black py-3.5 px-4 rounded-xl text-[12px] uppercase tracking-widest transition-all shadow-[0_5px_15px_rgba(88,179,71,0.3)] flex items-center justify-center gap-2 disabled:bg-slate-400"
-          >
-            <span>🚨 Zgłoś usterkę bez logowania</span>
+          <div>
+            <div class="flex justify-between items-center mb-2 ml-1 mr-1">
+              <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500">Hasło</label>
+            </div>
+            <div class="relative">
+              <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+              </div>
+              <input :type="showPassword ? 'text' : 'password'" v-model="formPassword" class="w-full bg-slate-50 border border-slate-200 rounded-xl pl-11 pr-12 py-3.5 text-sm font-bold text-slate-800 focus:outline-none focus:border-[#58b347] focus:ring-1 focus:ring-[#58b347] transition-all" placeholder="••••••••" required>
+              <button type="button" @click="showPassword = !showPassword" class="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-600 transition-colors">
+                <svg v-if="!showPassword" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <div v-if="authError" class="bg-red-50 text-red-500 text-[11px] font-bold p-3 rounded-lg border border-red-100 flex items-center gap-2">
+            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            {{ authError }}
+          </div>
+
+          <button type="submit" :disabled="isLoading" class="mt-2 w-full flex items-center justify-center gap-2 px-6 py-4 rounded-xl bg-[#58b347] hover:bg-[#499b3a] text-white text-[13px] font-black uppercase tracking-widest shadow-lg shadow-[#58b347]/20 transition-all active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed">
+            <span v-if="!isLoading">Zaloguj się</span>
+            <span v-else class="flex items-center gap-2">
+              <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+              Weryfikacja...
+            </span>
           </button>
-        </div>
+        </form>
         
       </div>
     </div>
@@ -87,7 +87,7 @@
     <template v-if="isAuthenticated">
       
       <!-- WIDOK A: PANEL PRACOWNIKA (EKOEN) -->
-      <template v-if="userRole === 'EMPLOYEE'">
+      <template v-if="userRole === 'EMPLOYEE' || userRole === 'ADMIN' || userRole === 'TECHNICIAN' || userRole === 'MANAGER' || userRole === 'DISPATCHER'">
         <div class="h-full shrink-0 border-r border-slate-200 bg-white z-30 transition-all duration-300 ease-in-out" :class="isSidebarHovered ? 'w-[260px]' : 'w-[72px]'"></div>
         
         <div class="absolute top-0 left-0 h-full z-40" @mouseenter="isSidebarHovered = true" @mouseleave="isSidebarHovered = false">
@@ -144,16 +144,8 @@ import MapView from './panels/map/MapView.vue'
 import OffersView from './panels/offers/OffersView.vue' 
 import SettingsView from './panels/settings/SettingsView.vue'
 
-// Import portalu klienta (dopasuj ścieżkę jeśli folder jest w src/clientportal/)
+// Import portalu klienta
 import ClientPortal from './clientportal/ClientPortal.vue'
-
-// --- KONFIGURACJA GOOGLE OAUTH REDIRECT ---
-const GOOGLE_CLIENT_ID = '398779552235-ssklkk7togd0ie05ati1pt1nbm5g158u.apps.googleusercontent.com'
-const GAS_EXEC_URL = 'https://script.google.com/macros/s/AKfycbyMqe87OuhNHgqI4OScTPc4RSJ3fDF3QhhC1S3-OFTC6ho7mphyS_Q8nE0gvDluybU8ww/exec'
-
-const getRedirectUri = () => {
-  return window.location.hostname === 'localhost' ? 'http://localhost:5173' : GAS_EXEC_URL
-}
 
 // --- STANY NAWIGACJI ---
 const isSidebarHovered = ref(false)
@@ -162,34 +154,20 @@ const changeView = (viewName) => { currentActiveView.value = viewName }
 
 // --- STANY AUTORYZACJI ---
 const isAuthenticated = ref(false)
-const userRole = ref('') // 'EMPLOYEE' | 'CLIENT'
+const userRole = ref('') // 'EMPLOYEE' | 'CLIENT' itp.
 const userEmail = ref('')
 const isGuest = ref(false)
 
 const isLoading = ref(false)
 const authError = ref('')
 
+// Zmienne nowego formularza
+const formEmail = ref('')
+const formPassword = ref('')
+const showPassword = ref(false)
+
 onMounted(() => {
-  // 1. Obsługa powrotu z logowania Google (?code=...)
-  const urlCode = new URLSearchParams(window.location.search).get('code')
-  const gasCode = window.__GAS_OAUTH_CODE__ || urlCode || ''
-
-  if (gasCode) {
-    window.__GAS_OAUTH_CODE__ = ''
-    if (window.location.hostname === 'localhost') {
-      window.history.replaceState({}, document.title, '/')
-    }
-    completeGoogleOAuth(gasCode)
-    return
-  }
-
-  // 2. Wejście z kodu QR (#/client) -> otwiera od razu w trybie gościa
-  if (window.location.hash.includes('/client')) {
-    enterAsGuest()
-    return
-  }
-
-  // 3. Sprawdzenie zapisanej sesji w LocalStorage
+  // Sprawdzenie zapisanej sesji w LocalStorage
   const savedSession = localStorage.getItem('ekoen_user_session')
   if (savedSession) {
     try {
@@ -201,24 +179,8 @@ onMounted(() => {
   }
 })
 
-// --- PRZEKIEROWANIE DO GOOGLE ---
-function loginWithGoogle() {
-  isLoading.value = true
-  authError.value = ''
-
-  const params = new URLSearchParams({
-    client_id: GOOGLE_CLIENT_ID,
-    redirect_uri: getRedirectUri(),
-    response_type: 'code',
-    scope: 'openid email profile',
-    prompt: 'select_account'
-  })
-
-  window.top.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`
-}
-
-// --- WYMIANA KODU Z GOOGLE NA SESJĘ ---
-function completeGoogleOAuth(code) {
+// --- LOGOWANIE FORMULARZEM (Z BAZĄ SYS_USERS) ---
+function handleFormLogin() {
   isLoading.value = true
   authError.value = ''
 
@@ -229,33 +191,30 @@ function completeGoogleOAuth(code) {
         if (res.success) {
           grantAccess(res)
         } else {
-          authError.value = res.message || 'Błąd weryfikacji konta Google.'
+          authError.value = res.message || 'Nieprawidłowy adres e-mail lub hasło.'
         }
       })
-      .withFailureHandler(() => {
+      .withFailureHandler((err) => {
         isLoading.value = false
-        authError.value = 'Błąd połączenia z serwerem Google.'
+        authError.value = 'Błąd połączenia z bazą danych: ' + err.toString()
       })
-      .exchangeGoogleCode(code, getRedirectUri())
+      .verifySystemLogin(formEmail.value, formPassword.value)
   } else {
+    // Tryb lokalny (deweloperski) dla testów na komputerze
     setTimeout(() => {
       isLoading.value = false
-      grantAccess({ email: 'dev@ekoen.pl', role: 'EMPLOYEE', panels: '*', success: true })
-    }, 500)
+      if (formEmail.value === 'test' && formPassword.value === 'test') {
+        grantAccess({ email: 'test@ekoen.pl', role: 'ADMIN', panels: '*', success: true })
+      } else {
+        authError.value = 'W trybie testowym użyj: test / test'
+      }
+    }, 800)
   }
-}
-
-// --- WEJŚCIE BEZ LOGOWANIA (GOŚĆ) ---
-function enterAsGuest() {
-  userRole.value = 'CLIENT'
-  userEmail.value = ''
-  isGuest.value = true
-  isAuthenticated.value = true
 }
 
 // --- WPUSZCZENIE ZALOGOWANEGO UŻYTKOWNIKA ---
 function grantAccess(userData) {
-  userRole.value = userData.role || 'CLIENT'
+  userRole.value = userData.role || 'EMPLOYEE'
   userEmail.value = userData.email || userData.username || ''
   isGuest.value = false
 
@@ -274,6 +233,7 @@ function handleLogout() {
   userEmail.value = ''
   isGuest.value = false
   isAuthenticated.value = false
+  formPassword.value = ''
 }
 </script>
 
