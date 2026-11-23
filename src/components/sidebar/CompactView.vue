@@ -17,7 +17,7 @@
       </div>
     </header>
 
-    <!-- SIATKA BENTO BOX (Z płynnym przejściem TransitionGroup) -->
+    <!-- SIATKA BENTOBOX (Z płynnym przejściem TransitionGroup) -->
     <div class="flex-1 overflow-y-auto px-6 md:px-10 pb-20 custom-scrollbar relative z-10" ref="gridContainer" @click.self="disableEditMode">
       <TransitionGroup name="bento" tag="div" class="grid grid-cols-12 gap-4 auto-rows-[100px] relative pb-10" @click.self="disableEditMode">
         
