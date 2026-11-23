@@ -1,15 +1,15 @@
 <template>
   <div class="w-full h-full bg-[#f4f6f8] overflow-hidden flex flex-col">
-    <!-- NAGŁÓWEK EKRANU (Taki jak w innych modułach, tylko mniejszy) -->
+    <!-- NAGŁÓWEK EKRANU -->
     <div class="px-8 py-6 shrink-0 border-b border-slate-200/60 bg-[#f4f6f8]">
       <h1 class="text-2xl font-black text-slate-800 tracking-tight">Ustawienia Systemu</h1>
       <p class="text-sm font-bold text-slate-500 mt-1">Personalizacja, powiadomienia i preferencje konta.</p>
     </div>
 
-    <!-- GŁÓWNY KONTENER (Z podziałem na Sidebar i Zawartość) -->
+    <!-- GŁÓWNY KONTENER -->
     <div class="flex flex-1 overflow-hidden px-8 py-6 gap-8 max-w-7xl">
       
-      <!-- LEWE MENU (Kategorie ustawień) -->
+      <!-- LEWE MENU -->
       <div class="w-64 shrink-0 flex flex-col gap-2">
         <button 
           v-for="tab in tabs" :key="tab.id"
@@ -22,7 +22,7 @@
         </button>
       </div>
 
-      <!-- PRAWA STRONA (Zawartość wybranej zakładki) -->
+      <!-- PRAWA STRONA -->
       <div class="flex-1 bg-white rounded-3xl shadow-sm border border-slate-200 overflow-y-auto custom-scrollbar relative">
         
         <!-- ============================================== -->
@@ -36,6 +36,36 @@
           
           <div class="space-y-8 max-w-3xl">
             
+            <!-- NOWA SEKCJA: GŁÓWNY INTERFEJS (CLASSIC VS MODERN) -->
+            <div class="bg-indigo-50/50 border border-indigo-100 p-6 rounded-2xl">
+              <h3 class="text-[11px] font-black uppercase tracking-widest text-indigo-500 mb-4">Tryb Pulpitu Pracownika</h3>
+              
+              <div class="flex gap-4">
+                <label class="cursor-pointer flex-1">
+                  <!-- checked na podstawie local storage LUB własnego store'a -->
+                  <input type="radio" v-model="currentUiMode" value="classic" class="peer sr-only" @change="switchGlobalUi('classic')" />
+                  <div class="p-5 border-2 border-slate-200 rounded-xl peer-checked:border-indigo-500 peer-checked:bg-indigo-50 transition-all h-full">
+                    <div class="flex items-center gap-3 mb-2">
+                      <svg class="w-6 h-6 text-slate-400 peer-checked:text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+                      <div class="font-black text-slate-700 peer-checked:text-indigo-700 text-sm">Klasyczny (Biuro)</div>
+                    </div>
+                    <div class="text-[11px] text-slate-500 font-medium leading-relaxed">Rozbudowany interfejs boczny. Idealny do pracy przy biurku i analizy dużej ilości danych.</div>
+                  </div>
+                </label>
+
+                <label class="cursor-pointer flex-1">
+                  <input type="radio" v-model="currentUiMode" value="modern" class="peer sr-only" @change="switchGlobalUi('modern')" />
+                  <div class="p-5 border-2 border-slate-200 rounded-xl peer-checked:border-emerald-500 peer-checked:bg-emerald-50 transition-all h-full relative overflow-hidden">
+                    <div class="flex items-center gap-3 mb-2 relative z-10">
+                      <svg class="w-6 h-6 text-slate-400 peer-checked:text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><rect x="7" y="7" width="3" height="3"/><rect x="14" y="7" width="3" height="3"/><rect x="7" y="14" width="3" height="3"/><rect x="14" y="14" width="3" height="3"/></svg>
+                      <div class="font-black text-slate-700 peer-checked:text-emerald-700 text-sm">Nowoczesny (Teren)</div>
+                    </div>
+                    <div class="text-[11px] text-slate-500 font-medium leading-relaxed relative z-10">Szybki kokpit w stylu Bento, optymalny na tablety i telefony, z szybkim dostępem do map.</div>
+                  </div>
+                </label>
+              </div>
+            </div>
+
             <!-- SEKCJA: MOTYW I KOLORY -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
               <!-- Motyw (Jasny/Ciemny) -->
@@ -151,7 +181,6 @@
               <option value="tickets">Centrum Zgłoszeń</option>
             </select>
           </div>
-          <!-- Tutaj w przyszłości dodasz drag&drop do układania sidebaru -->
         </div>
 
         <!-- ============================================== -->
@@ -198,15 +227,34 @@
 import { ref, onMounted } from 'vue'
 import { useSettingsStore } from '../../stores/useSettingsStore'
 
+// Definiujemy emit na zewnątrz, żeby App.vue mogło zareagować na przełączenie "Motywu głównego"
+const emit = defineEmits(['toggle-ui'])
+
 const store = useSettingsStore()
 
-// Automatyczny zapis ustawień przy każdej zmianie
+// Lokalna zmienna do kontrolowania przełącznika głównego interfejsu
+const currentUiMode = ref('classic')
+
 const save = () => {
   store.saveSettings()
 }
 
+// Funkcja przechwytująca kliknięcie w główny tryb pulpitu
+const switchGlobalUi = (mode) => {
+  currentUiMode.value = mode
+  // Oprócz wizualnej zmiany guzika na zielony, zmuszamy App.vue (rodzica) do przemalowania całej struktury.
+  if (mode === 'modern') {
+    emit('toggle-ui') // Wysyła sygnał, żeby App.vue aktywował nową mroczną templatkę.
+  }
+}
+
 onMounted(() => {
   store.loadSettings()
+  // Odczyt zapamiętanego trybu w przeglądarce, żeby kafelki "radio" miały właściwy kolor od razu po wejściu w ustawienia
+  const savedMode = localStorage.getItem('ekoen_ui_mode')
+  if (savedMode) {
+    currentUiMode.value = savedMode
+  }
 })
 
 // Zakładki pionowego menu
