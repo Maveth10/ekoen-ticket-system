@@ -193,6 +193,13 @@ import ClientPortal from './clientportal/ClientPortal.vue'
 const uiMode = ref(localStorage.getItem('ekoen_ui_mode') || 'classic')
 const isMobileMenuOpen = ref(false)
 
+const isMobileOrTablet = () => {
+  const isSmallViewport = window.innerWidth < 1024 || window.screen.width < 1024
+  const isTouchDevice = window.matchMedia('(pointer: coarse)').matches
+  const isMobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+  return isSmallViewport || isTouchDevice || isMobileUA
+}
+
 const setUiMode = (mode) => {
   uiMode.value = mode
   localStorage.setItem('ekoen_ui_mode', mode)
