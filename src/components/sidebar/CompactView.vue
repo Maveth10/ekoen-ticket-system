@@ -34,6 +34,17 @@
       </button>
     </div>
 
+    <!-- DYSKRETNY PRZYCISK WYLOGOWANIA (Prawy dolny róg) -->
+    <button
+      v-if="!isEditMode"
+      @click="emit('logout')"
+      class="fixed bottom-6 right-6 z-[110] bg-white/90 hover:bg-red-50 text-slate-500 hover:text-red-600 border border-slate-200/90 hover:border-red-200 shadow-lg backdrop-blur-md px-4 py-2.5 rounded-2xl flex items-center gap-2 transition-all duration-200 active:scale-95 group"
+      :title="`Wyloguj (${userEmail || userRole})`"
+    >
+      <LogOut class="w-4 h-4 transition-transform group-hover:-translate-x-0.5" :stroke-width="2.2" />
+      <span class="text-[10px] font-black uppercase tracking-widest hidden sm:inline">Wyloguj</span>
+    </button>
+
     <!-- SIATKA BENTO BOX -->
     <div class="flex-1 overflow-y-auto px-4 md:px-10 pt-5 md:pt-8 pb-20 custom-scrollbar relative z-10" ref="gridContainer" @click.self="disableEditMode">
     
@@ -181,7 +192,7 @@
 import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import { 
   Zap, Map, Calendar, Package, Building2, 
-  CreditCard, Users, PlugZap, FileText, Settings 
+  CreditCard, Users, PlugZap, FileText, Settings, LogOut 
 } from 'lucide-vue-next'
 
 const iconMap = {
