@@ -6,7 +6,7 @@
     <!-- ========================================================================= -->
     <template v-if="settingsStore.ticketsViewMode === 'v1' || !settingsStore.ticketsViewMode">
       <!-- 1. UNIWERSALNE KPI -->
-      <div class="overflow-auto ticket-custom-scrollbar max-h-[45vh] shrink-0" @scroll="handleScroll">
+      <div class="flex-1 overflow-auto ticket-custom-scrollbar" @scroll="handleScroll">
 
     <UniversalKpi 
       title="Centrum Zgłoszeń"
