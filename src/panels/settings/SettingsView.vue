@@ -242,10 +242,7 @@ const save = () => {
 // Funkcja przechwytująca kliknięcie w główny tryb pulpitu
 const switchGlobalUi = (mode) => {
   currentUiMode.value = mode
-  // Oprócz wizualnej zmiany guzika na zielony, zmuszamy App.vue (rodzica) do przemalowania całej struktury.
-  if (mode === 'modern') {
-    emit('toggle-ui') // Wysyła sygnał, żeby App.vue aktywował nową mroczną templatkę.
-  }
+  emit('toggle-ui', mode)
 }
 
 onMounted(() => {

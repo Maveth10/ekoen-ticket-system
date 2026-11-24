@@ -81,56 +81,64 @@
           <!-- TRYB KLASYCZNY: Zawsze widoczny Sidebar z lewej -->
           <template v-if="uiMode === 'classic'">
             <div class="h-full shrink-0 border-r border-slate-200 bg-white z-30 transition-all duration-300 ease-in-out" :class="isSidebarHovered ? 'w-[260px]' : 'w-[72px]'"></div>
-            <div class="absolute top-0 left-0 h-full z-40" @mouseenter="isSidebarHovered = true" @mouseleave="isSidebarHovered = false">
+            <div class="fixed top-0 left-0 h-full z-40" @mouseenter="isSidebarHovered = true" @mouseleave="isSidebarHovered = false">
               <Sidebar :currentView="currentActiveView" @switch-view="changeView" @logout="handleLogout" />
             </div>
           </template>
 
-          <!-- TRYB MODERN: Wysuwane Menu po wciśnięciu Hamburgera -->
+          <!-- TRYB MODERN: Fizycznie wysuwany Dashboard (Bento Box) z języczkiem -->
           <template v-if="uiMode === 'modern'">
-            <!-- Przyciemnienie tła -->
-            <div v-if="isMobileMenuOpen" class="fixed inset-0 z-[100] bg-slate-900/40 backdrop-blur-sm transition-opacity" @click="isMobileMenuOpen = false"></div>
-            <!-- Fizyczny Sidebar wsuwany z boku -->
-            <div class="fixed top-0 left-0 h-full z-[110] transition-transform duration-300 ease-in-out" :class="isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'">
-              <!-- Przekazujemy mu 'changeView', który zamknie też menu przy kliknięciu w moduł -->
-              <Sidebar :currentView="currentActiveView" @switch-view="changeView" @logout="handleLogout" />
-            </div>
-          </template>
+            <!-- Przyciemnienie tła w trakcie wyciągania -->
+            <div 
+              v-if="isDraggingTab && tabDragX > 0" 
+              class="fixed inset-0 z-[90] bg-slate-900/30 pointer-events-none"
+              :style="{ opacity: Math.min(1, tabDragX / 300) }"
+            ></div>
 
-          <!-- OBSZAR GŁÓWNY (Panele lub Kokpit) -->
-          <main class="flex-1 relative h-full overflow-hidden z-10 flex flex-col bg-[#f4f6f8]" id="main-content-area">
-            
-            <!-- Pasek roboczy dla trybu Modern - Pojawia się TYLKO jak wejdziesz w Moduł -->
-            <div v-if="uiMode === 'modern' && currentActiveView !== 'dashboard'" class="h-16 bg-white border-b border-slate-200 shrink-0 flex items-center justify-between px-4 z-20 shadow-sm relative">
-              <div class="flex items-center gap-3">
-                <button @click="isMobileMenuOpen = true" class="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center text-slate-600 hover:bg-slate-200 transition-colors">
-                  <!-- Ikona Menu (Hamburger) -->
-                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 6h16M4 12h16M4 18h16"/></svg>
-                </button>
-                <div class="flex flex-col">
-                  <span class="text-[10px] font-black uppercase tracking-widest text-slate-400 leading-tight">Otwarte</span>
-                  <span class="text-[14px] font-black tracking-tight text-slate-800 leading-tight">Panel Narzędzi</span>
-                </div>
-              </div>
-              <button @click="currentActiveView = 'dashboard'" class="px-4 py-2 bg-[#f0f7f1] text-[#58b347] border border-[#58b347]/20 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-[#e1efe3] transition-colors flex items-center gap-2">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline stroke-width="2.5" points="9 22 9 12 15 12 15 22"/></svg>
-                Pulpit
-              </button>
-            </div>
-
-            <!-- RENDEROWANIE ZAWARTOŚCI -->
-            <div class="flex-1 overflow-hidden relative">
-              <!-- Sam Kokpit Modern (Bento Box) -->
-              <CompactView v-if="uiMode === 'modern' && currentActiveView === 'dashboard'" 
+            <!-- Kontener Dashboardu przesuwany z lewej -->
+            <div 
+              class="fixed inset-0 z-[95] shadow-2xl will-change-transform"
+              :class="isDraggingTab ? '' : 'transition-transform duration-300 cubic-bezier(0.16, 1, 0.3, 1)'"
+              :style="{
+                transform: currentActiveView === 'dashboard'
+                  ? 'translate3d(0, 0, 0)'
+                  : `translate3d(calc(-100% + ${tabDragX}px), 0, 0)`
+              }"
+            >
+              <!-- Sam Pulpit Bento Box -->
+              <CompactView 
                 :userRole="userRole" 
                 :userEmail="userEmail" 
                 @switch-view="changeView" 
                 @toggle-ui="setUiMode('classic')" 
                 @logout="handleLogout" 
               />
-              
+
+              <!-- Języczek przyklejony do prawej krawędzi schowanego Dashboardu -->
+              <div 
+                v-if="currentActiveView !== 'dashboard'"
+                @pointerdown="onTabPointerDown"
+                class="absolute left-full top-1/2 -translate-y-1/2 flex items-center cursor-grab active:cursor-grabbing select-none group touch-none"
+                title="Kliknij lub przeciągnij, aby wysunąć Pulpit"
+              >
+                <div class="bg-white/95 hover:bg-[#58b347] text-slate-500 hover:text-white border border-l-0 border-slate-200 hover:border-[#58b347] shadow-lg rounded-r-2xl py-4 pl-2 pr-2.5 flex flex-col items-center gap-2 transition-all duration-200 group-hover:pl-3.5 backdrop-blur-md">
+                  <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <rect x="3" y="3" width="7" height="7" rx="1.5"/>
+                    <rect x="14" y="3" width="7" height="7" rx="1.5"/>
+                    <rect x="14" y="14" width="7" height="7" rx="1.5"/>
+                    <rect x="3" y="14" width="7" height="7" rx="1.5"/>
+                  </svg>
+                  <div class="w-1 h-6 rounded-full bg-slate-300 group-hover:bg-white/70 transition-colors"></div>
+                </div>
+              </div>
+            </div>
+          </template>
+
+          <main class="flex-1 relative h-full overflow-hidden z-10 flex flex-col bg-[#f4f6f8]" id="main-content-area">
+            <!-- RENDEROWANIE ZAWARTOŚCI -->
+            <div class="flex-1 overflow-hidden relative">
               <!-- Klasyczne Moduły -->
-              <TicketsView v-else-if="currentActiveView === 'tickets'" />
+              <TicketsView v-if="currentActiveView === 'tickets'" />
               <ClientsView v-else-if="currentActiveView === 'clients'" />
               <ScheduleView v-else-if="currentActiveView === 'schedule'" />
               <BillingsView v-else-if="currentActiveView === 'billings'" />
@@ -140,7 +148,7 @@
               <MapView v-else-if="currentActiveView === 'map'" />
               <OffersView v-else-if="currentActiveView === 'offers'" />
               <!-- Settings View z przekazywaniem toggle-ui -->
-              <SettingsView v-else-if="currentActiveView === 'settings'" @toggle-ui="setUiMode('modern')" />
+              <SettingsView v-else-if="currentActiveView === 'settings'" @toggle-ui="setUiMode" />
               
               <div v-else class="flex flex-col items-center justify-center h-full text-slate-400">
                 <svg class="w-16 h-16 mb-4 opacity-50" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
@@ -188,9 +196,50 @@ const isMobileMenuOpen = ref(false)
 const setUiMode = (mode) => {
   uiMode.value = mode
   localStorage.setItem('ekoen_ui_mode', mode)
-  if (mode === 'modern') {
+  
+  // Jeśli wracamy do Classic będąc na dashboardzie, przerzuć na mapę (bo Classic nie ma dashboardu)
+  if (mode === 'classic' && currentActiveView.value === 'dashboard') {
+    currentActiveView.value = 'map'
+  }
+}
+
+// --- LOGIKA JĘZYCZKA BENTO (Klik lub przeciągnięcie w prawo) ---
+const isDraggingTab = ref(false)
+const tabDragX = ref(0)
+let tabStartX = 0
+
+const onTabPointerDown = (e) => {
+  isDraggingTab.value = true
+  tabStartX = e.clientX
+  tabDragX.value = 0
+
+  window.addEventListener('pointermove', onTabPointerMove)
+  window.addEventListener('pointerup', onTabPointerUp)
+  window.addEventListener('pointercancel', onTabPointerUp)
+}
+
+const onTabPointerMove = (e) => {
+  if (!isDraggingTab.value) return
+  const dx = e.clientX - tabStartX
+  // Pozwalamy wyciągnąć dashboard na pełną szerokość ekranu
+  tabDragX.value = Math.max(0, Math.min(window.innerWidth, dx))
+}
+
+const onTabPointerUp = () => {
+  window.removeEventListener('pointermove', onTabPointerMove)
+  window.removeEventListener('pointerup', onTabPointerUp)
+  window.removeEventListener('pointercancel', onTabPointerUp)
+
+  // Próg otwarcia: 25% szerokości ekranu (max 200px)
+  const threshold = Math.min(200, window.innerWidth * 0.25)
+
+  // Otwiera się, jeśli kliknąłeś (ruch < 6px) LUB przeciągnąłeś za próg
+  if (tabDragX.value < 6 || tabDragX.value > threshold) {
     currentActiveView.value = 'dashboard'
   }
+
+  isDraggingTab.value = false
+  tabDragX.value = 0
 }
 
 // --- STANY NAWIGACJI ---
@@ -293,5 +342,13 @@ function handleLogout() {
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-slideInLeft {
+  animation: slideInLeft 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+@keyframes slideInLeft {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
 }
 </style>
