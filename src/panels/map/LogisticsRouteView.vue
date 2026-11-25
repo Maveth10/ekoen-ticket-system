@@ -328,6 +328,7 @@ let globalBounds = null
 let globalMarkers = []
 let globalInfoWindows = []
 let globalPolylines = []
+let dayMapObjects = []
 
 // Synchronizacja wartości z głównych rozwijanych list HTML do zmiennych Vue
 const syncFormValues = () => {
@@ -376,7 +377,6 @@ const currentStats = computed(() => {
 const setPlannerMode = (mode) => {
   plannerMode.value = mode
   syncFormValues()
-  calculateOptimalRoute()
 }
 
 const setAccommodationPolicy = (policy) => {
@@ -391,27 +391,26 @@ const setActiveDayTab = (tab) => {
 }
 
 const updateMapVisibility = () => {
-  if (!mapInstance || weekSchedule.value.length === 0) return
+  if (!mapInstance || dayMapObjects.length === 0) return
+
+  globalInfoWindows.forEach(iw => iw.close())
 
   if (activeDayTab.value === 'ALL') {
-    weekSchedule.value.forEach(day => {
-      if (day.polyline) day.polyline.setMap(mapInstance)
-      day.markers.forEach(m => m.setMap(mapInstance))
+    dayMapObjects.forEach(dayObj => {
+      if (dayObj.polyline) dayObj.polyline.setVisible(true)
+      dayObj.markers.forEach(m => m.setVisible(true))
     })
     if (globalBounds && !globalBounds.isEmpty()) {
       mapInstance.fitBounds(globalBounds)
     }
   } else {
     const targetIdx = Number(activeDayTab.value)
-    weekSchedule.value.forEach((day, idx) => {
+    dayMapObjects.forEach((dayObj, idx) => {
       const isTarget = (idx === targetIdx)
-      if (day.polyline) day.polyline.setMap(isTarget ? mapInstance : null)
-      day.markers.forEach(m => m.setMap(isTarget ? mapInstance : null))
-      if (!isTarget) {
-        day.infoWindows.forEach(iw => iw.close())
-      }
+      if (dayObj.polyline) dayObj.polyline.setVisible(isTarget)
+      dayObj.markers.forEach(m => m.setVisible(isTarget))
     })
-    const current = weekSchedule.value[targetIdx]
+    const current = dayMapObjects[targetIdx]
     if (current && current.bounds && !current.bounds.isEmpty()) {
       mapInstance.fitBounds(current.bounds)
     }
@@ -426,6 +425,7 @@ const clearAllMapObjects = () => {
   globalMarkers = []
   globalInfoWindows = []
   globalPolylines = []
+  dayMapObjects = []
   weekSchedule.value = []
 }
 
@@ -491,6 +491,9 @@ const initGoogleMaps = async () => {
       disableDefaultUI: true,
       zoomControl: true,
       styles: [{ featureType: 'poi', stylers: [{ visibility: 'off' }] }]
+    })
+    mapInstance.addListener('click', () => {
+      globalInfoWindows.forEach(iw => iw.close())
     })
     isMapLoading.value = false
   } catch (e) {
@@ -847,7 +850,10 @@ const calculateOptimalRoute = async () => {
           `
         })
 
-        marker.addListener('click', () => infoWindow.open({ anchor: marker, map: mapInstance }))
+        marker.addListener('click', () => {
+          globalInfoWindows.forEach(iw => iw.close())
+          infoWindow.open({ anchor: marker, map: mapInstance })
+        })
         dayMarkers.push(marker)
         dayInfoWindows.push(infoWindow)
         
@@ -908,6 +914,13 @@ const calculateOptimalRoute = async () => {
       const totalDaySec = parseInt(String(route.duration).replace('s', ''), 10) || 0
       const totalDayMeters = route.distanceMeters || 0
 
+      dayMapObjects.push({
+        polyline: poly,
+        markers: dayMarkers,
+        infoWindows: dayInfoWindows,
+        bounds: dayBounds
+      })
+
       weekSchedule.value.push({
         date: currentDate,
         dateName: new Date(currentDate).toLocaleDateString('pl-PL', { weekday: 'short', day: 'numeric', month: 'numeric' }),
@@ -937,6 +950,7 @@ const calculateOptimalRoute = async () => {
 
 const focusStep = (step) => {
   if (step && step.marker) {
+    globalInfoWindows.forEach(iw => iw.close())
     mapInstance.panTo(step.marker.getPosition())
     mapInstance.setZoom(13)
     if (step.infoWindow) step.infoWindow.open({ anchor: step.marker, map: mapInstance })
