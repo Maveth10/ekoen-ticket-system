@@ -52,6 +52,20 @@
                 <span @click.stop="$emit('copy', getTicketIdDisplay(t, idx))" class="font-black tracking-wider text-[13px] block mb-1.5 cursor-pointer hover:opacity-70 transition-opacity w-fit text-slate-800" title="Kliknij, aby skopiować ID">{{ getTicketIdDisplay(t, idx) }}</span>
                 <div v-if="store.activeModule !== 'ekoen'" @click.stop="$emit('copy', t.status)" class="text-[10px] font-bold text-slate-500 tracking-wider text-left mb-0.5 uppercase cursor-pointer hover:text-slate-800 transition-colors w-fit" title="Kopiuj status">{{ t.status || 'BRAK STATUSU' }}</div>
                 <div @click.stop="$emit('copy', t.category || t.priority)" class="text-[10px] font-bold text-blue-600 tracking-wider text-left uppercase cursor-pointer hover:text-blue-800 transition-colors w-fit" title="Kopiuj kategorię">{{ t.category || t.priority || 'INNE' }}</div>
+
+                <!-- LINK AXON CONNECT -->
+                <a 
+                  v-if="getAxonUrl(t)" 
+                  :href="getAxonUrl(t)" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  @click.stop
+                  class="mt-auto mb-1 inline-flex items-center gap-1.5 bg-slate-50 hover:bg-slate-800 text-slate-600 hover:text-white px-2.5 py-1 rounded-lg border border-slate-200 hover:border-slate-800 transition-all active:scale-95 w-fit group"
+                  title="Otwórz zlecenie w Axon Connect"
+                >
+                  <span class="text-[9px] font-black tracking-[0.14em] uppercase leading-none">AXON</span>
+                  <svg class="w-2.5 h-2.5 opacity-50 group-hover:opacity-100 transition-opacity" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M7 17L17 7M17 7H7M17 7v10"/></svg>
+                </a>
               </div>
 
               <!-- STACJA -->
@@ -60,7 +74,23 @@
                   {{ getShortQp(t.qp_id || t.station_id) }}
                 </div>
                 <div @click.stop="$emit('copy', t.product || t.manufacturer)" class="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1 cursor-pointer hover:text-blue-600 transition-colors w-fit">{{ t.product || t.manufacturer || 'Brak produktu' }}</div>
-                <div @click.stop="$emit('copy', [t.city, t.postcode, t.address].filter(Boolean).join(', '))" class="text-[10px] text-slate-400 whitespace-normal leading-tight cursor-pointer hover:text-blue-600 transition-colors w-fit">{{ [t.city, t.postcode, t.address].filter(Boolean).join(', ') || 'Brak adresu' }}</div>
+                <div @click.stop="$emit('copy', [t.city, t.postcode, t.address].filter(Boolean).join(', '))" class="text-[10px] text-slate-400 whitespace-normal leading-tight line-clamp-2 cursor-pointer hover:text-blue-600 transition-colors w-fit">{{ [t.city, t.postcode, t.address].filter(Boolean).join(', ') || 'Brak adresu' }}</div>
+
+                <!-- LINK EOS -->
+                <a 
+                  v-if="getEosUrl(t)" 
+                  :href="getEosUrl(t)" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  @click.stop
+                  class="mt-auto mb-1 inline-flex items-center gap-1.5 bg-slate-50 hover:bg-[#f0f7f1] text-slate-600 hover:text-[#2c6623] px-2.5 py-1 rounded-lg border border-slate-200 hover:border-[#58b347]/50 transition-all active:scale-95 w-fit group"
+                  title="Otwórz stację w systemie EOS"
+                >
+                  <span class="text-[10px] font-black tracking-wider leading-none">
+                    E<span class="font-mono font-bold text-slate-400">{</span><span class="font-mono font-bold text-[#58b347]">}</span>S
+                  </span>
+                  <svg class="w-2.5 h-2.5 opacity-50 group-hover:opacity-100 transition-opacity" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M7 17L17 7M17 7H7M17 7v10"/></svg>
+                </a>
               </div>
 
               <!-- KLIENT -->
@@ -103,6 +133,64 @@
                     <div @click="$emit('change-status', t, 'Rozliczone')" class="px-2 py-2.5 text-[9px] font-black uppercase text-green-700 hover:bg-green-50 cursor-pointer text-center">Rozliczone</div>
                   </div>
                 </div>
+
+                <!-- TERMIN W HARMONOGRAMIE + SZYBKIE PLANOWANIE -->
+                <div class="relative w-36 mt-1">
+                  <button
+                    type="button"
+                    @click.stop="openQuickSchedule(t)"
+                    class="w-full rounded-xl px-2 py-1.5 text-[9px] font-extrabold uppercase tracking-widest flex items-center justify-center gap-1.5 border transition-colors cursor-pointer truncate"
+                    :class="getTicketScheduleEvent(t)
+                      ? 'bg-sky-50 text-sky-700 border-sky-200 hover:bg-sky-100'
+                      : 'bg-white text-slate-400 border-dashed border-slate-300 hover:border-[#58b347] hover:text-[#58b347]'"
+                    :title="getTicketScheduleEvent(t) ? 'Kliknij, aby zmienić termin wizyty' : 'Kliknij, aby zaplanować w harmonogramie'"
+                  >
+                    <svg class="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    <span class="truncate">{{ getTicketScheduleEvent(t) ? formatScheduleDate(getTicketScheduleEvent(t).start_time) : 'Zaplanuj' }}</span>
+                  </button>
+
+                  <!-- POPOVER KALENDARZA -->
+                  <div
+                    v-if="activeScheduleTicketId === t.id"
+                    @click.stop
+                    class="absolute top-full left-0 mt-1.5 w-56 bg-white border border-slate-200 rounded-2xl shadow-2xl z-[220] p-3 flex flex-col gap-2.5 animate-fadeIn"
+                  >
+                    <div class="text-[9px] font-black uppercase tracking-widest text-slate-400">Termin w harmonogramie</div>
+
+                    <input
+                      type="date"
+                      v-model="scheduleForm.date"
+                      class="w-full text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 outline-none focus:border-[#58b347]"
+                    />
+
+                    <select
+                      v-model="scheduleForm.tech"
+                      class="w-full text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 outline-none focus:border-[#58b347]"
+                    >
+                      <option value="">-- Wybierz technika --</option>
+                      <option v-for="tech in availableScheduleTechs" :key="tech.id || tech.name" :value="tech.id || tech.name">
+                        {{ tech.name }}
+                      </option>
+                    </select>
+
+                    <div class="flex gap-1.5 pt-1">
+                      <button
+                        type="button"
+                        @click="activeScheduleTicketId = null"
+                        class="flex-1 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider text-slate-500 bg-slate-100 hover:bg-slate-200 transition-colors"
+                      >
+                        Anuluj
+                      </button>
+                      <button
+                        type="button"
+                        @click="saveQuickSchedule(t)"
+                        class="flex-1 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider text-white bg-[#58b347] hover:bg-[#499b3a] transition-colors shadow-sm"
+                      >
+                        Zapisz
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <!-- ZAPOTRZEBOWANIE NA CZĘŚCI -->
@@ -130,8 +218,9 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useTicketsStore } from '../../stores/useTicketsStore'
+import { useScheduleStore } from '../../stores/useScheduleStore'
 import SkeletonCard from '../../common/SkeletonCard.vue'
 
 const props = defineProps({
@@ -151,6 +240,90 @@ const emit = defineEmits([
 
 const store = useTicketsStore()
 
+const scheduleStore = useScheduleStore()
+
+const activeScheduleTicketId = ref(null)
+const scheduleForm = ref({ date: '', tech: '' })
+
+const availableScheduleTechs = computed(() => {
+  return scheduleStore.techList.length > 0 ? scheduleStore.techList : (store.techList || [])
+})
+
+const getTicketScheduleEvent = (t) => {
+  if (!scheduleStore.events || scheduleStore.events.length === 0) return null
+  const ids = [t.id, t.ticket_code, t.ticket_number]
+    .filter(Boolean)
+    .map(v => String(v).toLowerCase().trim())
+
+  return scheduleStore.events.find(ev => {
+    const evTid = String(ev.ticket_id || '').toLowerCase().trim()
+    return evTid && ids.includes(evTid)
+  }) || null
+}
+
+const formatScheduleDate = (startTime) => {
+  if (!startTime) return ''
+  const d = new Date(startTime)
+  if (isNaN(d.getTime())) return String(startTime).split('T')[0]
+  return d.toLocaleDateString('pl-PL', { day: '2-digit', month: '2-digit' })
+}
+
+const openQuickSchedule = (t) => {
+  if (activeScheduleTicketId.value === t.id) {
+    activeScheduleTicketId.value = null
+    return
+  }
+
+  const existing = getTicketScheduleEvent(t)
+  let defaultDate = new Date().toISOString().split('T')[0]
+  if (existing && existing.start_time) {
+    const d = new Date(existing.start_time)
+    if (!isNaN(d.getTime())) {
+      defaultDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    }
+  }
+
+  const techRaw = existing?.technician_id || t.technician_id || ''
+  const matchedTech = availableScheduleTechs.value.find(
+    x => String(x.id) === String(techRaw) || String(x.name).toLowerCase() === String(techRaw).toLowerCase().trim()
+  )
+
+  scheduleForm.value = {
+    date: defaultDate,
+    tech: matchedTech ? (matchedTech.id || matchedTech.name) : techRaw
+  }
+  activeScheduleTicketId.value = t.id
+}
+
+const saveQuickSchedule = (t) => {
+  if (!scheduleForm.value.date) return
+
+  const existing = getTicketScheduleEvent(t)
+  const shortQp = getShortQp(t.qp_id || t.station_id)
+  const titleParts = [shortQp !== '-' ? shortQp : '', t.city || '', t.title || t.subject || ''].filter(Boolean)
+
+  scheduleStore.saveEventToCloud({
+    id: existing ? existing.id : 'temp_' + Date.now(),
+    ticket_id: String(t.id || t.ticket_code || t.ticket_number || ''),
+    technician_id: scheduleForm.value.tech,
+    title: existing?.title || titleParts.join(' • ') || 'Wizyta serwisowa',
+    description: existing?.description || t.description || '',
+    start_time: `${scheduleForm.value.date}T08:00:00`,
+    end_time: `${scheduleForm.value.date}T16:00:00`,
+    event_type: existing?.event_type || 'service',
+    event_subtype: existing?.event_subtype || t.category || 'Awaria',
+    all_day: 'NIE'
+  })
+
+  activeScheduleTicketId.value = null
+}
+
+onMounted(() => {
+  if (scheduleStore.events.length === 0) {
+    scheduleStore.fetchScheduleData()
+  }
+})
+
 const isAllSelected = computed(() => props.tickets.length > 0 && props.selectedIds.length === props.tickets.length)
 
 const getShortQp = (rawQp) => {
@@ -167,6 +340,19 @@ const getTicketIdDisplay = (t, idx) => {
   let isEkoenTicket = (store.activeModule === 'ekoen') || (store.activeModule === 'historia' && (String(t.ticket_number || '').includes('EKOEN') || !t.ticket_code))
   if (isEkoenTicket) return `EE_${String(idx + 1).padStart(3, '0')}`
   return t.ticket_code || t.ticket_number || t.id || 'BRAK ID'
+}
+
+const getAxonUrl = (t) => {
+  if (store.activeModule === 'ekoen') return null
+  const num = String(t.ticket_code || t.ticket_number || t.id || '').trim()
+  if (!num || num.toUpperCase().includes('EKOEN') || num.startsWith('EE_')) return null
+  return `https://axon-connect.ekoenergetyka.com.pl/admin/service-jobs/${encodeURIComponent(num)}`
+}
+
+const getEosUrl = (t) => {
+  const shortQp = getShortQp(t.qp_id || t.station_id)
+  if (!shortQp || shortQp === '-') return null
+  return `https://sm-eos.ocpps.ekoenergetyka.com.pl/management/chargepoint?chargePointId=${encodeURIComponent(shortQp)}`
 }
 
 const getTechPillHtml = (techId) => {

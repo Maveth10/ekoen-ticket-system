@@ -121,6 +121,11 @@
       @close="showAnalyticsModal = false"
     />
 
+    <!-- Formularz dodawania / edycji stacji -->
+    <StationFormModal 
+      ref="stationFormModalRef" 
+    />
+
   </div>
 </template>
 
@@ -135,6 +140,7 @@ import UniversalTabModal from '../../common/UniversalTabModal.vue'
 import ConfirmModal from '../../common/ConfirmModal.vue'
 import StationsList from './StationsList.vue'
 import StationAnalyticsModal from '../../modals/StationAnalyticsModal.vue'
+import StationFormModal from '../../modals/StationFormModal.vue'
 
 const store = useStationsStore()
 
@@ -154,6 +160,7 @@ const confirmModal = ref({ show: false, message: "", onConfirm: null })
 
 const showAnalyticsModal = ref(false)
 const analyticsQp = ref('')
+const stationFormModalRef = ref(null)
 
 const isColDropdownOpen = ref(false)
 const currentSort = ref({ col: null, dir: 'asc' })
@@ -372,17 +379,20 @@ const massDelete = () => {
 }
 
 const openAddStationModal = (id = null) => {
-  if (typeof window.m_openQuickAddStation === 'function') {
-    if (id) {
-       const s = store.stations.find(x => x.id === id)
-       window.m_openQuickAddStation(true, s.gps_lat, s.gps_lng, s)
-    } else {
-       window.m_openQuickAddStation(false)
+  if (!stationFormModalRef.value) return
+
+  // Zabezpieczenie: kliknięcie w przycisk "Nowa stacja" przekazuje obiekt Event zamiast ID
+  const isRealId = id !== null && typeof id !== 'object'
+
+  if (isRealId) {
+    const s = store.stations.find(x => String(x.id) === String(id))
+    if (s) {
+      stationFormModalRef.value.open(true, s.gps_lat, s.gps_lng, s)
+      return
     }
-  } else {
-    toast.value = { show: true, msg: 'Moduł edycji stacji (Modal_AddStation) niedostępny.' }
-    setTimeout(() => { toast.value.show = false }, 3000)
   }
+
+  stationFormModalRef.value.open(false, null, null)
 }
 
 const openAnalytics = (qp) => {
