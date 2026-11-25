@@ -810,8 +810,7 @@ const calculateOptimalRoute = async () => {
         isStartPoint: true,
         isHotelStart: isHotelStart,
         label: dayOriginLabel,
-        marker: markRaw(marker)
-        infoWindow: markRaw(infoWindow)
+        marker: markRaw(startMarker)
       })
 
       route.legs.forEach((leg, lIdx) => {
@@ -871,8 +870,8 @@ const calculateOptimalRoute = async () => {
           navigationSteps: navSteps,
           showNav: false,
           googleMapsUrl: googleMapsUrl,
-          marker: marker,
-          infoWindow: infoWindow
+          marker: markRaw(marker),
+          infoWindow: markRaw(infoWindow)
         })
       })
 
