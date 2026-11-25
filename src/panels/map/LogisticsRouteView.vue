@@ -509,6 +509,20 @@ const getDistanceBetweenCoords = (lat1, lng1, lat2, lng2) => {
   return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)))
 }
 
+const getCurrentGpsPosition = () => {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(new Error('Twoja przeglądarka nie obsługuje geolokalizacji GPS.'))
+      return
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      (err) => reject(new Error('Brak dostępu do GPS. Zezwól na lokalizację w przeglądarce.')),
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+    )
+  })
+}
+
 const calculateOptimalRoute = async () => {
   errorMessage.value = ''
   totalHotelsSuggested.value = 0
@@ -550,12 +564,15 @@ const calculateOptimalRoute = async () => {
     groupedByDate[dStr].push(ev)
   })
 
-  const sortedDates = Object.keys(groupedByDate).sort()
-  if (sortedDates.length === 0) {
+  const allSortedDates = Object.keys(groupedByDate).sort()
+  if (allSortedDates.length === 0) {
     errorMessage.value = 'Brak zgłoszeń serwisowych w wybranym terminie.'
     isCalculating.value = false
     return
   }
+
+  // W trybie "1 Dzień" bierzemy tylko wybrany dzień (lub pierwszy najbliższy, jeśli ustawiono "Wszystkie dni")
+  const sortedDates = plannerMode.value === 'DAY' ? [allSortedDates[0]] : allSortedDates
 
   const daysData = []
   sortedDates.forEach(date => {
@@ -574,15 +591,38 @@ const calculateOptimalRoute = async () => {
       const station = props.stations.find(s => String(s.id) === String(statId) || s.public_id === statId || s.name === statId)
       let lat = null, lng = null, addressStr = ''
 
-      const tCity = ticket.city || ticket.miasto || ''
-      const tStreet = ticket.address || ticket.street || ticket.ulica || ticket.adres || ''
+      const buildAddress = (street, city, countryHint = '') => {
+        const parts = [street, city].map(s => String(s || '').trim()).filter(Boolean)
+        if (parts.length === 0) return ''
+        const joined = parts.join(', ')
+        const upper = (joined + ' ' + countryHint).toUpperCase()
+        // Jeśli adres już zawiera kraj albo słowa kluczowe SK/CZ, nie doklejamy "Polska"
+        if (upper.includes('POLSK') || upper.includes('SLOVAK') || upper.includes('SLOVENSK') || upper.includes('CZECH') || upper.includes('ČESK') || upper.includes('CESK')) {
+          return joined
+        }
+        return `${joined}, Polska`
+      }
+
+      const tCity = ticket?.city || ticket?.miasto || ''
+      const tStreet = ticket?.address || ticket?.street || ticket?.ulica || ticket?.adres || ''
+      const tCountry = ticket?.country || station?.country || ''
+
       if (tCity || tStreet) {
-        addressStr = `${tStreet}, ${tCity}, Polska`.replace(/^[\s,]+|[\s,]+$/g, '')
+        // 1. PRIORYTET: Aktualny adres ze zgłoszenia (geokodowany w locie przez Google)
+        addressStr = buildAddress(tStreet, tCity, tCountry)
       } else if (station && station.gps_lat && station.gps_lng) {
-        lat = parseFloat(String(station.gps_lat).replace(',', '.'))
-        lng = parseFloat(String(station.gps_lng).replace(',', '.'))
-      } else if (station && (station.city || station.street)) {
-        addressStr = `${station.street_number || station.street || ''}, ${station.city || ''}, Polska`.replace(/^[\s,]+|[\s,]+$/g, '')
+        // 2. FALLBACK: GPS z bazy stacji
+        const parsedLat = parseFloat(String(station.gps_lat).replace(',', '.'))
+        const parsedLng = parseFloat(String(station.gps_lng).replace(',', '.'))
+        if (!isNaN(parsedLat) && !isNaN(parsedLng)) {
+          lat = parsedLat
+          lng = parsedLng
+        }
+      }
+
+      if (lat === null && addressStr === '' && station && (station.city || station.street || station.street_number)) {
+        // 3. FALLBACK: Adres z bazy stacji
+        addressStr = buildAddress(station.street_number || station.street, station.city, tCountry)
       }
 
       if (lat !== null || addressStr !== '') {
@@ -609,6 +649,25 @@ const calculateOptimalRoute = async () => {
     return
   }
 
+  let userGpsCoords = null
+  if (selectedStartType.value === 'GPS') {
+    try {
+      userGpsCoords = await getCurrentGpsPosition()
+    } catch (gpsErr) {
+      errorMessage.value = gpsErr.message
+      isCalculating.value = false
+      return
+    }
+  }
+
+  // Dynamiczna baza do obliczania najdalszego punktu i opłacalności noclegu
+  let homeBaseCoords = { lat: 51.9356, lng: 15.5062 } // domyślnie Zielona Góra
+  if (selectedStartType.value === 'WAW') {
+    homeBaseCoords = { lat: 52.1815, lng: 20.9961 } // Warszawa (Postępu 13)
+  } else if (selectedStartType.value === 'GPS' && userGpsCoords) {
+    homeBaseCoords = { lat: userGpsCoords.lat, lng: userGpsCoords.lng }
+  }
+
   globalBounds = new window.google.maps.LatLngBounds()
   let carriedOverOrigin = null
   let carriedOverCity = ''
@@ -629,7 +688,10 @@ const calculateOptimalRoute = async () => {
       isHotelStart = true
       carriedOverOrigin = null 
     } else {
-      if (selectedStartType.value === 'WAW') {
+      if (selectedStartType.value === 'GPS' && userGpsCoords) {
+        dayOriginWaypoint = { location: { latLng: { latitude: userGpsCoords.lat, longitude: userGpsCoords.lng } } }
+        dayOriginLabel = `Twoja lokalizacja GPS (${userGpsCoords.lat.toFixed(4)}, ${userGpsCoords.lng.toFixed(4)})`
+      } else if (selectedStartType.value === 'WAW') {
         dayOriginWaypoint = { address: 'Postępu 13, Warszawa, Polska' }
         dayOriginLabel = 'Biuro EKOEN Warszawa'
       } else if (selectedStartType.value === 'CUSTOM' && customStartAddress.value) {
@@ -641,8 +703,8 @@ const calculateOptimalRoute = async () => {
       }
     }
 
-    const baseLat = 51.93
-    const baseLng = 15.54
+    const baseLat = homeBaseCoords.lat
+    const baseLng = homeBaseCoords.lng
     let farthestIdx = 0
     let maxDist = -1
 
@@ -726,6 +788,10 @@ const calculateOptimalRoute = async () => {
       const daySteps = []
 
       const startLoc = { lat: route.legs[0].startLocation.latLng.latitude, lng: route.legs[0].startLocation.latLng.longitude }
+      if (!isHotelStart && selectedStartType.value === 'CUSTOM') {
+        homeBaseCoords = startLoc
+      }
+
       const startMarker = new window.google.maps.Marker({
         position: startLoc,
         map: mapInstance,
@@ -817,7 +883,7 @@ const calculateOptimalRoute = async () => {
         const currentEndCity = (destinationPoint.city || destinationPoint.station?.city || '').toLowerCase().trim()
         const nextCity = (nextFirstPt.city || nextFirstPt.station?.city || '').toLowerCase().trim()
 
-        const distToBase = getDistanceBetweenCoords(lastLegEnd.latitude, lastLegEnd.longitude, baseLat, baseLng)
+        const distToBase = getDistanceBetweenCoords(lastLegEnd.latitude, lastLegEnd.longitude, homeBaseCoords.lat, homeBaseCoords.lng)
         let isNextNear = false
 
         if (currentEndCity && nextCity && (currentEndCity.includes(nextCity) || nextCity.includes(currentEndCity))) {
