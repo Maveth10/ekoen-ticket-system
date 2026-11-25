@@ -284,7 +284,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, markRaw, onMounted, onBeforeUnmount } from 'vue'
 import { setOptions, importLibrary } from '@googlemaps/js-api-loader'
 
 const API_KEY = "AIzaSyBuRqG1t0PWyhlBFPy8Ik5caKiVZ900u3c"
@@ -810,7 +810,8 @@ const calculateOptimalRoute = async () => {
         isStartPoint: true,
         isHotelStart: isHotelStart,
         label: dayOriginLabel,
-        marker: startMarker
+        marker: markRaw(marker)
+        infoWindow: markRaw(infoWindow)
       })
 
       route.legs.forEach((leg, lIdx) => {
@@ -912,11 +913,11 @@ const calculateOptimalRoute = async () => {
         date: currentDate,
         dateName: new Date(currentDate).toLocaleDateString('pl-PL', { weekday: 'short', day: 'numeric', month: 'numeric' }),
         color: dayColor,
-        polyline: poly,
-        markers: dayMarkers,
-        infoWindows: dayInfoWindows,
+        polyline: markRaw(poly),
+        markers: dayMarkers.map(m => markRaw(m)),
+        infoWindows: dayInfoWindows.map(iw => markRaw(iw)),
         steps: daySteps,
-        bounds: dayBounds,
+        bounds: markRaw(dayBounds),
         taskCount: daySteps.length - 1,
         distanceMeters: totalDayMeters,
         durationSec: totalDaySec,
