@@ -219,80 +219,14 @@
       ref="stationFormModalRef" 
     />
 
-    <TicketsFormModal 
+<TicketsFormModal 
       :show="showAddTicketModal" 
       :prefilledQp="prefilledQp"
       @close="showAddTicketModal = false" 
       @save="saveNewTicket"
     />
-    <!-- ======================= -->
 
   </div>
-
-<!-- ========================================== -->
-    <!-- 🕵️‍♂️ WIZUALNY DEBUGGER (ZAAWANSOWANY) -->
-    <!-- ========================================== -->
-    <div class="fixed bottom-0 right-0 z-[9999999] bg-slate-900/95 text-green-400 p-4 font-mono text-xs w-[450px] max-h-[90vh] overflow-y-auto rounded-tl-2xl shadow-[0_0_50px_rgba(0,0,0,0.5)] border-l-2 border-t-2 border-slate-700 custom-scrollbar">
-      <div class="font-bold text-white mb-3 border-b border-slate-700 pb-2 flex justify-between items-center">
-        <span>🕵️‍♂️ DEBUGGER DANYCH</span>
-        <button @click="store.isLoading = false; ticketsStore.isLoading = false; scheduleStore.isLoading = false;" class="bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded text-[10px] font-black transition-colors">
-          ODBLOKUJ EKRAN
-        </button>
-      </div>
-      
-      <!-- Podsumowanie stanu ładowania -->
-      <div class="grid grid-cols-3 gap-2 mb-4 border-b border-slate-700 pb-3 text-[10px]">
-        <div>Map: <span :class="store.isLoading ? 'text-red-400 animate-pulse font-bold' : 'text-green-400'">{{ store.isLoading }}</span></div>
-        <div>Tix: <span :class="ticketsStore.isLoading ? 'text-red-400 animate-pulse font-bold' : 'text-green-400'">{{ ticketsStore.isLoading }}</span></div>
-        <div>Sched: <span :class="scheduleStore.isLoading ? 'text-red-400 animate-pulse font-bold' : 'text-green-400'">{{ scheduleStore.isLoading }}</span></div>
-      </div>
-
-      <!-- BAZA: STACJE -->
-      <details class="mb-2 group">
-        <summary class="cursor-pointer text-white font-bold bg-slate-800 p-2 rounded select-none hover:bg-slate-700 transition-colors flex justify-between">
-          <span>📍 store.stations</span>
-          <span class="text-blue-400">Wyników: {{ store.stations?.length || 0 }}</span>
-        </summary>
-        <div class="p-2 bg-slate-950 text-slate-300 mt-1 rounded overflow-x-auto text-[10px]">
-          <div v-if="store.stations && store.stations.length > 0">
-            <div class="text-amber-400 mb-2 font-bold break-words">KLUCZE: {{ Object.keys(store.stations[0]).join(', ') }}</div>
-            <pre class="text-green-300">{{ JSON.stringify(store.stations[0], null, 2) }}</pre>
-          </div>
-          <div v-else class="text-red-400">Brak danych w store.stations</div>
-        </div>
-      </details>
-
-      <!-- BAZA: ZGŁOSZENIA -->
-      <details class="mb-2 group">
-        <summary class="cursor-pointer text-white font-bold bg-slate-800 p-2 rounded select-none hover:bg-slate-700 transition-colors flex justify-between">
-          <span>🎫 ticketsStore.tickets</span>
-          <span class="text-blue-400">Wyników: {{ ticketsStore.tickets?.length || 0 }}</span>
-        </summary>
-        <div class="p-2 bg-slate-950 text-slate-300 mt-1 rounded overflow-x-auto text-[10px]">
-          <div v-if="ticketsStore.tickets && ticketsStore.tickets.length > 0">
-            <div class="text-amber-400 mb-2 font-bold break-words">KLUCZE: {{ Object.keys(ticketsStore.tickets[0]).join(', ') }}</div>
-            <pre class="text-green-300">{{ JSON.stringify(ticketsStore.tickets[0], null, 2) }}</pre>
-          </div>
-          <div v-else class="text-red-400">Brak danych w ticketsStore.tickets</div>
-        </div>
-      </details>
-
-      <!-- BAZA: KALENDARZ -->
-      <details class="mb-2 group">
-        <summary class="cursor-pointer text-white font-bold bg-slate-800 p-2 rounded select-none hover:bg-slate-700 transition-colors flex justify-between">
-          <span>📅 scheduleStore.events</span>
-          <span class="text-blue-400">Wyników: {{ scheduleStore.events?.length || 0 }}</span>
-        </summary>
-        <div class="p-2 bg-slate-950 text-slate-300 mt-1 rounded overflow-x-auto text-[10px]">
-          <div v-if="scheduleStore.events && scheduleStore.events.length > 0">
-            <div class="text-amber-400 mb-2 font-bold break-words">KLUCZE: {{ Object.keys(scheduleStore.events[0]).join(', ') }}</div>
-            <pre class="text-green-300">{{ JSON.stringify(scheduleStore.events[0], null, 2) }}</pre>
-          </div>
-          <div v-else class="text-red-400">Brak wydarzeń w kalendarzu</div>
-        </div>
-      </details>
-    </div>
-
 </template>
 
 <script setup>
@@ -353,31 +287,20 @@ const isRoutingActive = ref(false)
 
 // --- DYNAMICZNE DATY DO TRAS LOGISTYCZNYCH ---
 const availableRouteDates = computed(() => {
-  console.log('--- [DEBUG MAPVIEW] ---');
-  console.log('1. Wydarzenia w kalendarzu:', scheduleStore.events);
-  
-  if (!scheduleStore.events || scheduleStore.events.length === 0) {
-    console.log('❌ Kalendarz jest pusty lub niezainicjowany!');
-    return [];
-  }
-  
+  if (!scheduleStore.events || scheduleStore.events.length === 0) return [];
+
   const dates = new Set();
   scheduleStore.events.forEach(ev => {
     if (ev.start_time) {
       try {
-        // NAPRAWA STREFY CZASOWEJ (Rozwiązuje problem cofniętych dni)
         const d = new Date(ev.start_time);
         const dStr = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
         dates.add(dStr);
-      } catch (e) {
-        console.warn('❌ Błąd parsowania daty dla:', ev.start_time);
-      }
+      } catch (e) {}
     }
   });
-  
-  const result = Array.from(dates).sort();
-  console.log('2. Wygenerowana lista dat do dropdownu:', result);
-  return result;
+
+  return Array.from(dates).sort();
 });
 
 const contextMenu = ref({ show: false, x: 0, y: 0, lat: null, lng: null })
