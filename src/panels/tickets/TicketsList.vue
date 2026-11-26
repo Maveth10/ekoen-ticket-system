@@ -109,9 +109,20 @@
                   <span v-if="t.title || t.subject" class="block font-black text-[11px] text-slate-800 mb-1.5 uppercase tracking-wider pointer-events-none">{{ t.title || t.subject }}</span>
                   <div class="text-[11px] text-slate-600 font-medium whitespace-pre-wrap break-words leading-relaxed pointer-events-none">{{ t.description || '-' }}</div>
                 </div>
-                <button v-if="t.attachments_url || (t.attachments && t.attachments.length > 0)" @click.stop="$emit('open-attachments', t.attachments_url || t.attachments)" class="mt-2.5 inline-flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-green-500 bg-green-50 hover:bg-green-100 px-2.5 py-1.5 rounded-lg transition-colors border border-green-200 w-max shadow-sm shrink-0">
-                  <svg class="w-3.5 h-3.5 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg> 
-                  <span class="pointer-events-none">Załączniki</span>
+                <button
+                  type="button"
+                  @click.stop="$emit('open-attachments', t)"
+                  class="mt-auto pt-2 inline-flex items-center gap-1.5 w-max shrink-0"
+                >
+                  <span
+                    class="inline-flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg transition-colors border shadow-sm"
+                    :class="(t.report_url || t.attachments_url || (t.attachments && t.attachments.length > 0))
+                      ? 'text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border-emerald-200'
+                      : 'text-slate-500 bg-slate-50 hover:bg-slate-100 border-slate-200'"
+                  >
+                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                    <span>Teczka sprawy</span>
+                  </span>
                 </button>
               </div>
 
@@ -211,19 +222,29 @@
               <!-- RAPORT / ROZLICZENIE / WYMAGA UWAGI -->
               <div v-else-if="col.id === 'audit'" class="h-[130px] overflow-visible flex flex-col justify-between py-0.5 relative">
                 
-                <!-- 1. RAPORT -->
-                <a
-                  :href="getReportInfo(t).url"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  @click.stop
-                  class="w-full rounded-xl px-2.5 py-1 text-[9px] font-extrabold uppercase tracking-wider border flex items-center justify-between gap-1.5 transition-all"
-                  :class="getReportInfo(t).badgeClass"
-                  :title="getReportInfo(t).title"
-                >
-                  <span class="truncate">{{ getReportInfo(t).label }}</span>
-                  <svg class="w-2.5 h-2.5 shrink-0 opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M7 17L17 7M17 7H7M17 7v10"/></svg>
-                </a>
+                <!-- 1. RAPORT + SKRÓT DO TECZKI -->
+                <div class="flex items-center gap-1 w-full">
+                  <a
+                    :href="getReportInfo(t).url"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    @click.stop
+                    class="flex-1 min-w-0 rounded-xl px-2.5 py-1 text-[9px] font-extrabold uppercase tracking-wider border flex items-center justify-between gap-1 transition-all"
+                    :class="getReportInfo(t).badgeClass"
+                    :title="getReportInfo(t).title"
+                  >
+                    <span class="truncate">{{ getReportInfo(t).label }}</span>
+                    <svg class="w-2.5 h-2.5 shrink-0 opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M7 17L17 7M17 7H7M17 7v10"/></svg>
+                  </a>
+                  <button
+                    type="button"
+                    @click.stop="$emit('open-attachments', t)"
+                    class="px-2 py-1 rounded-xl border border-slate-200 bg-slate-50 hover:bg-amber-50 hover:border-amber-300 text-slate-500 hover:text-amber-700 transition-colors shrink-0"
+                    title="Otwórz Teczkę Sprawy / wgraj raport PDF"
+                  >
+                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                  </button>
+                </div>
 
                 <!-- 2. ROZLICZENIE -->
                 <div

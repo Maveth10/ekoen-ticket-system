@@ -537,42 +537,177 @@
 
         <!-- ========================================================================================================================================== -->
 
-    <!-- MODAL 1: GALERIA ZAŁĄCZNIKÓW -->
-    <div v-if="attachmentsModal.show" class="fixed inset-0 z-[30000] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-6 animate-fadeIn" @click.self="attachmentsModal.show = false">
+    <!-- MODAL 1: TECZKA SPRAWY (GOOGLE DRIVE) -->
+    <div v-if="attachmentsModal.show" class="fixed inset-0 z-[30000] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 md:p-6 animate-fadeIn" @click.self="attachmentsModal.show = false">
+      <div class="relative w-full max-w-5xl bg-slate-50 rounded-[28px] overflow-hidden shadow-2xl flex flex-col h-[86vh] border border-slate-200">
+        
+        <!-- Nagłówek Teczki -->
+        <div class="px-6 py-4 border-b border-slate-200 flex flex-wrap justify-between items-center gap-3 bg-white shrink-0">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-2xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center shrink-0">
+              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+            </div>
+            <div>
+              <h3 class="text-sm font-black text-slate-800 uppercase tracking-wider">
+                Teczka Sprawy: {{ attachmentsModal.ticketCode || '-' }}
+                <span v-if="attachmentsModal.qp" class="text-[#58b347] ml-1">({{ attachmentsModal.qp }})</span>
+              </h3>
+              <p class="text-[11px] font-mono text-slate-400">{{ attachmentsModal.folderName || 'Folder Google Drive' }}</p>
+            </div>
+          </div>
 
-      <div class="relative w-full max-w-5xl bg-slate-50 rounded-[32px] overflow-hidden shadow-2xl flex flex-col h-[85vh]">
-        <div class="px-8 py-6 border-b border-slate-200 flex justify-between items-center bg-white shrink-0">
-          <h3 class="text-sm font-black text-slate-800 uppercase tracking-widest flex items-center gap-3">
-            <svg class="w-6 h-6 text-[#58b347]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
-            DOKUMENTACJA ZGŁOSZENIA
-          </h3>
-          <button @click="attachmentsModal.show = false" class="text-slate-400 hover:text-red-500 transition-colors bg-white border border-slate-200 p-2.5 rounded-xl shadow-sm hover:bg-red-50">
-            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-          </button>
+          <!-- Pasek akcji Teczki -->
+          <div class="flex items-center gap-2 flex-wrap">
+            <a
+              v-if="caseGeneratorUrl"
+              :href="caseGeneratorUrl"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="px-3 py-2 rounded-xl text-[11px] font-extrabold uppercase tracking-wider bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors flex items-center gap-1.5"
+            >
+              Generuj PDF ↗
+            </a>
+
+            <button
+              type="button"
+              @click="showVisitReportForm = !showVisitReportForm"
+              class="px-3.5 py-2 rounded-xl text-[11px] font-extrabold uppercase tracking-wider bg-[#58b347] hover:bg-[#499b3a] text-white shadow-sm transition-colors"
+            >
+              + Raport z wizyty
+            </button>
+
+            <div class="flex items-center bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+              <select v-model="genericUploadCategory" class="text-[10px] font-black uppercase tracking-wider text-slate-600 bg-slate-50 px-2.5 py-2 border-r border-slate-200 outline-none">
+                <option value="[DIAGNOZA]">Diagnoza / Foto</option>
+                <option value="[OFERTA]">Oferta OES</option>
+                <option value="[INNE]">Inny plik</option>
+              </select>
+              <button
+                type="button"
+                :disabled="attachmentsModal.uploading"
+                @click="triggerCaseGenericUpload"
+                class="px-3 py-2 text-[11px] font-extrabold uppercase tracking-wider text-blue-600 hover:bg-blue-50 transition-colors disabled:opacity-50"
+              >
+                {{ attachmentsModal.uploading ? 'Wgrywanie...' : '+ Wgraj plik' }}
+              </button>
+            </div>
+
+            <a
+              v-if="attachmentsModal.folderUrl"
+              :href="attachmentsModal.folderUrl"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="px-3 py-2 rounded-xl text-[11px] font-extrabold uppercase tracking-wider bg-slate-800 hover:bg-slate-900 text-white transition-colors"
+            >
+              Dysk Google ↗
+            </a>
+
+            <button @click="attachmentsModal.show = false" class="text-slate-400 hover:text-red-500 transition-colors bg-white border border-slate-200 p-2 rounded-xl shadow-sm hover:bg-red-50 ml-1">
+              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
         </div>
-        <div class="flex-1 w-full overflow-y-auto ticket-custom-scrollbar p-8">
+
+        <!-- Ukryty input dla szybkiego wgrywania zdjęć / logów / ofert -->
+        <input ref="caseGenericFileInput" type="file" multiple class="hidden" @change="handleCaseGenericFiles" />
+
+        <!-- Rozwijany formularz: Dodaj Raport z wizyty -->
+        <form v-if="showVisitReportForm" @submit.prevent="submitCaseVisitReport" class="px-6 py-4 bg-emerald-50/70 border-b border-emerald-200 grid grid-cols-1 md:grid-cols-5 gap-3 items-end shrink-0 animate-fadeIn">
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-wider text-emerald-900 mb-1">Data wizyty *</label>
+            <input type="date" v-model="visitReportForm.date" required class="w-full text-xs font-bold text-slate-700 bg-white border border-emerald-200 rounded-xl px-3 py-2 outline-none focus:border-[#58b347]" />
+          </div>
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-wider text-emerald-900 mb-1">Serwisant</label>
+            <select v-model="visitReportForm.tech" class="w-full text-xs font-bold text-slate-700 bg-white border border-emerald-200 rounded-xl px-3 py-2 outline-none focus:border-[#58b347]">
+              <option value="">-- Wybierz --</option>
+              <option v-for="tech in store.techList" :key="tech.name || tech" :value="tech.name || tech">{{ tech.name || tech }}</option>
+            </select>
+          </div>
+          <div class="md:col-span-2">
+            <label class="block text-[10px] font-black uppercase tracking-wider text-emerald-900 mb-1">Krótka notatka / plik PDF lub foto *</label>
+            <div class="flex gap-2">
+              <input type="text" v-model="visitReportForm.note" placeholder="np. Wymiana kabla CCS" class="w-1/2 text-xs font-medium text-slate-700 bg-white border border-emerald-200 rounded-xl px-3 py-2 outline-none focus:border-[#58b347]" />
+              <input ref="visitReportFileInput" type="file" accept=".pdf,image/*,.doc,.docx" required class="w-1/2 text-[11px] font-bold text-slate-600 bg-white border border-emerald-200 rounded-xl px-2 py-1.5" />
+            </div>
+          </div>
+          <div class="flex gap-2">
+            <button type="button" @click="showVisitReportForm = false" class="px-3 py-2 rounded-xl text-[10px] font-black uppercase bg-white border border-slate-200 text-slate-500 hover:bg-slate-100">Anuluj</button>
+            <button type="submit" :disabled="attachmentsModal.uploading" class="flex-1 py-2 px-3 rounded-xl text-[10px] font-black uppercase bg-[#58b347] hover:bg-[#499b3a] text-white shadow-sm disabled:opacity-50">
+              {{ attachmentsModal.uploading ? 'Zapis...' : 'Zapisz raport' }}
+            </button>
+          </div>
+        </form>
+
+        <!-- Zawartość Teczki -->
+        <div class="flex-1 w-full overflow-y-auto ticket-custom-scrollbar p-6">
           <div v-if="attachmentsModal.loading" class="p-12 text-center flex flex-col items-center justify-center h-full">
             <div class="animate-spin rounded-full h-12 w-12 border-b-4 border-[#58b347] mb-4"></div>
-            <p class="text-[11px] font-bold uppercase tracking-widest text-slate-400">Ładowanie miniatur...</p>
+            <p class="text-[11px] font-bold uppercase tracking-widest text-slate-400">Pobieranie zawartości teczki z Google Drive...</p>
           </div>
+
           <div v-else-if="attachmentsModal.files.length === 0" class="p-16 text-center flex flex-col items-center justify-center h-full">
-            <svg class="w-16 h-16 text-slate-300 mb-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
-            <p class="text-slate-400 font-black uppercase tracking-widest text-[12px]">Brak plików w dokumentacji.</p>
+            <svg class="w-16 h-16 text-slate-300 mb-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+            <p class="text-slate-400 font-black uppercase tracking-widest text-[12px]">Teczka sprawy jest pusta</p>
+            <p class="text-slate-400 text-xs mt-1">Dodaj raport z wizyty PDF, zdjęcia z diagnozy, logi lub ofertę powyżej.</p>
           </div>
-          <div v-else class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
-            <div v-for="f in attachmentsModal.files" :key="f.id" @click="openLightbox(f)" class="bg-white border border-slate-200 rounded-[20px] flex flex-col items-center justify-start cursor-pointer hover:border-[#58b347] hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group relative overflow-hidden h-56">
-              <div class="w-full h-40 bg-slate-100 flex items-center justify-center overflow-hidden relative">
-                <img :src="`https://drive.google.com/thumbnail?id=${f.id}&sz=w400`" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
-                <div class="absolute inset-0 bg-white/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center z-20 backdrop-blur-[2px]">
-                  <span class="bg-[#58b347] text-white px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg">Otwórz</span>
-                </div>
+
+          <div v-else class="flex flex-col gap-7">
+            <div v-for="group in groupedCaseFiles" :key="group.key" class="flex flex-col gap-3">
+              <div class="flex items-center gap-2 border-b border-slate-200 pb-2">
+                <span class="w-2.5 h-2.5 rounded-full" :style="{ backgroundColor: group.color }"></span>
+                <h4 class="text-xs font-black uppercase tracking-widest text-slate-700">{{ group.title }}</h4>
+                <span class="text-[10px] font-black bg-slate-200/80 text-slate-600 px-2 py-0.5 rounded-full">{{ group.items.length }}</span>
               </div>
-              <div class="w-full flex-1 flex items-center px-4 border-t border-slate-100">
-                <span class="text-[11px] font-bold text-slate-700 truncate w-full text-center group-hover:text-[#58b347] transition-colors" :title="f.name">{{ f.name }}</span>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div
+                  v-for="(f, fIdx) in group.items"
+                  :key="f.id"
+                  @click="openLightbox(f)"
+                  class="bg-white border border-slate-200 rounded-2xl flex flex-col cursor-pointer hover:border-[#58b347] hover:shadow-lg transition-all group relative overflow-hidden h-52"
+                >
+                  <!-- Podgląd miniatury lub ikony pliku -->
+                  <div class="w-full h-32 bg-slate-100 flex items-center justify-center overflow-hidden relative">
+                    <img
+                      v-if="f.mimeType && f.mimeType.includes('image')"
+                      :src="`https://drive.google.com/thumbnail?id=${f.id}&sz=w400`"
+                      class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                    <div v-else class="flex flex-col items-center justify-center text-slate-400">
+                      <svg class="w-10 h-10" :class="group.key === 'RAPORT' ? 'text-emerald-500' : 'text-red-500'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                      <span class="text-[9px] font-black uppercase mt-1">{{ (f.name.split('.').pop() || 'PLIK').slice(0, 6) }}</span>
+                    </div>
+
+                    <!-- Odznaka numeru wizyty dla raportów -->
+                    <span v-if="group.key === 'RAPORT'" class="absolute top-2 left-2 bg-emerald-600 text-white text-[9px] font-black px-2 py-0.5 rounded-md shadow">
+                      Wizyta #{{ group.items.length - fIdx }}
+                    </span>
+
+                    <!-- Przyciski w rogu (Otwórz w Drive / Archiwizuj) -->
+                    <div class="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-20" @click.stop>
+                      <a :href="f.url" target="_blank" rel="noopener noreferrer" class="w-7 h-7 rounded-lg bg-white/95 hover:bg-blue-600 text-slate-700 hover:text-white shadow flex items-center justify-center transition-colors" title="Otwórz w nowej karcie">
+                        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M7 17L17 7M17 7H7M17 7v10"/></svg>
+                      </a>
+                      <button type="button" @click="archiveCaseFile(f)" class="w-7 h-7 rounded-lg bg-white/95 hover:bg-red-600 text-red-600 hover:text-white shadow flex items-center justify-center transition-colors" title="Przenieś do _ARCHIWUM_USUNIETE">
+                        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Opis pliku -->
+                  <div class="flex-1 p-3 flex flex-col justify-between border-t border-slate-100">
+                    <div class="text-[11px] font-bold text-slate-700 truncate group-hover:text-[#58b347]" :title="f.name">{{ f.name }}</div>
+                    <div class="flex items-center justify-between text-[9px] font-semibold text-slate-400">
+                      <span class="truncate">{{ f.description || f.updated || '' }}</span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
+
       </div>
     </div>
 
@@ -677,8 +812,29 @@ store.duplicateIds = computed(() => {
   return Object.keys(qpCounts).filter(id => qpCounts[id] > 1)
 })
 
+const checkTicketSearchExtended = (t, queryStr) => {
+  const raw = String(queryStr || '').trim()
+  const upper = raw.toUpperCase()
+
+  if (upper === 'ATTENTION:OPEN') {
+    const st = String(t.attention_status || '').toUpperCase().trim()
+    return st === 'ACTIVE' || st === 'LATER' || t.requires_attention === true || t.requires_attention === 'TAK'
+  }
+  if (upper === 'RAPORT:BRAK') {
+    const workSt = String(t.ticket_status || '').toLowerCase()
+    const sysSt = String(t.status || '').toUpperCase()
+    const isDone = workSt.includes('wykonano') || workSt.includes('rozlicz')
+    const hasReport = Boolean(t.report_url || t.raport_url || sysSt.includes('REPORT') || sysSt.includes('CLOSED'))
+    return isDone && !hasReport
+  }
+  if (raw && t.attention_note && String(t.attention_note).toLowerCase().includes(raw.toLowerCase())) {
+    return true
+  }
+  return checkTicketSearch(t, queryStr)
+}
+
 // === UŻYCIE NOWEGO, INTELIGENTNEGO COMPOSABLE ===
-const { filteredBaseList, tabCounts, evaluateQueries } = useSmartKpiFilters(store, checkTicketSearch)
+const { filteredBaseList, tabCounts, evaluateQueries } = useSmartKpiFilters(store, checkTicketSearchExtended)
 
 const baseTicketsCount = computed(() => store.getBaseList().length)
 
@@ -690,7 +846,46 @@ const selectedIds = ref([])
 const currentSort = ref({ col: null, dir: 'asc' })
 const toast = ref({ show: false, msg: '' })
 
-const attachmentsModal = ref({ show: false, loading: false, files: [] })
+const attachmentsModal = ref({
+  show: false,
+  loading: false,
+  uploading: false,
+  ticketId: '',
+  ticketCode: '',
+  qp: '',
+  tech: '',
+  attachmentsUrl: '',
+  folderName: '',
+  folderUrl: '',
+  files: []
+})
+const showVisitReportForm = ref(false)
+const genericUploadCategory = ref('[DIAGNOZA]')
+const caseGenericFileInput = ref(null)
+const visitReportFileInput = ref(null)
+const visitReportForm = ref({ date: '', tech: '', note: '' })
+
+const RAPORT_GENERATOR_BASE = 'https://script.google.com/a/macros/ekoen.pl/s/AKfycbyutQBrnhgc86izuiNHx1OSJqJMevrPrDd-IVs36IRZ_PsIMnuxggiAcsVvdi09Rv8/exec'
+
+const caseGeneratorUrl = computed(() => {
+  if (!attachmentsModal.value.ticketCode && !attachmentsModal.value.qp) return ''
+  return `${RAPORT_GENERATOR_BASE}?qp=${encodeURIComponent(attachmentsModal.value.qp || '')}&ticketId=${encodeURIComponent(attachmentsModal.value.ticketCode || '')}${attachmentsModal.value.tech ? '&tech=' + encodeURIComponent(attachmentsModal.value.tech) : ''}`
+})
+
+const groupedCaseFiles = computed(() => {
+  const buckets = {
+    RAPORT: { key: 'RAPORT', title: 'Raporty z wizyt i protokoły', color: '#10b981', items: [] },
+    DIAGNOZA: { key: 'DIAGNOZA', title: 'Diagnoza, zdjęcia i logi', color: '#3b82f6', items: [] },
+    OFERTA: { key: 'OFERTA', title: 'Oferty handlowe (OES)', color: '#f59e0b', items: [] },
+    INNE: { key: 'INNE', title: 'Pozostałe dokumenty', color: '#64748b', items: [] }
+  }
+  attachmentsModal.value.files.forEach(f => {
+    const cat = buckets[f.category] ? f.category : 'INNE'
+    buckets[cat].items.push(f)
+  })
+  return Object.values(buckets).filter(g => g.items.length > 0)
+})
+
 const lightbox = ref({ show: false, fileId: null, isImage: true, zoom: 1 })
 
 const draggedMenuColIdx = ref(null)
@@ -799,26 +994,207 @@ const setActiveTab = (filterId) => {
 }
 
 
-const openAttachmentsList = (rawUrlOrArray) => {
-  attachmentsModal.value.show = true
-  if (Array.isArray(rawUrlOrArray)) {
-    attachmentsModal.value.files = rawUrlOrArray
-    attachmentsModal.value.loading = false
+const syncCaseResultToTicket = (res) => {
+  attachmentsModal.value.files = res.files || []
+  attachmentsModal.value.folderName = res.folderName || ''
+  attachmentsModal.value.folderUrl = res.folderUrl || ''
+
+  const key = String(attachmentsModal.value.ticketId || attachmentsModal.value.ticketCode || '').trim()
+  const idx = store.tickets.findIndex(t =>
+    String(t.id || '').trim() === key ||
+    String(t.ticket_code || '').trim() === key ||
+    String(t.ticket_number || '').trim() === key
+  )
+  if (idx > -1) {
+    if (res.reportUrl !== undefined) store.tickets[idx].report_url = res.reportUrl
+    if (res.folderUrl) store.tickets[idx].attachments_url = res.folderUrl
+  }
+}
+
+const openAttachmentsList = (ticketOrUrl) => {
+  showVisitReportForm.value = false
+
+  // Obsługa przekazanego obiektu zgłoszenia (Teczka Sprawy)
+  if (ticketOrUrl && typeof ticketOrUrl === 'object' && !Array.isArray(ticketOrUrl)) {
+    const t = ticketOrUrl
+    const rawQp = String(t.qp_id || t.station_id || '').trim()
+    const shortQp = rawQp.includes('-') ? rawQp.split('-').slice(0, 2).join('-') : rawQp
+    const tId = String(t.id || t.ticket_code || t.ticket_number || '').trim()
+    const tCode = String(t.ticket_code || t.ticket_number || t.id || '').trim()
+
+    attachmentsModal.value = {
+      show: true,
+      loading: true,
+      uploading: false,
+      ticketId: tId,
+      ticketCode: tCode,
+      qp: shortQp,
+      tech: t.technician_id || '',
+      attachmentsUrl: t.attachments_url || '',
+      folderName: '',
+      folderUrl: t.attachments_url || '',
+      files: []
+    }
+
+    visitReportForm.value = {
+      date: new Date().toISOString().slice(0, 10),
+      tech: t.technician_id || '',
+      note: ''
+    }
+
+    if (typeof google !== 'undefined' && google.script) {
+      google.script.run
+        .withSuccessHandler((resRaw) => {
+          const res = typeof resRaw === 'string' ? JSON.parse(resRaw) : resRaw
+          if (res && res.success) syncCaseResultToTicket(res)
+          attachmentsModal.value.loading = false
+        })
+        .withFailureHandler(() => { attachmentsModal.value.loading = false })
+        .getCaseFolderContents({
+          ticketId: tCode || tId,
+          internalId: tId,
+          qpId: shortQp,
+          attachmentsUrl: t.attachments_url || '',
+          module: store.activeModule
+        })
+    } else {
+      setTimeout(() => { attachmentsModal.value.loading = false }, 300)
+    }
     return
   }
-  attachmentsModal.value.loading = true
-  if (typeof google !== 'undefined' && google.script) {
+
+  // Fallback dla starych wywołań z URL-em lub tablicą
+  attachmentsModal.value = {
+    show: true, loading: !Array.isArray(ticketOrUrl), uploading: false,
+    ticketId: '', ticketCode: 'Załączniki', qp: '', tech: '', attachmentsUrl: '',
+    folderName: '', folderUrl: typeof ticketOrUrl === 'string' ? ticketOrUrl : '',
+    files: Array.isArray(ticketOrUrl) ? ticketOrUrl : []
+  }
+  if (!Array.isArray(ticketOrUrl) && typeof google !== 'undefined' && google.script) {
     google.script.run
       .withSuccessHandler((resStr) => {
-        let res = JSON.parse(resStr)
+        const res = typeof resStr === 'string' ? JSON.parse(resStr) : resStr
         attachmentsModal.value.files = res.success ? res.files : []
         attachmentsModal.value.loading = false
       })
       .withFailureHandler(() => { attachmentsModal.value.loading = false })
-      .getTicketFilesList(rawUrlOrArray)
-  } else {
-    setTimeout(() => { attachmentsModal.value.files = []; attachmentsModal.value.loading = false }, 500)
+      .getTicketFilesList(ticketOrUrl)
   }
+}
+
+const readFileAsDataUrl = (file) => new Promise((resolve, reject) => {
+  const reader = new FileReader()
+  reader.onload = e => resolve(e.target.result)
+  reader.onerror = err => reject(err)
+  reader.readAsDataURL(file)
+})
+
+const triggerCaseGenericUpload = () => {
+  if (caseGenericFileInput.value) {
+    caseGenericFileInput.value.value = ''
+    caseGenericFileInput.value.click()
+  }
+}
+
+const handleCaseGenericFiles = async (e) => {
+  const files = Array.from(e.target.files || [])
+  if (files.length === 0 || typeof google === 'undefined' || !google.script) return
+
+  attachmentsModal.value.uploading = true
+  try {
+    for (const file of files) {
+      const dataUrl = await readFileAsDataUrl(file)
+      const resRaw = await new Promise((resolve, reject) => {
+        google.script.run
+          .withSuccessHandler(resolve)
+          .withFailureHandler(reject)
+          .uploadFileToCaseFolder({
+            ticketId: attachmentsModal.value.ticketCode || attachmentsModal.value.ticketId,
+            internalId: attachmentsModal.value.ticketId,
+            qpId: attachmentsModal.value.qp,
+            attachmentsUrl: attachmentsModal.value.folderUrl || attachmentsModal.value.attachmentsUrl,
+            module: store.activeModule,
+            categoryTag: genericUploadCategory.value,
+            fileName: file.name,
+            mimeType: file.type || 'application/octet-stream',
+            base64Data: dataUrl
+          })
+      })
+      const res = typeof resRaw === 'string' ? JSON.parse(resRaw) : resRaw
+      if (res && res.success) syncCaseResultToTicket(res)
+    }
+    toast.value = { show: true, msg: 'Wgrano pliki do teczki!' }
+    setTimeout(() => { toast.value.show = false }, 2500)
+  } catch (err) {
+    alert('Błąd wgrywania pliku: ' + err)
+  } finally {
+    attachmentsModal.value.uploading = false
+  }
+}
+
+const submitCaseVisitReport = async () => {
+  const file = visitReportFileInput.value?.files?.[0]
+  if (!file || typeof google === 'undefined' || !google.script) return
+
+  attachmentsModal.value.uploading = true
+  try {
+    const dataUrl = await readFileAsDataUrl(file)
+    const resRaw = await new Promise((resolve, reject) => {
+      google.script.run
+        .withSuccessHandler(resolve)
+        .withFailureHandler(reject)
+        .uploadFileToCaseFolder({
+          ticketId: attachmentsModal.value.ticketCode || attachmentsModal.value.ticketId,
+          internalId: attachmentsModal.value.ticketId,
+          qpId: attachmentsModal.value.qp,
+          attachmentsUrl: attachmentsModal.value.folderUrl || attachmentsModal.value.attachmentsUrl,
+          module: store.activeModule,
+          categoryTag: '[RAPORT]',
+          visitDate: visitReportForm.value.date,
+          visitTech: visitReportForm.value.tech,
+          visitNote: visitReportForm.value.note,
+          fileName: file.name,
+          mimeType: file.type || 'application/pdf',
+          base64Data: dataUrl
+        })
+    })
+    const res = typeof resRaw === 'string' ? JSON.parse(resRaw) : resRaw
+    if (res && res.success) {
+      syncCaseResultToTicket(res)
+      showVisitReportForm.value = false
+      toast.value = { show: true, msg: 'Zapisano raport z wizyty w teczce!' }
+      setTimeout(() => { toast.value.show = false }, 2500)
+    }
+  } catch (err) {
+    alert('Błąd zapisu raportu: ' + err)
+  } finally {
+    attachmentsModal.value.uploading = false
+  }
+}
+
+const archiveCaseFile = (file) => {
+  if (!confirm(`Przenieść plik "${file.name}" do podfolderu _ARCHIWUM_USUNIETE?`)) return
+  if (typeof google === 'undefined' || !google.script) return
+
+  attachmentsModal.value.loading = true
+  google.script.run
+    .withSuccessHandler((resRaw) => {
+      const res = typeof resRaw === 'string' ? JSON.parse(resRaw) : resRaw
+      if (res && res.success) {
+        syncCaseResultToTicket(res)
+        toast.value = { show: true, msg: 'Przeniesiono plik do archiwum' }
+        setTimeout(() => { toast.value.show = false }, 2500)
+      }
+      attachmentsModal.value.loading = false
+    })
+    .withFailureHandler(() => { attachmentsModal.value.loading = false })
+    .archiveFileInCaseFolder({
+      ticketId: attachmentsModal.value.ticketCode || attachmentsModal.value.ticketId,
+      internalId: attachmentsModal.value.ticketId,
+      attachmentsUrl: attachmentsModal.value.folderUrl || attachmentsModal.value.attachmentsUrl,
+      module: store.activeModule,
+      fileId: file.id
+    })
 }
 
 const openLightbox = (file) => {
