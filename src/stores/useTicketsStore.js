@@ -183,7 +183,8 @@ export const useTicketsStore = defineStore('tickets', {
 
         this.setupTechTabs()
 
-        this.tickets = this.processPingPongStatuses(parsedTickets.filter(Boolean))
+        const processed = this.processPingPongStatuses(parsedTickets.filter(Boolean))
+        this.tickets = this.applyCachedAttentions(processed)
         this.isLoading = false
       }
 
@@ -222,7 +223,71 @@ export const useTicketsStore = defineStore('tickets', {
     },
 
     deleteTicketFromBase(id) {
-       this.tickets = this.tickets.filter(t => String(t.id) !== String(id))
-    }
+      this.tickets = this.tickets.filter(t => String(t.id) !== String(id))
+      if (this.activeModule === 'ekoen' && typeof google !== 'undefined' && google.script && google.script.run) {
+        google.script.run
+          .withFailureHandler(() => alert('Błąd usuwania zgłoszenia z bazy'))
+          .deleteEkoenTicketFromBase(id)
+      }
+   },
+
+   applyCachedAttentions(list) {
+     try {
+       const cache = JSON.parse(localStorage.getItem('EKOEN_TICKETS_ATTENTION') || '{}')
+       list.forEach(t => {
+         const key = String(t.id || t.ticket_code || t.ticket_number || '').trim()
+         // Jeśli backend nie zwraca jeszcze własnego pola attention_status, bierzemy z cache'u
+         if (key && t.attention_status === undefined && cache[key]) {
+           t.attention_status = cache[key].attention_status
+           t.attention_note = cache[key].attention_note
+           t.attention_by = cache[key].attention_by
+         }
+       })
+     } catch (e) {}
+     return list
+   },
+
+   updateTicketAttention(payload) {
+     const key = String(payload.ticketId || '').trim()
+     if (!key) return
+
+     const idx = this.tickets.findIndex(t =>
+       String(t.id || '').trim() === key ||
+       String(t.ticket_code || '').trim() === key ||
+       String(t.ticket_number || '').trim() === key
+     )
+
+     if (idx > -1) {
+       this.tickets[idx].attention_status = payload.attention_status
+       this.tickets[idx].attention_note = payload.attention_note
+       this.tickets[idx].attention_by = payload.attention_by
+     }
+
+     // Lokalny zapis pomocniczy
+     try {
+       const cache = JSON.parse(localStorage.getItem('EKOEN_TICKETS_ATTENTION') || '{}')
+       if (!payload.attention_status) {
+         delete cache[key]
+       } else {
+         cache[key] = {
+           attention_status: payload.attention_status,
+           attention_note: payload.attention_note,
+           attention_by: payload.attention_by
+         }
+       }
+       localStorage.setItem('EKOEN_TICKETS_ATTENTION', JSON.stringify(cache))
+     } catch (e) {}
+
+     // Zapis do backendu Google Apps Script
+     if (typeof google !== 'undefined' && google.script && google.script.run) {
+       if (typeof google.script.run.saveTicketAttention === 'function') {
+         google.script.run
+           .withFailureHandler(() => alert('Błąd zapisu flagi uwagi w chmurze'))
+           .saveTicketAttention({ ...payload, module: this.activeModule })
+       } else if (idx > -1) {
+         this.saveTicketToBase(JSON.parse(JSON.stringify(this.tickets[idx])))
+       }
+     }
+   }
   }
 })

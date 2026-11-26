@@ -208,6 +208,175 @@
                 </div>
               </div>
 
+              <!-- RAPORT / ROZLICZENIE / WYMAGA UWAGI -->
+              <div v-else-if="col.id === 'audit'" class="h-[130px] overflow-visible flex flex-col justify-between py-0.5 relative">
+                
+                <!-- 1. RAPORT -->
+                <a
+                  :href="getReportInfo(t).url"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  @click.stop
+                  class="w-full rounded-xl px-2.5 py-1 text-[9px] font-extrabold uppercase tracking-wider border flex items-center justify-between gap-1.5 transition-all"
+                  :class="getReportInfo(t).badgeClass"
+                  :title="getReportInfo(t).title"
+                >
+                  <span class="truncate">{{ getReportInfo(t).label }}</span>
+                  <svg class="w-2.5 h-2.5 shrink-0 opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M7 17L17 7M17 7H7M17 7v10"/></svg>
+                </a>
+
+                <!-- 2. ROZLICZENIE -->
+                <div
+                  class="w-full rounded-xl px-2.5 py-1 text-[9px] font-extrabold uppercase tracking-wider border text-center truncate"
+                  :class="getSettlementInfo(t).badgeClass"
+                >
+                  {{ getSettlementInfo(t).label }}
+                </div>
+
+                <!-- 3. WYMAGA UWAGI (zależne od roli) -->
+                <div class="relative w-full">
+                  <!-- Gdy jest AKTYWNA lub ODŁOŻONA uwaga (widzą wszyscy) -->
+                  <button
+                    v-if="getAttentionState(t) === 'ACTIVE' || getAttentionState(t) === 'LATER'"
+                    type="button"
+                    @click.stop="openAttentionPopover(t)"
+                    class="w-full rounded-xl px-2.5 py-1.5 text-left border transition-all cursor-pointer flex flex-col"
+                    :class="getAttentionState(t) === 'ACTIVE'
+                      ? 'bg-red-50 text-red-700 border-red-300 hover:bg-red-100 shadow-sm'
+                      : 'bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100'"
+                  >
+                    <div class="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-wider">
+                      <span v-if="getAttentionState(t) === 'ACTIVE'" class="w-1.5 h-1.5 rounded-full bg-red-600 animate-ping shrink-0"></span>
+                      <span class="truncate">{{ getAttentionState(t) === 'ACTIVE' ? 'Wymaga uwagi!' : 'Na później' }}</span>
+                    </div>
+                    <span v-if="t.attention_note" class="text-[9px] font-semibold opacity-85 truncate w-full mt-0.5">
+                      {{ t.attention_note }}
+                    </span>
+                  </button>
+
+                  <!-- Gdy uwaga została WYKONANA przez rolę niższą -->
+                  <button
+                    v-else-if="getAttentionState(t) === 'DONE'"
+                    type="button"
+                    @click.stop="canManageAttention ? openAttentionPopover(t) : null"
+                    class="w-full rounded-xl px-2.5 py-1 text-[9px] font-extrabold uppercase tracking-wider border bg-emerald-50 text-emerald-700 border-emerald-200 text-center truncate"
+                    :class="canManageAttention ? 'cursor-pointer hover:bg-emerald-100' : 'cursor-default'"
+                  >
+                    ✓ Uwaga wykonana
+                  </button>
+
+                  <!-- Gdy BRAK uwagi: przycisk dodawania tylko dla kont powyżej Dispatchera -->
+                  <button
+                    v-else-if="canManageAttention"
+                    type="button"
+                    @click.stop="openAttentionPopover(t)"
+                    class="w-full rounded-xl px-2.5 py-1 text-[9px] font-extrabold uppercase tracking-widest border border-dashed border-slate-300 text-slate-400 hover:border-red-400 hover:text-red-600 hover:bg-red-50/40 transition-colors cursor-pointer text-center truncate"
+                  >
+                    + Wymaga uwagi
+                  </button>
+
+                  <!-- Gdy BRAK uwagi: widok dla ról niższych -->
+                  <div
+                    v-else
+                    class="w-full rounded-xl px-2.5 py-1 text-[9px] font-bold uppercase tracking-widest text-slate-300 border border-slate-100 text-center truncate"
+                  >
+                    Brak uwag
+                  </div>
+
+                  <!-- POPOVER: WYMAGA UWAGI -->
+                  <div
+                    v-if="activeAttentionTicketId === t.id"
+                    @click.stop
+                    class="absolute right-0 top-full mt-1.5 w-64 bg-white border border-slate-200 rounded-2xl shadow-2xl z-[230] p-3.5 flex flex-col gap-2.5 animate-fadeIn"
+                  >
+                    <!-- WIDOK 1: ROLA POWYŻEJ DISPATCHERA (Dodawanie / Edycja / Usuwanie) -->
+                    <template v-if="canManageAttention">
+                      <div class="flex items-center justify-between">
+                        <span class="text-[9px] font-black uppercase tracking-widest text-red-600">Flaga: Wymaga uwagi</span>
+                        <span v-if="getAttentionState(t) === 'LATER'" class="text-[8px] font-black uppercase bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded">Odłożone</span>
+                        <span v-else-if="getAttentionState(t) === 'DONE'" class="text-[8px] font-black uppercase bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded">Wykonane</span>
+                      </div>
+
+                      <!-- Szybkie powody -->
+                      <div class="flex flex-wrap gap-1">
+                        <button
+                          v-for="reason in quickAttentionReasons"
+                          :key="reason"
+                          type="button"
+                          @click="attentionForm.note = reason"
+                          class="text-[9px] font-bold px-2 py-0.5 rounded-md bg-slate-100 hover:bg-red-50 hover:text-red-600 text-slate-600 transition-colors"
+                        >
+                          {{ reason }}
+                        </button>
+                      </div>
+
+                      <textarea
+                        v-model="attentionForm.note"
+                        rows="2"
+                        placeholder="Wpisz dlaczego wymaga uwagi..."
+                        class="w-full text-[11px] font-medium text-slate-700 bg-slate-50 border border-slate-200 rounded-xl p-2 outline-none focus:border-red-400 resize-none"
+                      ></textarea>
+
+                      <div class="flex gap-1.5 pt-0.5">
+                        <button
+                          v-if="getAttentionState(t)"
+                          type="button"
+                          @click="clearAttentionFlag(t)"
+                          class="px-2.5 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors"
+                        >
+                          Usuń
+                        </button>
+                        <button
+                          type="button"
+                          @click="activeAttentionTicketId = null"
+                          class="px-2.5 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider text-slate-400 hover:text-slate-600 transition-colors ml-auto"
+                        >
+                          Anuluj
+                        </button>
+                        <button
+                          type="button"
+                          @click="saveAttentionFlag(t)"
+                          class="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider text-white bg-red-600 hover:bg-red-700 transition-colors shadow-sm"
+                        >
+                          Zapisz
+                        </button>
+                      </div>
+                    </template>
+
+                    <!-- WIDOK 2: KONTA PONIŻEJ (Odczyt notatki + Wykonaj / Wykonaj później) -->
+                    <template v-else>
+                      <div class="flex items-center justify-between border-b border-slate-100 pb-1.5">
+                        <span class="text-[9px] font-black uppercase tracking-widest text-red-600">Zadanie / Wymaga uwagi</span>
+                        <button type="button" @click="activeAttentionTicketId = null" class="text-slate-400 hover:text-slate-600 text-xs font-black">✕</button>
+                      </div>
+
+                      <div class="bg-red-50/70 border border-red-100 rounded-xl p-2.5 text-[11px] font-semibold text-slate-700 whitespace-pre-wrap leading-relaxed">
+                        {{ t.attention_note || 'Prośba o weryfikację zgłoszenia.' }}
+                        <div v-if="t.attention_by" class="text-[9px] font-bold text-slate-400 mt-1">Dodał: {{ t.attention_by }}</div>
+                      </div>
+
+                      <div class="flex gap-1.5 pt-0.5">
+                        <button
+                          type="button"
+                          @click="handleUserAttentionAction(t, 'LATER')"
+                          class="flex-1 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider text-amber-800 bg-amber-100 hover:bg-amber-200 transition-colors"
+                        >
+                          Wykonaj później
+                        </button>
+                        <button
+                          type="button"
+                          @click="handleUserAttentionAction(t, 'DONE')"
+                          class="flex-1 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider text-white bg-[#58b347] hover:bg-[#499b3a] transition-colors shadow-sm"
+                        >
+                          Wykonaj
+                        </button>
+                      </div>
+                    </template>
+                  </div>
+                </div>
+
+              </div>
+
             </td>
           </tr>
         </tbody>
@@ -218,9 +387,10 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useTicketsStore } from '../../stores/useTicketsStore'
 import { useScheduleStore } from '../../stores/useScheduleStore'
+import { useAuthStore } from '../../stores/useAuthStore'
 import SkeletonCard from '../../common/SkeletonCard.vue'
 
 const props = defineProps({
@@ -235,12 +405,121 @@ const props = defineProps({
 const emit = defineEmits([
   'sort', 'toggle-select-all', 'toggle-select', 'copy', 
   'open-attachments', 'open-diagnose', 'open-analytics', 
-  'toggle-drop', 'change-status', 'drag-start', 'drop-col'
+  'toggle-drop', 'change-status', 'drag-start', 'drop-col',
+  'update-attention'
 ])
 
 const store = useTicketsStore()
 
 const scheduleStore = useScheduleStore()
+
+const authStore = useAuthStore()
+
+// Role powyżej Dispatchera mogące nadawać i usuwać flagę "Wymaga uwagi"
+const ELEVATED_ROLES = ['ADMIN', 'SUPERADMIN', 'ZARZAD', 'MANAGER', 'KOORDYNATOR', '*']
+const canManageAttention = computed(() => {
+  const role = String(authStore.user?.role || '').toUpperCase().trim()
+  return ELEVATED_ROLES.includes(role)
+})
+
+const RAPORT_GENERATOR_URL = 'https://script.google.com/a/macros/ekoen.pl/s/AKfycbyutQBrnhgc86izuiNHx1OSJqJMevrPrDd-IVs36IRZ_PsIMnuxggiAcsVvdi09Rv8/exec'
+
+const getReportInfo = (t) => {
+  const shortQp = getShortQp(t.qp_id || t.station_id)
+  const tId = t.ticket_code || t.ticket_number || t.id || ''
+  const genUrl = `${RAPORT_GENERATOR_URL}?qp=${encodeURIComponent(shortQp !== '-' ? shortQp : '')}&ticketId=${encodeURIComponent(tId)}${t.technician_id ? '&tech=' + encodeURIComponent(t.technician_id) : ''}`
+
+  const directUrl = t.report_url || t.raport_url || ''
+  const sysStatus = String(t.status || '').toUpperCase()
+  const workStatus = String(t.ticket_status || '').toLowerCase()
+  const isWorkDone = workStatus.includes('wykonano') || workStatus.includes('rozlicz')
+
+  if (directUrl) {
+    return { label: 'Raport PDF', badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100', url: directUrl, title: 'Otwórz zapisany raport' }
+  }
+  if (sysStatus.includes('REPORT') || sysStatus.includes('CLOSED')) {
+    return { label: 'Raport w AC', badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100', url: getAxonUrl(t) || genUrl, title: 'Raport złożony w Axon Connect' }
+  }
+  if (isWorkDone) {
+    return { label: 'Brak raportu!', badgeClass: 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100', url: genUrl, title: 'Zlecenie wykonane bez raportu — kliknij, aby wygenerować PDF' }
+  }
+  return { label: 'Generuj raport', badgeClass: 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100 hover:text-slate-700', url: genUrl, title: 'Otwórz generator raportu PDF' }
+}
+
+const getSettlementInfo = (t) => {
+  const sett = String(t.settlement_status || '').trim()
+  const workStatus = String(t.ticket_status || '').toLowerCase()
+
+  if (sett) {
+    return { label: sett, badgeClass: 'bg-green-50 text-green-700 border-green-300' }
+  }
+  if (workStatus.includes('rozliczone') && !workStatus.includes('wstępnie') && !workStatus.includes('wstepnie')) {
+    return { label: 'Rozliczone', badgeClass: 'bg-green-50 text-green-700 border-green-300' }
+  }
+  if (workStatus.includes('wstępnie rozlicz') || workStatus.includes('wstepnie rozlicz')) {
+    return { label: 'Wstępnie rozlicz.', badgeClass: 'bg-orange-50 text-orange-600 border-orange-200' }
+  }
+  if (workStatus.includes('wykonano')) {
+    return { label: 'Do rozliczenia', badgeClass: 'bg-amber-50 text-amber-700 border-amber-200' }
+  }
+  return { label: 'Nierozliczone', badgeClass: 'bg-slate-50 text-slate-400 border-slate-200' }
+}
+
+// --- LOGIKA: WYMAGA UWAGI ---
+const activeAttentionTicketId = ref(null)
+const attentionForm = ref({ note: '' })
+const quickAttentionReasons = ['Brak raportu!', 'Brak rozliczenia!', 'Brak zdjęć / logów', 'Pilny kontakt!']
+
+const getAttentionState = (t) => {
+  const st = String(t.attention_status || '').toUpperCase().trim()
+  if (st === 'ACTIVE' || st === 'LATER' || st === 'DONE') return st
+  if (t.requires_attention === true || t.requires_attention === 'TAK') return 'ACTIVE'
+  return ''
+}
+
+const openAttentionPopover = (t) => {
+  activeScheduleTicketId.value = null
+  if (activeAttentionTicketId.value === t.id) {
+    activeAttentionTicketId.value = null
+    return
+  }
+  attentionForm.value = { note: t.attention_note || '' }
+  activeAttentionTicketId.value = t.id
+}
+
+const persistAttention = (t, status, note) => {
+  t.attention_status = status
+  t.attention_note = note
+  if (status === 'ACTIVE') {
+    t.attention_by = authStore.user?.username || ''
+  }
+
+  const payload = {
+    ticketId: t.id || t.ticket_code || t.ticket_number,
+    attention_status: status,
+    attention_note: note,
+    attention_by: t.attention_by || ''
+  }
+
+  if (typeof store.updateTicketAttention === 'function') {
+    store.updateTicketAttention(payload)
+  }
+  emit('update-attention', payload)
+  activeAttentionTicketId.value = null
+}
+
+const saveAttentionFlag = (t) => {
+  const cleanNote = attentionForm.value.note.trim() || 'Wymaga weryfikacji'
+  persistAttention(t, 'ACTIVE', cleanNote)
+}
+
+const clearAttentionFlag = (t) => {
+  persistAttention(t, '', '')
+}
+
+const handleUserAttentionAction = (t, newStatus) => {
+  persistAttention(t, newStatus, t.attention_note || '')
+}
 
 const activeScheduleTicketId = ref(null)
 const scheduleForm = ref({ date: '', tech: '' })
@@ -318,10 +597,20 @@ const saveQuickSchedule = (t) => {
   activeScheduleTicketId.value = null
 }
 
+const closeLocalPopovers = () => {
+  activeScheduleTicketId.value = null
+  activeAttentionTicketId.value = null
+}
+
 onMounted(() => {
   if (scheduleStore.events.length === 0) {
     scheduleStore.fetchScheduleData()
   }
+  window.addEventListener('click', closeLocalPopovers)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('click', closeLocalPopovers)
 })
 
 const isAllSelected = computed(() => props.tickets.length > 0 && props.selectedIds.length === props.tickets.length)

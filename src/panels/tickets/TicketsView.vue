@@ -98,6 +98,7 @@
       @change-status="changeStatus"
       @drag-start="idx => draggedHeaderIdx = idx"
       @drop-col="onHeaderDrop"
+      @update-attention="handleUpdateAttention"
     />
 
     </div>
@@ -731,7 +732,8 @@ const columns = ref([
   { id: 'description', label: 'OPIS ZGŁOSZENIA', visible: true, sortable: true, width: '320px' },
   { id: 'tech_parts', label: 'TECHNIK / STATUS', visible: true, sortable: true, width: '180px' },
   { id: 'used_parts', label: 'UŻYTE CZĘŚCI', visible: true, sortable: true, width: '280px' },
-  { id: 'diagnoza', label: 'DIAGNOZA EKOEN', visible: true, sortable: true, width: '250px' }
+  { id: 'diagnoza', label: 'DIAGNOZA EKOEN', visible: true, sortable: true, width: '250px' },
+  { id: 'audit', label: 'RAPORT / UWAGI', visible: true, sortable: true, width: '190px' }
 ])
 
 const visibleColumns = computed(() => columns.value.filter(c => c.visible))
@@ -750,6 +752,16 @@ const filteredTickets = computed(() => {
       else if (col === 'used_parts') { valA = String(a.raw_info || '') + String(a.req_status || ''); valB = String(b.raw_info || '') + String(b.req_status || ''); }
       else if (col === 'diagnoza') { valA = String(a.raw_diagnoza || '') + String(a.notes || ''); valB = String(b.raw_diagnoza || '') + String(b.notes || ''); }
       else if (col === 'client_contact') { valA = a.client || ''; valB = b.client || ''; }
+      else if (col === 'audit') {
+        const getRank = (item) => {
+          const st = String(item.attention_status || '').toUpperCase()
+          if (st === 'ACTIVE' || item.requires_attention === true || item.requires_attention === 'TAK') return '1'
+          if (st === 'LATER') return '2'
+          if (st === 'DONE') return '3'
+          return '4'
+        }
+        valA = getRank(a); valB = getRank(b);
+      }
       else { valA = a[col] || ''; valB = b[col] || ''; }
 
       valA = String(valA).toLowerCase(); valB = String(valB).toLowerCase()
@@ -830,8 +842,27 @@ const handleKeydown = (e) => {
 const loadColumnsConfig = () => {
   try {
     const localStore = JSON.parse(localStorage.getItem('EKOEN_TICKETS_UI')) || {}
-    if (localStore.cols_axon && localStore.cols_axon.length > 0) columns.value = localStore.cols_axon
+    if (localStore.cols_axon && localStore.cols_axon.length > 0) {
+      const savedCols = localStore.cols_axon
+      columns.value.forEach(defCol => {
+        if (!savedCols.find(c => c.id === defCol.id)) {
+          savedCols.push(defCol)
+        }
+      })
+      columns.value = savedCols
+    }
   } catch (e) {}
+}
+
+const handleUpdateAttention = (payload) => {
+  let msg = 'Zaktualizowano uwagę!'
+  if (payload.attention_status === 'ACTIVE') msg = 'Dodano flagę: Wymaga uwagi!'
+  else if (payload.attention_status === 'LATER') msg = 'Odłożono zadanie na później'
+  else if (payload.attention_status === 'DONE') msg = 'Oznaczono uwagę jako wykonaną!'
+  else if (!payload.attention_status) msg = 'Usunięto flagę uwagi'
+
+  toast.value = { show: true, msg }
+  setTimeout(() => { toast.value.show = false }, 2500)
 }
 
 const saveColumnsConfig = () => {
