@@ -99,6 +99,8 @@
       @drag-start="idx => draggedHeaderIdx = idx"
       @drop-col="onHeaderDrop"
       @update-attention="handleUpdateAttention"
+      @change-tech="changeTechnician"
+      @update-axon-transfer="handleUpdateAxonTransfer"
     />
 
     </div>
@@ -839,8 +841,16 @@ const checkTicketSearchExtended = (t, queryStr) => {
     const hasReport = Boolean(t.report_url || t.raport_url || sysSt.includes('REPORT') || sysSt.includes('CLOSED'))
     return isDone && !hasReport
   }
-  if (raw && t.attention_note && String(t.attention_note).toLowerCase().includes(raw.toLowerCase())) {
-    return true
+  if (raw && !upper.includes(':')) {
+    const qLow = raw.toLowerCase()
+    if (
+      (t.attention_note && String(t.attention_note).toLowerCase().includes(qLow)) ||
+      (t.ekoen_code && String(t.ekoen_code).toLowerCase().includes(qLow)) ||
+      (t.linked_ekoen_id && String(t.linked_ekoen_id).toLowerCase().includes(qLow)) ||
+      (t.axon_ticket_id && String(t.axon_ticket_id).toLowerCase().includes(qLow))
+    ) {
+      return true
+    }
   }
   return checkTicketSearch(t, queryStr)
 }
@@ -1311,14 +1321,22 @@ const openDiagnose = (id) => {
 
 const saveDiagnose = (updatedTicket) => {
   store.saveTicketToBase(updatedTicket)
-  
-  const idx = store.tickets.findIndex(x => String(x.id).toLowerCase() === String(updatedTicket.id).toLowerCase() || String(x.ticket_code).toLowerCase() === String(updatedTicket.ticket_code).toLowerCase())
-  if(idx > -1) {
-    store.tickets[idx] = updatedTicket
+
+  const cleanTicket = { ...updatedTicket }
+  delete cleanTicket.parts_operations
+  delete cleanTicket.parts_array
+  delete cleanTicket.from_diagnose
+
+  const idx = store.tickets.findIndex(x =>
+    String(x.id).toLowerCase() === String(cleanTicket.id).toLowerCase() ||
+    (cleanTicket.ticket_code && String(x.ticket_code || '').toLowerCase() === String(cleanTicket.ticket_code).toLowerCase())
+  )
+  if (idx > -1) {
+    store.tickets[idx] = cleanTicket
   }
-  
+
   showDiagnoseModal.value = false
-  toast.value = { show: true, msg: 'Zapisano diagnozę i części!' }
+  toast.value = { show: true, msg: 'Zapisano diagnozę i zaktualizowano magazyn!' }
   setTimeout(() => { toast.value.show = false }, 3000)
 }
 
@@ -1433,6 +1451,27 @@ const changeStatus = (ticket, newStatus) => {
   store.saveTicketToBase(safePlainTicket)
   
   toast.value = { show: true, msg: newStatus ? `Status: ${newStatus}` : 'Wyczyszczono status' }
+  setTimeout(() => { toast.value.show = false }, 2500)
+}
+
+const changeTechnician = (ticket, newTechName) => {
+  ticket.technician_id = newTechName
+  store.updateTicketTechnician({
+    ticketId: ticket.id || ticket.ticket_code || ticket.ticket_number,
+    technician_id: newTechName,
+    module: store.activeModule
+  })
+  toast.value = { show: true, msg: newTechName ? `Przypisano: ${newTechName}` : 'Wyczyszczono technika' }
+  setTimeout(() => { toast.value.show = false }, 2500)
+}
+
+const handleUpdateAxonTransfer = (payload) => {
+  let msg = 'Zaktualizowano powiązanie Axon'
+  if (payload.axon_ticket_id) msg = `Powiązano z Axon #${payload.axon_ticket_id}!`
+  else if (payload.forwarded_to_axon === 'TAK') msg = 'Oznaczono do przekazania — wpisz ID po otrzymaniu zlecenia'
+  else msg = 'Anulowano przekazanie do Axon'
+
+  toast.value = { show: true, msg }
   setTimeout(() => { toast.value.show = false }, 2500)
 }
 

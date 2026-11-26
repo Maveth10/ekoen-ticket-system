@@ -16,9 +16,10 @@ export const useTicketsStore = defineStore('tickets', {
     isLoading: false,
 
     activeModule: 'axon',
-    activeTabs: ['ALL'], // <--- POPRAWKA: TABLICA ZAMIAST STRINGA!
+    activeTabs: ['ALL'],
     kpiTabs: [],
-    searchQueriesMain: [{ id: 'tq_m_' + Date.now(), logic: 'AND', text: '' }]
+    searchQueriesMain: [{ id: 'tq_m_' + Date.now(), logic: 'AND', text: '' }],
+    ekoenAxonLinks: {}
   }),
 
   actions: {
@@ -187,7 +188,7 @@ export const useTicketsStore = defineStore('tickets', {
         this.setupTechTabs()
 
         const processed = this.processPingPongStatuses(parsedTickets.filter(Boolean))
-        this.tickets = this.applyCachedAttentions(processed)
+        this.tickets = this.applySessionLinks(this.applyCachedAttentions(processed))
         this.isLoading = false
       }
 
@@ -208,6 +209,8 @@ export const useTicketsStore = defineStore('tickets', {
           google.script.run.withSuccessHandler((resString) => {
              if (this.activeModule !== requestedModule) return
              let res = typeof resString === 'string' ? JSON.parse(resString) : resString
+             if (res && res.parts) this.partsCatalog = res.parts
+             if (res && res.techs) this.techList = res.techs
              let ekoenList = (res && res.success) ? (res.tickets || []) : (Array.isArray(res) ? res : [])
              this.tickets = [...axonList, ...ekoenList].filter(Boolean)
              this.isLoading = false
@@ -217,11 +220,17 @@ export const useTicketsStore = defineStore('tickets', {
     },
 
     saveTicketToBase(ticket) {
-      if (typeof google === 'undefined') return
-      if (this.activeModule === 'axon') {
-        google.script.run.withFailureHandler(() => alert("Błąd zapisu do Axon")).saveAxonTicketToBase(ticket)
-      } else {
+      if (typeof google === 'undefined' || !google.script || !google.script.run) return
+      const isEkoenTicket =
+        this.activeModule === 'ekoen' ||
+        String(ticket.ticket_number || '').startsWith('EE_') ||
+        String(ticket.ticket_number || '').startsWith('EKOEN') ||
+        (!ticket.ticket_code && this.activeModule !== 'axon')
+
+      if (isEkoenTicket) {
         google.script.run.withFailureHandler(() => alert("Błąd zapisu do Ekoen")).createEkoenTicketInBase(ticket)
+      } else {
+        google.script.run.withFailureHandler(() => alert("Błąd zapisu do Axon")).saveAxonTicketToBase(ticket)
       }
     },
 
@@ -291,6 +300,72 @@ export const useTicketsStore = defineStore('tickets', {
          this.saveTicketToBase(JSON.parse(JSON.stringify(this.tickets[idx])))
        }
      }
-   }
+   },
+
+   applySessionLinks(list) {
+    // Natychmiastowe nałożenie świeżo wpisanych powiązań przy szybkim przełączeniu zakładki Ekoen -> Axon
+    const links = Object.values(this.ekoenAxonLinks || {})
+    if (links.length === 0) return list
+
+    list.forEach(t => {
+      const tAxonCode = String(t.ticket_code || t.id || '').trim()
+      const matchForAxon = links.find(l => l.axon_ticket_id && l.axon_ticket_id === tAxonCode)
+      if (matchForAxon && !t.linked_ekoen_id) {
+        t.linked_ekoen_id = matchForAxon.ekoenCode
+      }
+    })
+    return list
+  },
+
+  updateTicketTechnician(payload) {
+    const key = String(payload.ticketId || '').trim()
+    if (!key) return
+
+    const idx = this.tickets.findIndex(t =>
+      String(t.id || '').trim() === key ||
+      String(t.ticket_code || '').trim() === key ||
+      String(t.ticket_number || '').trim() === key
+    )
+    if (idx > -1) {
+      this.tickets[idx].technician_id = payload.technician_id
+    }
+
+    if (typeof google !== 'undefined' && google.script && google.script.run) {
+      google.script.run
+        .withFailureHandler(() => alert('Błąd zapisu technika w bazie'))
+        .saveTicketTechnician({
+          ticketId: key,
+          technician_id: payload.technician_id || '',
+          module: payload.module || this.activeModule
+        })
+    }
+  },
+
+  updateEkoenAxonTransfer(payload) {
+    const key = String(payload.ticketId || '').trim()
+    if (!key) return
+
+    const idx = this.tickets.findIndex(t => String(t.id || '').trim() === key)
+    if (idx > -1) {
+      this.tickets[idx].forwarded_to_axon = payload.forwarded_to_axon
+      this.tickets[idx].axon_ticket_id = payload.axon_ticket_id
+    }
+
+    if (payload.axon_ticket_id) {
+      this.ekoenAxonLinks[key] = {
+        ekoenCode: payload.ekoenCode,
+        axon_ticket_id: String(payload.axon_ticket_id).trim()
+      }
+    } else {
+      delete this.ekoenAxonLinks[key]
+    }
+
+    if (typeof google !== 'undefined' && google.script && google.script.run) {
+      google.script.run
+        .withFailureHandler(() => alert('Błąd zapisu powiązania z Axon Connect'))
+        .saveEkoenAxonTransfer(payload)
+    }
+  }
+   
   }
 })

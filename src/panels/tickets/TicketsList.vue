@@ -49,11 +49,23 @@
 
               <!-- ID I STATUS -->
               <div v-else-if="col.id === 'code'" class="h-[130px] overflow-hidden flex flex-col pt-1">
-                <span @click.stop="$emit('copy', getTicketIdDisplay(t, idx))" class="font-black tracking-wider text-[13px] block mb-1.5 cursor-pointer hover:opacity-70 transition-opacity w-fit text-slate-800" title="Kliknij, aby skopiować ID">{{ getTicketIdDisplay(t, idx) }}</span>
+                <!-- GÓRNA LINIA: ID + POWIĄZANE ZGŁOSZENIE EKOEN (W ZAKŁADCE AXON) -->
+                <div class="flex items-center gap-1.5 flex-wrap mb-1.5">
+                  <span @click.stop="$emit('copy', getTicketIdDisplay(t, idx))" class="font-black tracking-wider text-[13px] cursor-pointer hover:opacity-70 transition-opacity text-slate-800" title="Kliknij, aby skopiować ID">{{ getTicketIdDisplay(t, idx) }}</span>
+                  <span
+                    v-if="t.linked_ekoen_id && store.activeModule !== 'ekoen'"
+                    @click.stop="$emit('copy', t.linked_ekoen_id)"
+                    class="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-black tracking-wider uppercase bg-cyan-50 text-slate-900 border border-cyan-300 hover:bg-cyan-100 cursor-pointer transition-colors"
+                    :title="`Powiązane zgłoszenie Ekoen: ${t.linked_ekoen_id} (kliknij, aby skopiować)`"
+                  >
+                    {{ t.linked_ekoen_id }}
+                  </span>
+                </div>
+
                 <div v-if="store.activeModule !== 'ekoen'" @click.stop="$emit('copy', t.status)" class="text-[10px] font-bold text-slate-500 tracking-wider text-left mb-0.5 uppercase cursor-pointer hover:text-slate-800 transition-colors w-fit" title="Kopiuj status">{{ t.status || 'BRAK STATUSU' }}</div>
                 <div @click.stop="$emit('copy', t.category || t.priority)" class="text-[10px] font-bold text-blue-600 tracking-wider text-left uppercase cursor-pointer hover:text-blue-800 transition-colors w-fit" title="Kopiuj kategorię">{{ t.category || t.priority || 'INNE' }}</div>
 
-                <!-- LINK AXON CONNECT -->
+                <!-- LINK AXON CONNECT (W ZAKŁADCE AXON / HISTORIA) -->
                 <a 
                   v-if="getAxonUrl(t)" 
                   :href="getAxonUrl(t)" 
@@ -66,6 +78,70 @@
                   <span class="text-[9px] font-black tracking-[0.14em] uppercase leading-none">AXON</span>
                   <svg class="w-2.5 h-2.5 opacity-50 group-hover:opacity-100 transition-opacity" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M7 17L17 7M17 7H7M17 7v10"/></svg>
                 </a>
+
+                <!-- PRZEKAZANIE DO AXON CONNECT (TYLKO W ZAKŁADCE EKOEN) -->
+                <div v-else-if="store.activeModule === 'ekoen'" class="mt-auto mb-1 w-full">
+                  <!-- STAN 1: Pole do wpisania ID z Axona (po kliknięciu przekaż lub podczas edycji) -->
+                  <div v-if="editingAxonLinkId === t.id || (isForwardedToAxon(t) && !t.axon_ticket_id)" class="flex flex-col gap-1 w-full" @click.stop>
+                    <div class="flex items-center justify-between">
+                      <span class="text-[8px] font-black uppercase tracking-wider text-amber-700">Wpisz ID z Axon</span>
+                      <button type="button" @click.stop="cancelAxonForward(t, idx)" class="text-[10px] font-black text-slate-400 hover:text-red-500 leading-none px-1" title="Anuluj przekazanie do Axon">✕</button>
+                    </div>
+                    <div class="flex items-center gap-1">
+                      <input
+                        type="text"
+                        :value="getDraftAxonId(t)"
+                        @input="setDraftAxonId(t.id, $event.target.value)"
+                        @keydown.enter.prevent="saveAxonIdForEkoen(t, idx)"
+                        placeholder="ID np. 584"
+                        class="w-full min-w-0 text-[10px] font-mono font-bold text-slate-900 bg-amber-50/70 border border-amber-300 rounded-lg px-2 py-1 outline-none focus:border-[#58b347] focus:bg-white"
+                      />
+                      <button
+                        type="button"
+                        @click.stop="saveAxonIdForEkoen(t, idx)"
+                        class="px-2 py-1 rounded-lg bg-[#58b347] hover:bg-[#499b3a] text-white text-[10px] font-black shrink-0 shadow-sm cursor-pointer"
+                        title="Zapisz powiązane ID Axon"
+                      >
+                        ✓
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- STAN 2: Uzupełnione ID z Axona (link + edycja) -->
+                  <div v-else-if="t.axon_ticket_id" class="flex items-center gap-1">
+                    <a
+                      :href="`https://axon-connect.ekoenergetyka.com.pl/admin/service-jobs/${encodeURIComponent(t.axon_ticket_id)}`"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      @click.stop
+                      class="inline-flex items-center gap-1 bg-slate-50 hover:bg-slate-800 text-slate-800 hover:text-white px-2 py-1 rounded-lg border border-slate-200 hover:border-slate-800 transition-all text-[9px] font-black tracking-wider uppercase truncate"
+                      :title="`Otwórz powiązane zlecenie Axon #${t.axon_ticket_id}`"
+                    >
+                      <span>AC #{{ t.axon_ticket_id }}</span>
+                      <svg class="w-2.5 h-2.5 shrink-0 opacity-60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M7 17L17 7M17 7H7M17 7v10"/></svg>
+                    </a>
+                    <button
+                      type="button"
+                      @click.stop="startEditAxonId(t)"
+                      class="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors shrink-0 cursor-pointer"
+                      title="Zmień lub usuń ID Axon"
+                    >
+                      <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                    </button>
+                  </div>
+
+                  <!-- STAN 3: Domyślny przycisk przekazania -->
+                  <button
+                    v-else
+                    type="button"
+                    @click.stop="initiateAxonForward(t, idx)"
+                    class="inline-flex items-center gap-1 bg-slate-50 hover:bg-indigo-50 text-slate-600 hover:text-indigo-700 px-2.5 py-1 rounded-lg border border-slate-200 hover:border-indigo-300 transition-all active:scale-95 text-[9px] font-black tracking-wider uppercase w-fit cursor-pointer"
+                    title="Przekaż zgłoszenie do Axon Connect"
+                  >
+                    <span>Przekaż do AC</span>
+                    <svg class="w-2.5 h-2.5 shrink-0 opacity-60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                  </button>
+                </div>
               </div>
 
               <!-- STACJA -->
@@ -103,35 +179,56 @@
                 </div>
               </div>
 
-              <!-- OPIS I ZAŁĄCZNIKI -->
+              <!-- OPIS ZGŁOSZENIA -->
               <div v-else-if="col.id === 'description'" class="h-[130px] overflow-y-auto ticket-custom-scrollbar pr-1 flex flex-col pt-1">
                 <div @click.stop="$emit('copy', (t.title || t.subject || '') + '\n' + (t.description || '-'))" class="cursor-pointer hover:text-blue-600 transition-colors">
                   <span v-if="t.title || t.subject" class="block font-black text-[11px] text-slate-800 mb-1.5 uppercase tracking-wider pointer-events-none">{{ t.title || t.subject }}</span>
                   <div class="text-[11px] text-slate-600 font-medium whitespace-pre-wrap break-words leading-relaxed pointer-events-none">{{ t.description || '-' }}</div>
                 </div>
-                <button
-                  type="button"
-                  @click.stop="$emit('open-attachments', t)"
-                  class="mt-auto pt-2 inline-flex items-center gap-1.5 w-max shrink-0"
-                >
-                  <span
-                    class="inline-flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg transition-colors border shadow-sm"
-                    :class="(t.report_url || t.attachments_url || (t.attachments && t.attachments.length > 0))
-                      ? 'text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border-emerald-200'
-                      : 'text-slate-500 bg-slate-50 hover:bg-slate-100 border-slate-200'"
-                  >
-                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-                    <span>Teczka sprawy</span>
-                  </span>
-                </button>
               </div>
 
               <!-- TECHNIK I STATUS WEW. -->
               <div v-else-if="col.id === 'tech_parts'" class="h-[130px] overflow-visible flex flex-col items-start gap-1 relative pt-1">
-                <div v-html="getTechPillHtml(t.technician_id)"></div>
+                <!-- PIGUŁKA TECHNIKA (CZARNY TEKST + WYBÓR Z LISTY) -->
+                <div class="relative w-36">
+                  <button
+                    type="button"
+                    @click.stop="toggleTechDrop(t.id)"
+                    class="w-full px-2.5 py-1.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider text-center shadow-sm truncate border transition-all cursor-pointer block hover:brightness-95"
+                    :style="getTechPillStyle(t.technician_id)"
+                    :title="getTechDisplayName(t.technician_id) ? `Technik: ${getTechDisplayName(t.technician_id)} (kliknij, aby zmienić)` : 'Kliknij, aby przypisać technika'"
+                  >
+                    {{ getTechDisplayName(t.technician_id) || 'Brak technika' }}
+                  </button>
+
+                  <div
+                    v-if="activeTechDropId === t.id"
+                    @click.stop
+                    class="absolute top-full left-0 mt-1 w-48 max-h-60 overflow-y-auto ticket-custom-scrollbar bg-white border border-slate-200 rounded-xl shadow-2xl z-[225] flex flex-col animate-fadeIn"
+                  >
+                    <div
+                      @click="selectTechnician(t, '')"
+                      class="px-3 py-2 text-[9px] font-black uppercase text-slate-400 hover:bg-slate-50 cursor-pointer border-b border-slate-100 text-center"
+                    >
+                      Wyczyść technika
+                    </div>
+                    <div
+                      v-for="tech in availableScheduleTechs"
+                      :key="tech.id || tech.name || tech"
+                      @click="selectTechnician(t, tech.name || tech)"
+                      class="px-3 py-2 text-[10px] font-extrabold uppercase text-slate-900 hover:bg-slate-50 cursor-pointer border-b border-slate-100 last:border-none flex items-center gap-2"
+                    >
+                      <span
+                        class="w-2.5 h-2.5 rounded-full shrink-0 border border-black/15"
+                        :style="{ backgroundColor: tech.zone_color || tech.color || '#cbd5e1' }"
+                      ></span>
+                      <span class="truncate">{{ tech.name || tech }}</span>
+                    </div>
+                  </div>
+                </div>
                 
-                <div class="relative w-36 mt-2">
-                  <button type="button" @click.stop="$emit('toggle-drop', t.id)" :class="getStatusColorClass(t.ticket_status)" class="border rounded-xl px-2 py-1.5 text-[9px] font-extrabold uppercase tracking-widest text-center shadow-sm cursor-pointer transition-colors w-full truncate block">
+                <div class="relative w-36 mt-1">
+                  <button type="button" @click.stop="closeLocalPopovers(); $emit('toggle-drop', t.id)" :class="getStatusColorClass(t.ticket_status)" class="border rounded-xl px-2 py-1.5 text-[9px] font-extrabold uppercase tracking-widest text-center shadow-sm cursor-pointer transition-colors w-full truncate block">
                     {{ t.ticket_status || 'BRAK STATUSU' }}
                   </button>
                   <div v-if="activeDropId === t.id" @click.stop class="absolute top-full left-0 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-2xl z-[200] overflow-hidden flex flex-col animate-fadeIn">
@@ -204,9 +301,14 @@
                 </div>
               </div>
 
-              <!-- ZAPOTRZEBOWANIE NA CZĘŚCI -->
-              <div v-else-if="col.id === 'used_parts'" class="h-[130px] overflow-y-auto ticket-custom-scrollbar pr-1 flex flex-col pt-1 cursor-pointer hover:bg-slate-50 transition-colors" @click.stop="$emit('copy', (t.raw_info || '') + '\n' + (t.req_status || ''))">
-                 <div class="pointer-events-none" v-html="getPartsHtml(t.raw_info, t.req_status)"></div>
+              <!-- ZAPOTRZEBOWANIE I ZUŻYTE CZĘŚCI -->
+              <div v-else-if="col.id === 'used_parts'" class="h-[130px] overflow-y-auto ticket-custom-scrollbar pr-1 flex flex-col gap-2 pt-1 cursor-pointer hover:bg-slate-50 transition-colors" @click.stop="$emit('open-diagnose', t.id || t.ticket_code || t.ticket_number)" title="Kliknij, aby otworzyć Diagnozę i Części">
+                 <div v-if="t.parts_str" class="bg-[#f0f7f1] border border-[#58b347]/30 p-2.5 rounded-xl shadow-sm pointer-events-none">
+                   <span class="inline-block px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest bg-[#58b347] text-white mb-1.5">Zużyte z magazynu</span>
+                   <div class="text-[10px] font-bold text-slate-700 whitespace-pre-wrap leading-relaxed">{{ t.parts_str }}</div>
+                 </div>
+                 <div v-if="t.raw_info || t.req_status" class="pointer-events-none" v-html="getPartsHtml(t.raw_info, t.req_status)"></div>
+                 <span v-else-if="!t.parts_str" class="text-slate-400 italic text-[10px] pointer-events-none">Brak części (kliknij, aby dodać)</span>
               </div>
 
               <!-- DIAGNOZA -->
@@ -239,8 +341,11 @@
                   <button
                     type="button"
                     @click.stop="$emit('open-attachments', t)"
-                    class="px-2 py-1 rounded-xl border border-slate-200 bg-slate-50 hover:bg-amber-50 hover:border-amber-300 text-slate-500 hover:text-amber-700 transition-colors shrink-0"
-                    title="Otwórz Teczkę Sprawy / wgraj raport PDF"
+                    class="px-2 py-1 rounded-xl border transition-colors shrink-0 cursor-pointer"
+                    :class="(t.report_url || t.attachments_url || (t.attachments && t.attachments.length > 0))
+                      ? 'border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100'
+                      : 'border-slate-200 bg-slate-50 text-slate-500 hover:bg-amber-50 hover:border-amber-300 hover:text-amber-700'"
+                    title="Otwórz Teczkę Sprawy (raporty, zdjęcia, oferty)"
                   >
                     <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
                   </button>
@@ -427,7 +532,7 @@ const emit = defineEmits([
   'sort', 'toggle-select-all', 'toggle-select', 'copy', 
   'open-attachments', 'open-diagnose', 'open-analytics', 
   'toggle-drop', 'change-status', 'drag-start', 'drop-col',
-  'update-attention'
+  'update-attention', 'change-tech', 'update-axon-transfer'
 ])
 
 const store = useTicketsStore()
@@ -618,9 +723,12 @@ const saveQuickSchedule = (t) => {
   activeScheduleTicketId.value = null
 }
 
+const activeTechDropId = ref(null)
+
 const closeLocalPopovers = () => {
   activeScheduleTicketId.value = null
   activeAttentionTicketId.value = null
+  activeTechDropId.value = null
 }
 
 onMounted(() => {
@@ -647,8 +755,12 @@ const getShortQp = (rawQp) => {
 }
 
 const getTicketIdDisplay = (t, idx) => {
-  let isEkoenTicket = (store.activeModule === 'ekoen') || (store.activeModule === 'historia' && (String(t.ticket_number || '').includes('EKOEN') || !t.ticket_code))
-  if (isEkoenTicket) return `EE_${String(idx + 1).padStart(3, '0')}`
+  if (t.ekoen_code) return t.ekoen_code
+  let isEkoenTicket = (store.activeModule === 'ekoen') || (store.activeModule === 'historia' && (String(t.ticket_number || '').includes('EKOEN') || String(t.ticket_number || '').startsWith('EE_') || !t.ticket_code))
+  if (isEkoenTicket) {
+    if (t.ticket_number && String(t.ticket_number).startsWith('EE_')) return t.ticket_number
+    return `EE_${String(idx + 1).padStart(3, '0')}`
+  }
   return t.ticket_code || t.ticket_number || t.id || 'BRAK ID'
 }
 
@@ -665,20 +777,132 @@ const getEosUrl = (t) => {
   return `https://sm-eos.ocpps.ekoenergetyka.com.pl/management/chargepoint?chargePointId=${encodeURIComponent(shortQp)}`
 }
 
-const getTechPillHtml = (techId) => {
-  if(!techId || String(techId).trim() === '') return '<span class="inline-block px-2 py-1.5 rounded-full text-[10px] font-extrabold bg-white text-slate-500 border border-slate-200 uppercase tracking-widest w-36 text-center shadow-sm truncate pointer-events-none">Brak technika</span>'
-  let techColor = '#64748b'
-  if (store.techList && store.techList.length > 0) {
-    let foundObj = store.techList.find(t => String(t.name).toLowerCase() === String(techId).toLowerCase().trim())
-    if (foundObj && foundObj.zone_color) techColor = foundObj.zone_color
+// --- TECHNIK: CZARNE LITERY + ZMIANA INLINE ---
+const hexToRgba = (hex, alpha) => {
+  if (!hex || typeof hex !== 'string' || !hex.startsWith('#')) return `rgba(148, 163, 184, ${alpha})`
+  let c = hex.substring(1).trim()
+  if (c.length === 3) c = c.split('').map(x => x + x).join('')
+  if (c.length !== 6) return `rgba(148, 163, 184, ${alpha})`
+  const num = parseInt(c, 16)
+  if (isNaN(num)) return `rgba(148, 163, 184, ${alpha})`
+  return `rgba(${(num >> 16) & 255}, ${(num >> 8) & 255}, ${num & 255}, ${alpha})`
+}
+
+const findTechObj = (techId) => {
+  if (!techId || !String(techId).trim()) return null
+  const needle = String(techId).toLowerCase().trim()
+  return availableScheduleTechs.value.find(t =>
+    String(t.name || t).toLowerCase().trim() === needle ||
+    String(t.id || '').toLowerCase().trim() === needle
+  ) || null
+}
+
+const getTechDisplayName = (techId) => {
+  if (!techId || !String(techId).trim()) return ''
+  const obj = findTechObj(techId)
+  return obj ? (obj.name || obj) : String(techId).trim()
+}
+
+const getTechPillStyle = (techId) => {
+  if (!techId || !String(techId).trim()) {
+    return { backgroundColor: '#ffffff', color: '#64748b', borderColor: '#e2e8f0' }
   }
-  const hexToRgba = (hex, alpha) => {
-    let c = hex.substring(1)
-    if(c.length === 3) c = c.split('').map(x => x+x).join('')
-    let num = parseInt(c, 16)
-    return `rgba(${(num >> 16) & 255}, ${(num >> 8) & 255}, ${num & 255}, ${alpha})`
+  const obj = findTechObj(techId)
+  const techColor = obj?.zone_color || obj?.color || '#94a3b8'
+  return {
+    backgroundColor: hexToRgba(techColor, 0.25),
+    color: '#0f172a', // Czarne litery dla pełnej czytelności na jasnych kolorach
+    borderColor: hexToRgba(techColor, 0.55)
   }
-  return `<span class="inline-block px-2 py-1.5 rounded-full text-[10px] font-extrabold uppercase tracking-widest w-36 text-center shadow-sm truncate border pointer-events-none" style="background-color: ${hexToRgba(techColor, 0.15)}; color: ${techColor}; border-color: ${hexToRgba(techColor, 0.4)};">${techId}</span>`
+}
+
+const toggleTechDrop = (ticketId) => {
+  activeScheduleTicketId.value = null
+  activeAttentionTicketId.value = null
+  emit('toggle-drop', null)
+  activeTechDropId.value = activeTechDropId.value === ticketId ? null : ticketId
+}
+
+const selectTechnician = (t, techName) => {
+  activeTechDropId.value = null
+  emit('change-tech', t, techName)
+}
+
+// --- PRZEKAZANIE DO AXON CONNECT (ZAKŁADKA EKOEN) ---
+const editingAxonLinkId = ref(null)
+const axonIdDrafts = ref({})
+
+const isForwardedToAxon = (t) => {
+  return t.forwarded_to_axon === true || String(t.forwarded_to_axon || '').toUpperCase() === 'TAK' || Boolean(t.axon_ticket_id)
+}
+
+const getDraftAxonId = (t) => {
+  if (axonIdDrafts.value[t.id] !== undefined) return axonIdDrafts.value[t.id]
+  return t.axon_ticket_id || ''
+}
+
+const setDraftAxonId = (ticketId, val) => {
+  axonIdDrafts.value[ticketId] = val
+}
+
+const extractCleanAxonId = (raw) => {
+  const str = String(raw || '').trim()
+  if (!str) return ''
+  const urlMatch = str.match(/service-jobs\/([A-Za-z0-9_-]+)/i)
+  if (urlMatch && urlMatch[1]) return urlMatch[1]
+  return str.replace(/^#/, '').trim()
+}
+
+const initiateAxonForward = (t, idx) => {
+  t.forwarded_to_axon = 'TAK'
+  axonIdDrafts.value[t.id] = t.axon_ticket_id || ''
+  editingAxonLinkId.value = t.id
+
+  const payload = {
+    ticketId: t.id,
+    ekoenCode: getTicketIdDisplay(t, idx),
+    forwarded_to_axon: 'TAK',
+    axon_ticket_id: t.axon_ticket_id || ''
+  }
+  store.updateEkoenAxonTransfer(payload)
+  emit('update-axon-transfer', payload)
+}
+
+const startEditAxonId = (t) => {
+  axonIdDrafts.value[t.id] = t.axon_ticket_id || ''
+  editingAxonLinkId.value = t.id
+}
+
+const saveAxonIdForEkoen = (t, idx) => {
+  const cleanId = extractCleanAxonId(getDraftAxonId(t))
+  t.forwarded_to_axon = 'TAK'
+  t.axon_ticket_id = cleanId
+  if (cleanId) editingAxonLinkId.value = null
+
+  const payload = {
+    ticketId: t.id,
+    ekoenCode: getTicketIdDisplay(t, idx),
+    forwarded_to_axon: 'TAK',
+    axon_ticket_id: cleanId
+  }
+  store.updateEkoenAxonTransfer(payload)
+  emit('update-axon-transfer', payload)
+}
+
+const cancelAxonForward = (t, idx) => {
+  t.forwarded_to_axon = ''
+  t.axon_ticket_id = ''
+  delete axonIdDrafts.value[t.id]
+  editingAxonLinkId.value = null
+
+  const payload = {
+    ticketId: t.id,
+    ekoenCode: getTicketIdDisplay(t, idx),
+    forwarded_to_axon: '',
+    axon_ticket_id: ''
+  }
+  store.updateEkoenAxonTransfer(payload)
+  emit('update-axon-transfer', payload)
 }
 
 const getStatusColorClass = (statusVal) => {

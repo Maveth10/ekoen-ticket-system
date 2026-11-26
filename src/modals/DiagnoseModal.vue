@@ -13,7 +13,6 @@
         >
           WIZYTA {{ v.label }}
           
-          <!-- Przycisk usuwania wizyty -->
           <div 
             v-if="v.id === activeVisitId && idx > 0" 
             @click.stop="deleteVisit(v.id)" 
@@ -86,14 +85,25 @@
             <div class="flex flex-col gap-4 h-full">
               <div class="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm h-full flex flex-col">
                 
-                <div class="flex items-center justify-between mb-4 border-b border-slate-100 pb-2">
-                  <h4 class="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
-                    Pobranie z Magazynu
-                  </h4>
-                  <div class="flex bg-slate-100 p-1 rounded-xl shadow-inner border border-slate-200/60 gap-1">
-                    <button @click="warehouseType = 'terenowy'" class="px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all" :class="warehouseType === 'terenowy' ? 'bg-white text-[#58b347] shadow-sm' : 'text-slate-400 hover:text-slate-600'">Terenowy</button>
-                    <button @click="warehouseType = 'zg_stock'" class="px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all" :class="warehouseType === 'zg_stock' ? 'bg-white text-[#58b347] shadow-sm' : 'text-slate-400 hover:text-slate-600'">Zielona Góra</button>
-                    <button @click="warehouseType = 'wa_stock'" class="px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all" :class="warehouseType === 'wa_stock' ? 'bg-white text-[#58b347] shadow-sm' : 'text-slate-400 hover:text-slate-600'">Warszawa</button>
+                <div class="flex flex-col gap-2.5 mb-4 border-b border-slate-100 pb-3">
+                  <div class="flex items-center justify-between">
+                    <h4 class="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                      Pobranie z Magazynu
+                    </h4>
+                    <div class="flex bg-slate-100 p-1 rounded-xl shadow-inner border border-slate-200/60 gap-1">
+                      <button type="button" @click="warehouseType = 'terenowy'" class="px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all" :class="warehouseType === 'terenowy' ? 'bg-white text-[#58b347] shadow-sm' : 'text-slate-400 hover:text-slate-600'">Terenowy</button>
+                      <button type="button" @click="warehouseType = 'zg_stock'" class="px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all" :class="warehouseType === 'zg_stock' ? 'bg-white text-[#58b347] shadow-sm' : 'text-slate-400 hover:text-slate-600'">Zielona Góra</button>
+                      <button type="button" @click="warehouseType = 'warsaw_stock'" class="px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all" :class="warehouseType === 'warsaw_stock' ? 'bg-white text-[#58b347] shadow-sm' : 'text-slate-400 hover:text-slate-600'">Warszawa</button>
+                    </div>
+                  </div>
+
+                  <!-- Wybór auta serwisanta dla magazynu terenowego -->
+                  <div v-if="warehouseType === 'terenowy'" class="flex items-center gap-2 bg-slate-50 border rounded-xl px-3 py-1.5" :class="selectedTechName ? 'border-slate-200' : 'border-amber-300 bg-amber-50/60'">
+                    <span class="text-[9px] font-black uppercase tracking-wider text-slate-500 shrink-0">Auto technika:</span>
+                    <select v-model="selectedTechName" class="w-full bg-transparent text-xs font-extrabold text-slate-800 outline-none">
+                      <option value="">-- Wybierz serwisanta --</option>
+                      <option v-for="tName in availableTechNames" :key="tName" :value="tName">{{ tName }}</option>
+                    </select>
                   </div>
                 </div>
 
@@ -102,17 +112,19 @@
                      <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                         <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
                      </div>
-                     <input type="text" v-model="partSearchQuery" @keydown.enter.prevent="addCustomPart(partSearchQuery)" placeholder="Awaryjne szukanie (Nazwa / SKU)..." class="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2.5 text-xs font-bold text-slate-700 focus:outline-none focus:border-[#58b347]" />
+                     <input type="text" v-model="partSearchQuery" @keydown.enter.prevent="addCustomPart(partSearchQuery)" placeholder="Szukaj części (Nazwa / SKU)..." class="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2.5 text-xs font-bold text-slate-700 focus:outline-none focus:border-[#58b347]" />
                   </div>
                   
                   <!-- Dropdown Wyszukiwarki Części -->
-                  <div v-if="partSearchResults.length > 0 || partSearchQuery.trim()" class="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 max-h-48 overflow-y-auto ticket-custom-scrollbar divide-y divide-slate-100">
-                    <div v-for="m in partSearchResults" :key="m.sku" @click="selectPart(m.name, m.sku)" class="p-2.5 hover:bg-slate-50 cursor-pointer flex items-center justify-between transition-colors group">
+                  <div v-if="partSearchResults.length > 0 || partSearchQuery.trim()" class="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 max-h-56 overflow-y-auto ticket-custom-scrollbar divide-y divide-slate-100">
+                    <div v-for="m in partSearchResults" :key="m.sku || m.name" @click="selectPart(m.name, m.sku)" class="p-2.5 hover:bg-slate-50 cursor-pointer flex items-center justify-between transition-colors group">
                       <div class="flex flex-col min-w-0 pr-3">
                         <span class="text-xs font-bold text-slate-700 truncate group-hover:text-green-600 transition-colors">{{ m.name }}</span>
-                        <span class="text-[9px] font-mono text-slate-400 font-bold">{{ m.sku || 'Brak indeksu' }}</span>
+                        <span class="text-[9px] font-mono text-slate-400 font-bold">
+                          {{ m.sku || 'Brak indeksu' }} • Auto: {{ getStockBySource(m, 'terenowy') }} | ZG: {{ getStockBySource(m, 'zg_stock') }} | WAW: {{ getStockBySource(m, 'warsaw_stock') }}
+                        </span>
                       </div>
-                      <div class="text-[10px] font-black uppercase tracking-widest bg-slate-100 px-2 py-1 rounded-lg border border-slate-200 shrink-0" :class="getStock(m) > 0 ? 'text-[#58b347] bg-[#f0f7f1] border-[#58b347]/30' : 'text-red-500 bg-red-50 border-red-200'">
+                      <div class="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-lg border shrink-0" :class="getStock(m) > 0 ? 'text-[#58b347] bg-[#f0f7f1] border-[#58b347]/30' : 'text-red-500 bg-red-50 border-red-200'">
                         Stan: {{ getStock(m) }}
                       </div>
                     </div>
@@ -127,7 +139,7 @@
 
                 <div class="flex-1 border border-slate-200 rounded-xl overflow-hidden flex flex-col bg-slate-50/50">
                    <div class="bg-slate-100/80 border-b border-slate-200 px-3 py-2 text-[9px] font-black uppercase tracking-widest text-slate-500 flex justify-between">
-                     <span>Części do pobrania (DLA TEJ WIZYTY)</span>
+                     <span>Części zużyte (DLA TEJ WIZYTY)</span>
                      <span>{{ activeVisit.parts ? activeVisit.parts.reduce((a,b) => a + b.qty, 0) : 0 }} szt.</span>
                    </div>
                    <div class="flex-1 overflow-y-auto p-2 space-y-2 ticket-custom-scrollbar min-h-[200px]">
@@ -135,15 +147,20 @@
                      <div v-else v-for="(p, idx) in activeVisit.parts" :key="idx" class="flex items-center justify-between bg-white border border-slate-200 rounded-xl p-2.5 shadow-sm">
                        <div class="flex flex-col min-w-0 pr-2">
                          <span class="text-xs font-bold text-slate-800 truncate" :title="p.name">{{ p.name }}</span>
-                         <span v-if="p.sku" class="text-[9px] font-mono text-slate-400">{{ p.sku }}</span>
+                         <div class="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                           <span v-if="p.sku && !String(p.sku).startsWith('NEW-')" class="text-[9px] font-mono text-slate-400">{{ p.sku }}</span>
+                           <span class="text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">
+                             {{ formatSourceBadge(p) }}
+                           </span>
+                         </div>
                        </div>
                        <div class="flex items-center gap-2 shrink-0">
                          <div class="flex items-center bg-slate-100 rounded-lg border border-slate-200">
-                           <button @click="updatePartQty(idx, -1)" class="px-2 py-0.5 text-xs font-black text-slate-500 hover:text-red-500">-</button>
+                           <button type="button" @click="updatePartQty(idx, -1)" class="px-2 py-0.5 text-xs font-black text-slate-500 hover:text-red-500">-</button>
                            <span class="px-2 text-xs font-black text-[#58b347]">{{ p.qty }}</span>
-                           <button @click="updatePartQty(idx, 1)" class="px-2 py-0.5 text-xs font-black text-slate-500 hover:text-[#58b347]">+</button>
+                           <button type="button" @click="updatePartQty(idx, 1)" class="px-2 py-0.5 text-xs font-black text-slate-500 hover:text-[#58b347]">+</button>
                          </div>
-                         <button @click="removePart(idx)" class="text-slate-300 hover:text-red-500 transition-colors p-1">
+                         <button type="button" @click="removePart(idx)" class="text-slate-300 hover:text-red-500 transition-colors p-1">
                            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                          </button>
                        </div>
@@ -164,8 +181,11 @@
                 </div>
                 
                 <div class="flex-1 overflow-y-auto p-3 flex flex-col gap-2 ticket-custom-scrollbar">
+                  <div v-if="Object.keys(groupedCatalog).length === 0" class="text-center text-xs font-bold text-slate-400 py-8 uppercase tracking-widest">
+                    Brak pozycji w katalogu sys_parts.
+                  </div>
                   <div v-for="(parts, cat) in groupedCatalog" :key="cat" class="border border-[#58b347]/30 rounded-xl overflow-hidden bg-white shadow-sm">
-                    <button @click="toggleCat(cat)" class="w-full px-3 py-2.5 bg-[#eaf5e9] hover:bg-[#dceddb] flex items-center justify-between transition-colors text-left border-b border-[#58b347]/20">
+                    <button type="button" @click="toggleCat(cat)" class="w-full px-3 py-2.5 bg-[#eaf5e9] hover:bg-[#dceddb] flex items-center justify-between transition-colors text-left border-b border-[#58b347]/20">
                       <span class="text-[10px] font-black uppercase tracking-widest text-[#388e3c]">{{ cat }}</span>
                       <svg class="w-4 h-4 text-[#58b347] transition-transform duration-200" :class="expandedCats[cat] ? 'rotate-180' : ''" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
                     </button>
@@ -173,7 +193,9 @@
                       <div v-for="m in parts" :key="m.sku || m.name" @click="addPartToList(m.name, 1, m.sku)" class="p-2 border-b border-slate-100 hover:bg-[#f0f7f1] cursor-pointer flex items-center justify-between transition-colors group">
                         <div class="flex flex-col min-w-0 pr-2">
                           <span class="text-[10px] font-bold text-slate-700 truncate group-hover:text-[#58b347] transition-colors">{{ m.name }}</span>
-                          <span class="text-[9px] font-mono text-slate-400">{{ m.sku || '-' }}</span>
+                          <span class="text-[9px] font-mono text-slate-400">
+                            {{ m.sku || '-' }} • A:{{ getStockBySource(m, 'terenowy') }} | ZG:{{ getStockBySource(m, 'zg_stock') }} | WAW:{{ getStockBySource(m, 'warsaw_stock') }}
+                          </span>
                         </div>
                         <span class="text-[9px] font-black px-1.5 py-0.5 rounded border shrink-0" :class="getStock(m) > 0 ? 'text-[#58b347] bg-[#f0f7f1] border-[#58b347]/30' : 'text-red-500 bg-red-50 border-red-200'">{{ getStock(m) }}</span>
                       </div>
@@ -187,14 +209,14 @@
 
         <!-- Stopka Modala -->
         <div class="p-6 border-t border-slate-200 bg-white shrink-0 flex items-center justify-between rounded-b-[24px] relative z-20">
-          <button @click="proceedToSettlement" class="bg-amber-50 text-amber-600 border border-amber-200 font-black py-3 px-6 rounded-xl text-xs uppercase tracking-widest hover:bg-amber-500 hover:text-white transition-all shadow-sm flex items-center gap-2 group">
+          <button type="button" @click="proceedToSettlement" class="bg-amber-50 text-amber-600 border border-amber-200 font-black py-3 px-6 rounded-xl text-xs uppercase tracking-widest hover:bg-amber-500 hover:text-white transition-all shadow-sm flex items-center gap-2 group">
             <svg class="w-4 h-4 group-hover:scale-110 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M2 12h4l2-9 5 18 3-10 4 3"/><path d="M22 12h-2"/></svg>
             WSTĘPNE ROZLICZENIE
           </button>
 
           <div class="flex gap-3">
-            <button @click="$emit('close')" class="bg-slate-50 border border-slate-200 text-slate-600 font-extrabold py-3.5 px-8 rounded-xl text-xs uppercase tracking-widest hover:bg-slate-100 transition-colors shadow-sm">Anuluj</button>
-            <button @click="save" class="bg-[#58b347] text-white font-black py-3.5 px-8 rounded-xl text-xs uppercase tracking-widest hover:bg-[#499b3a] transition-all shadow-md shadow-[#58b347]/20 flex items-center gap-2">
+            <button type="button" @click="$emit('close')" class="bg-slate-50 border border-slate-200 text-slate-600 font-extrabold py-3.5 px-8 rounded-xl text-xs uppercase tracking-widest hover:bg-slate-100 transition-colors shadow-sm">Anuluj</button>
+            <button type="button" @click="save" class="bg-[#58b347] text-white font-black py-3.5 px-8 rounded-xl text-xs uppercase tracking-widest hover:bg-[#499b3a] transition-all shadow-md shadow-[#58b347]/20 flex items-center gap-2">
               ZAPISZ DIAGNOZĘ
               <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
             </button>
@@ -223,11 +245,12 @@ const billingsStore = useBillingsStore()
 const ROMAN_NUMERALS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X']
 
 const visits = ref([])
+const initialPartsSnapshot = ref([])
 const activeVisitId = ref(null)
 const warehouseType = ref('terenowy')
+const selectedTechName = ref('')
 const partSearchQuery = ref('')
 const expandedCats = ref({})
-
 const accState = ref({ diag: true, notes: false })
 
 const handleKeydown = (e) => {
@@ -236,6 +259,16 @@ const handleKeydown = (e) => {
 
 onMounted(() => { window.addEventListener('keydown', handleKeydown) })
 onUnmounted(() => { window.removeEventListener('keydown', handleKeydown) })
+
+const availableTechNames = computed(() => {
+  const names = (store.techList || [])
+    .map(t => (typeof t === 'string' ? t : t?.name))
+    .filter(Boolean)
+  if (currentTicket.value?.technician_id && !names.includes(currentTicket.value.technician_id)) {
+    names.unshift(currentTicket.value.technician_id)
+  }
+  return names
+})
 
 const currentTicket = computed(() => {
   if (!props.ticketId) return null
@@ -258,67 +291,138 @@ const currentTicket = computed(() => {
 
 const currentTicketCode = computed(() => {
   if (!currentTicket.value) return 'AX-0000'
-  return currentTicket.value.ticket_code || currentTicket.value.ticket_number || currentTicket.value.id
+  return currentTicket.value.ekoen_code || currentTicket.value.ticket_code || currentTicket.value.ticket_number || currentTicket.value.id
 })
 
 const activeVisit = computed(() => {
   return visits.value.find(v => v.id === activeVisitId.value) || { diag: '', notes: '', parts: [] }
 })
 
-const parseVisitsText = (diagStr, notesStr, partsStr) => {
-  let vList = []
-  let dStr = diagStr || ''
-  let nStr = notesStr || ''
-  let pStr = partsStr || ''
+const findSkuByName = (partName) => {
+  if (!partName) return ''
+  const low = partName.toLowerCase().trim()
+  const found = (store.partsCatalog || []).find(p => String(p.name || '').toLowerCase().trim() === low)
+  return found?.sku || ''
+}
 
-  let labels = new Set()
+const parseSourceTag = (tagRaw, fallbackTech) => {
+  const tag = String(tagRaw || '').trim()
+  const up = tag.toUpperCase()
+  if (up === 'ZG' || up.includes('ZIELONA')) return { warehouse: 'zg_stock', tech: '' }
+  if (up === 'WAW' || up === 'WA' || up.includes('WARSZAWA')) return { warehouse: 'warsaw_stock', tech: '' }
+  if (up.startsWith('AUTO:')) {
+    return { warehouse: 'terenowy', tech: tag.slice(5).trim() || fallbackTech }
+  }
+  return { warehouse: 'terenowy', tech: fallbackTech }
+}
+
+const parsePartsBlock = (pContent, fallbackTech) => {
+  if (!pContent || !pContent.trim()) return []
+  const result = []
+
+  // Dzielimy po nowej linii lub po przecinku występującym WYŁĄCZNIE po ilości "xLiczba" (chroni nazwy typu "7,5M")
+  const rawItems = pContent
+    .split(/\n|,\s*(?=(?:\[[^\]]+\]\s*)?.+?\s+x\d+\b)/)
+    .map(s => s.replace(/^[•\-*]\s*/, '').trim())
+    .filter(Boolean)
+
+  rawItems.forEach(line => {
+    const match = line.match(/^(?:\[([^\]]+)\]\s*)?(.+?)\s+x(\d+)(?:\s*\(([^)]+)\))?$/i)
+    if (match) {
+      const parsedName = match[2].trim()
+      const parsedSku = (match[1] ? match[1].trim() : '') || findSkuByName(parsedName)
+      const parsedQty = parseInt(match[3], 10) || 1
+      const src = parseSourceTag(match[4], fallbackTech)
+
+      result.push({
+        sku: parsedSku,
+        name: parsedName,
+        qty: parsedQty,
+        warehouse: src.warehouse,
+        tech: src.tech
+      })
+    }
+  })
+
+  return result
+}
+
+const parseVisitsText = (diagStr, notesStr, partsStr, fallbackTech) => {
+  const vList = []
+  const dStr = diagStr || ''
+  const nStr = notesStr || ''
+  const pStr = partsStr || ''
+
+  const labels = new Set()
   ;[dStr, nStr, pStr].forEach(str => {
-    let matches = str.match(/--- WIZYTA (.+?) ---/g)
+    const matches = str.match(/--- WIZYTA (.+?) ---/g)
     if (matches) {
       matches.forEach(m => labels.add(m.replace(/--- WIZYTA /g, '').replace(/ ---/g, '').trim()))
     }
   })
 
   if (labels.size === 0) {
-    let parts = []
-    if (pStr) {
-      pStr.split(',').forEach(partItem => {
-        let match = partItem.match(/(.+?) x(\d+)/)
-        if (match) parts.push({ name: match[1].trim(), qty: parseInt(match[2], 10), sku: '' })
-      })
-    }
-    vList.push({ id: Date.now(), label: 'I', diag: dStr.trim(), notes: nStr.trim(), parts: parts })
+    vList.push({
+      id: Date.now(),
+      label: 'I',
+      diag: dStr.trim(),
+      notes: nStr.trim(),
+      parts: parsePartsBlock(pStr, fallbackTech)
+    })
     return vList
   }
 
   const extractBlock = (fullStr, label) => {
-    let regex = new RegExp(`--- WIZYTA ${label} ---\\n([\\s\\S]*?)(?=--- WIZYTA |$)`)
-    let match = fullStr.match(regex)
+    const regex = new RegExp(`--- WIZYTA ${label} ---\\n([\\s\\S]*?)(?=--- WIZYTA |$)`)
+    const match = fullStr.match(regex)
     return match ? match[1].trim() : ''
   }
 
   let i = 0
   labels.forEach(label => {
-    let diag = extractBlock(dStr, label)
-    let note = extractBlock(nStr, label)
-    let pContent = extractBlock(pStr, label)
-    let parts = []
-    if (pContent) {
-      pContent.split(',').forEach(partItem => {
-        let match = partItem.match(/(.+?) x(\d+)/)
-        if (match) parts.push({ name: match[1].trim(), qty: parseInt(match[2], 10), sku: '' })
-      })
-    }
-    vList.push({ id: Date.now() + i, label: label, diag: diag, notes: note, parts: parts })
+    vList.push({
+      id: Date.now() + i,
+      label,
+      diag: extractBlock(dStr, label),
+      notes: extractBlock(nStr, label),
+      parts: parsePartsBlock(extractBlock(pStr, label), fallbackTech)
+    })
     i++
   })
 
   return vList
 }
 
+const flattenVisitsParts = (visitsArr) => {
+  const flat = []
+  visitsArr.forEach(v => {
+    ;(v.parts || []).forEach(p => {
+      flat.push({
+        sku: p.sku || '',
+        name: p.name || '',
+        qty: parseInt(p.qty, 10) || 0,
+        warehouse: p.warehouse || 'terenowy',
+        tech: p.tech || ''
+      })
+    })
+  })
+  return flat
+}
+
 watch(() => props.show, (isOpen) => {
   if (isOpen && currentTicket.value) {
-    visits.value = parseVisitsText(currentTicket.value.raw_diagnoza, currentTicket.value.notes, currentTicket.value.parts_str)
+    const defaultTech = String(currentTicket.value.technician_id || '').trim()
+    selectedTechName.value = defaultTech
+    warehouseType.value = defaultTech ? 'terenowy' : 'zg_stock'
+    partSearchQuery.value = ''
+
+    visits.value = parseVisitsText(
+      currentTicket.value.raw_diagnoza,
+      currentTicket.value.notes,
+      currentTicket.value.parts_str,
+      defaultTech
+    )
+    initialPartsSnapshot.value = JSON.parse(JSON.stringify(flattenVisitsParts(visits.value)))
     activeVisitId.value = visits.value[0].id
     accState.value.notes = !!activeVisit.value.notes
   }
@@ -327,9 +431,9 @@ watch(() => props.show, (isOpen) => {
 const switchVisit = (id) => { activeVisitId.value = id }
 
 const addVisit = () => {
-  let nextIdx = visits.value.length
-  let label = ROMAN_NUMERALS[nextIdx] || (nextIdx + 1).toString()
-  let newV = { id: Date.now(), label: label, diag: '', notes: '', parts: [] }
+  const nextIdx = visits.value.length
+  const label = ROMAN_NUMERALS[nextIdx] || (nextIdx + 1).toString()
+  const newV = { id: Date.now(), label, diag: '', notes: '', parts: [] }
   visits.value.push(newV)
   activeVisitId.value = newV.id
 }
@@ -347,8 +451,8 @@ const deleteVisit = (id) => {
 }
 
 const groupedCatalog = computed(() => {
-  let groups = {}
-  store.partsCatalog.forEach(p => {
+  const groups = {}
+  ;(store.partsCatalog || []).forEach(p => {
     let cat = p.category ? p.category.replace(/\s*\([^)]*\)/g, '').trim() : 'INNE'
     if (!cat) cat = 'INNE'
     if (!groups[cat]) groups[cat] = []
@@ -359,25 +463,27 @@ const groupedCatalog = computed(() => {
 
 const toggleCat = (cat) => { expandedCats.value[cat] = !expandedCats.value[cat] }
 
-const getStock = (part) => {
-  if (!part.stocks) return 0
-  const w = warehouseType.value
-  if (w === 'zg_stock') return part.stocks.zg_stock || part.stocks.main_stock || 0
-  if (w === 'wa_stock') return part.stocks.warsaw_stock || part.stocks.wa_stock || 0
-  
-  const techName = (currentTicket.value?.technician_id || '').toLowerCase().trim()
-  if (techName) {
-    let foundKey = Object.keys(part.stocks).find(k => k.toLowerCase().includes(techName))
-    return foundKey ? (part.stocks[foundKey] || 0) : 0
-  }
-  return 0
+const getStockBySource = (part, sourceType) => {
+  if (!part || !part.stocks) return 0
+  if (sourceType === 'zg_stock') return part.stocks.zg_stock ?? part.stocks.main_stock ?? 0
+  if (sourceType === 'warsaw_stock' || sourceType === 'wa_stock') return part.stocks.warsaw_stock ?? part.stocks.wa_stock ?? 0
+
+  const techName = String(selectedTechName.value || currentTicket.value?.technician_id || '').toLowerCase().trim()
+  if (!techName) return 0
+  const keys = Object.keys(part.stocks)
+  const exactKey = keys.find(k => k.toLowerCase().trim() === techName)
+  if (exactKey) return part.stocks[exactKey] || 0
+  const partialKey = keys.find(k => k.toLowerCase().includes(techName) || techName.includes(k.toLowerCase()))
+  return partialKey ? (part.stocks[partialKey] || 0) : 0
 }
+
+const getStock = (part) => getStockBySource(part, warehouseType.value)
 
 const partSearchResults = computed(() => {
   const q = partSearchQuery.value.toLowerCase().trim()
   if (!q) return []
-  return store.partsCatalog.filter(p => 
-    p.name.toLowerCase().includes(q) || (p.sku && p.sku.toLowerCase().includes(q))
+  return (store.partsCatalog || []).filter(p => 
+    String(p.name || '').toLowerCase().includes(q) || (p.sku && String(p.sku).toLowerCase().includes(q))
   ).slice(0, 20)
 })
 
@@ -392,11 +498,26 @@ const addCustomPart = (name) => {
 }
 
 const addPartToList = (name, qty, sku = '') => {
+  if (warehouseType.value === 'terenowy' && !selectedTechName.value) {
+    alert('Wybierz serwisanta (Auto technika) dla magazynu terenowego lub przełącz źródło na Zieloną Górę / Warszawę.')
+    return
+  }
+
   const v = activeVisit.value
   if (!v.parts) v.parts = []
-  const existing = v.parts.find(p => p.name === name)
+
+  const curWh = warehouseType.value
+  const curTech = curWh === 'terenowy' ? selectedTechName.value : ''
+
+  const existing = v.parts.find(p =>
+    p.name === name &&
+    (p.sku || '') === (sku || '') &&
+    p.warehouse === curWh &&
+    (p.tech || '') === curTech
+  )
+
   if (existing) existing.qty += qty
-  else v.parts.push({ name, qty, sku })
+  else v.parts.push({ name, qty, sku, warehouse: curWh, tech: curTech })
 }
 
 const updatePartQty = (idx, delta) => {
@@ -408,28 +529,101 @@ const updatePartQty = (idx, delta) => {
 
 const removePart = (idx) => { activeVisit.value.parts.splice(idx, 1) }
 
+const formatSourceBadge = (p) => {
+  if (p.warehouse === 'zg_stock') return 'ZG'
+  if (p.warehouse === 'warsaw_stock' || p.warehouse === 'wa_stock') return 'WAW'
+  return p.tech ? `Auto: ${p.tech}` : 'Terenowy'
+}
+
+const formatPartLine = (p) => {
+  const skuPrefix = (p.sku && !String(p.sku).startsWith('NEW-')) ? `[${p.sku}] ` : ''
+  return `${skuPrefix}${p.name} x${p.qty} (${formatSourceBadge(p)})`
+}
+
+const computePartsDeltaOperations = () => {
+  const makeKey = (p) => `${String(p.sku || p.name).toLowerCase().trim()}|${p.warehouse || 'terenowy'}|${String(p.tech || '').toLowerCase().trim()}`
+  const map = new Map()
+
+  initialPartsSnapshot.value.forEach(p => {
+    const k = makeKey(p)
+    const cur = map.get(k) || { sku: p.sku || '', name: p.name, warehouse: p.warehouse || 'terenowy', tech: p.tech || '', oldQty: 0, newQty: 0 }
+    cur.oldQty += (parseInt(p.qty, 10) || 0)
+    map.set(k, cur)
+  })
+
+  flattenVisitsParts(visits.value).forEach(p => {
+    const k = makeKey(p)
+    const cur = map.get(k) || { sku: p.sku || '', name: p.name, warehouse: p.warehouse || 'terenowy', tech: p.tech || '', oldQty: 0, newQty: 0 }
+    if (p.sku) cur.sku = p.sku
+    cur.newQty += (parseInt(p.qty, 10) || 0)
+    map.set(k, cur)
+  })
+
+  const ops = []
+  map.forEach(item => {
+    const delta = item.newQty - item.oldQty
+    if (delta !== 0) {
+      ops.push({
+        sku: item.sku,
+        name: item.name,
+        warehouse: item.warehouse,
+        tech: item.tech,
+        delta
+      })
+    }
+  })
+  return ops
+}
+
+const applyLocalCatalogDelta = (ops) => {
+  if (!ops || ops.length === 0 || !store.partsCatalog) return
+  ops.forEach(op => {
+    const part = store.partsCatalog.find(p =>
+      (op.sku && !String(op.sku).startsWith('NEW-') && String(p.sku || '').toLowerCase() === String(op.sku).toLowerCase()) ||
+      String(p.name || '').toLowerCase() === String(op.name || '').toLowerCase()
+    )
+    if (!part || !part.stocks) return
+
+    if (op.warehouse === 'zg_stock') {
+      part.stocks.zg_stock = (parseFloat(part.stocks.zg_stock) || 0) - op.delta
+    } else if (op.warehouse === 'warsaw_stock' || op.warehouse === 'wa_stock') {
+      part.stocks.warsaw_stock = (parseFloat(part.stocks.warsaw_stock) || 0) - op.delta
+    } else if (op.tech) {
+      const tLow = op.tech.toLowerCase().trim()
+      const key = Object.keys(part.stocks).find(k => k.toLowerCase().trim() === tLow || k.toLowerCase().includes(tLow))
+      if (key) part.stocks[key] = (parseFloat(part.stocks[key]) || 0) - op.delta
+    }
+    part.used_total = Math.max(0, (parseFloat(part.used_total) || 0) + op.delta)
+  })
+}
+
 const buildUpdatedTicket = () => {
   let combinedDiag = ''
   let combinedNotes = ''
-  let combinedPartsArr = []
-  let combinedPartsStrParts = []
+  const combinedPartsStrParts = []
 
   visits.value.forEach(v => {
     if (v.diag && v.diag.trim()) combinedDiag += `--- WIZYTA ${v.label} ---\n${v.diag.trim()}\n\n`
     if (v.notes && v.notes.trim()) combinedNotes += `--- WIZYTA ${v.label} ---\n${v.notes.trim()}\n\n`
     if (v.parts && v.parts.length > 0) {
-      let pStr = v.parts.map(p => `${p.name} x${p.qty}`).join(', ')
-      combinedPartsStrParts.push(`--- WIZYTA ${v.label} ---\n${pStr}`)
-      v.parts.forEach(p => combinedPartsArr.push(p))
+      const pLines = v.parts.map(formatPartLine).join('\n')
+      combinedPartsStrParts.push(`--- WIZYTA ${v.label} ---\n${pLines}`)
     }
   })
+
+  const partsOps = computePartsDeltaOperations()
+  applyLocalCatalogDelta(partsOps)
+  initialPartsSnapshot.value = JSON.parse(JSON.stringify(flattenVisitsParts(visits.value)))
 
   return {
     ...currentTicket.value,
     raw_diagnoza: combinedDiag.trim(),
     notes: combinedNotes.trim(),
     parts_str: combinedPartsStrParts.join('\n\n'),
-    parts_array: combinedPartsArr
+    warehouse_type: warehouseType.value,
+    diagnose_tech: selectedTechName.value || currentTicket.value?.technician_id || '',
+    parts_operations: partsOps,
+    from_diagnose: true
   }
 }
 
@@ -441,11 +635,7 @@ const save = () => {
 
 const proceedToSettlement = () => {
   const updatedTicket = buildUpdatedTicket()
-  
-  // Zapisz diagnozę po cichu w tle
   emit('save', updatedTicket)
-  
-  // Zamknij widok i wyemituj do rodzica gotowy, zmontowany obiekt!
   emit('close')
   setTimeout(() => {
     emit('open-settlement', updatedTicket)
