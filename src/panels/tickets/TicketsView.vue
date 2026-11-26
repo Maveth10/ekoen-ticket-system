@@ -593,13 +593,25 @@
             </div>
 
             <a
+              v-if="attachmentsModal.stationFolderUrl"
+              :href="attachmentsModal.stationFolderUrl"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="px-3 py-2 rounded-xl text-[11px] font-extrabold uppercase tracking-wider bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 transition-colors"
+              title="Otwórz główną kartotekę stacji QP (Dokumentacja, Oferty, wszystkie Zlecenia)"
+            >
+              Kartoteka QP ↗
+            </a>
+
+            <a
               v-if="attachmentsModal.folderUrl"
               :href="attachmentsModal.folderUrl"
               target="_blank"
               rel="noopener noreferrer"
               class="px-3 py-2 rounded-xl text-[11px] font-extrabold uppercase tracking-wider bg-slate-800 hover:bg-slate-900 text-white transition-colors"
+              title="Otwórz folder tego zlecenia na Google Drive"
             >
-              Dysk Google ↗
+              Folder Zlecenia ↗
             </a>
 
             <button @click="attachmentsModal.show = false" class="text-slate-400 hover:text-red-500 transition-colors bg-white border border-slate-200 p-2 rounded-xl shadow-sm hover:bg-red-50 ml-1">
@@ -857,6 +869,7 @@ const attachmentsModal = ref({
   attachmentsUrl: '',
   folderName: '',
   folderUrl: '',
+  stationFolderUrl: '',
   files: []
 })
 const showVisitReportForm = ref(false)
@@ -998,6 +1011,7 @@ const syncCaseResultToTicket = (res) => {
   attachmentsModal.value.files = res.files || []
   attachmentsModal.value.folderName = res.folderName || ''
   attachmentsModal.value.folderUrl = res.folderUrl || ''
+  attachmentsModal.value.stationFolderUrl = res.stationFolderUrl || ''
 
   const key = String(attachmentsModal.value.ticketId || attachmentsModal.value.ticketCode || '').trim()
   const idx = store.tickets.findIndex(t =>
@@ -1033,6 +1047,7 @@ const openAttachmentsList = (ticketOrUrl) => {
       attachmentsUrl: t.attachments_url || '',
       folderName: '',
       folderUrl: t.attachments_url || '',
+      stationFolderUrl: '',
       files: []
     }
 
@@ -1068,6 +1083,7 @@ const openAttachmentsList = (ticketOrUrl) => {
     show: true, loading: !Array.isArray(ticketOrUrl), uploading: false,
     ticketId: '', ticketCode: 'Załączniki', qp: '', tech: '', attachmentsUrl: '',
     folderName: '', folderUrl: typeof ticketOrUrl === 'string' ? ticketOrUrl : '',
+    stationFolderUrl: '',
     files: Array.isArray(ticketOrUrl) ? ticketOrUrl : []
   }
   if (!Array.isArray(ticketOrUrl) && typeof google !== 'undefined' && google.script) {
