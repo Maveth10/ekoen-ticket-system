@@ -14,7 +14,7 @@
         <button 
           v-for="tab in tabs" :key="tab.id"
           @click="activeTab = tab.id"
-          class="flex items-center gap-3 px-4 py-3.5 rounded-xl font-extrabold text-[12px] uppercase tracking-widest transition-all duration-200"
+          class="flex items-center gap-3 px-4 py-3.5 rounded-xl font-extrabold text-[12px] uppercase tracking-widest transition-all duration-200 cursor-pointer"
           :class="activeTab === tab.id ? 'bg-white text-[#58b347] shadow-sm border border-slate-200' : 'text-slate-500 hover:bg-slate-200/50 hover:text-slate-700 border border-transparent'"
         >
           <span v-html="tab.icon" class="w-5 h-5 shrink-0" :class="activeTab === tab.id ? 'text-[#58b347]' : 'text-slate-400'"></span>
@@ -36,18 +36,17 @@
           
           <div class="space-y-8 max-w-3xl">
             
-            <!-- NOWA SEKCJA: GŁÓWNY INTERFEJS (CLASSIC VS MODERN) -->
+            <!-- GŁÓWNY INTERFEJS (CLASSIC VS MODERN) -->
             <div class="bg-indigo-50/50 border border-indigo-100 p-6 rounded-2xl">
               <h3 class="text-[11px] font-black uppercase tracking-widest text-indigo-500 mb-4">Tryb Pulpitu Pracownika</h3>
               
               <div class="flex gap-4">
                 <label class="cursor-pointer flex-1">
-                  <!-- checked na podstawie local storage LUB własnego store'a -->
                   <input type="radio" v-model="currentUiMode" value="classic" class="peer sr-only" @change="switchGlobalUi('classic')" />
                   <div class="p-5 border-2 border-slate-200 rounded-xl peer-checked:border-indigo-500 peer-checked:bg-indigo-50 transition-all h-full">
                     <div class="flex items-center gap-3 mb-2">
-                      <svg class="w-6 h-6 text-slate-400 peer-checked:text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
-                      <div class="font-black text-slate-700 peer-checked:text-indigo-700 text-sm">Klasyczny (Biuro)</div>
+                      <svg class="w-6 h-6" :class="currentUiMode === 'classic' ? 'text-indigo-500' : 'text-slate-400'" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+                      <div class="font-black text-sm" :class="currentUiMode === 'classic' ? 'text-indigo-700' : 'text-slate-700'">Klasyczny (Biuro)</div>
                     </div>
                     <div class="text-[11px] text-slate-500 font-medium leading-relaxed">Rozbudowany interfejs boczny. Idealny do pracy przy biurku i analizy dużej ilości danych.</div>
                   </div>
@@ -57,8 +56,8 @@
                   <input type="radio" v-model="currentUiMode" value="modern" class="peer sr-only" @change="switchGlobalUi('modern')" />
                   <div class="p-5 border-2 border-slate-200 rounded-xl peer-checked:border-emerald-500 peer-checked:bg-emerald-50 transition-all h-full relative overflow-hidden">
                     <div class="flex items-center gap-3 mb-2 relative z-10">
-                      <svg class="w-6 h-6 text-slate-400 peer-checked:text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><rect x="7" y="7" width="3" height="3"/><rect x="14" y="7" width="3" height="3"/><rect x="7" y="14" width="3" height="3"/><rect x="14" y="14" width="3" height="3"/></svg>
-                      <div class="font-black text-slate-700 peer-checked:text-emerald-700 text-sm">Nowoczesny (Teren)</div>
+                      <svg class="w-6 h-6" :class="currentUiMode === 'modern' ? 'text-emerald-500' : 'text-slate-400'" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><rect x="7" y="7" width="3" height="3"/><rect x="14" y="7" width="3" height="3"/><rect x="7" y="14" width="3" height="3"/><rect x="14" y="14" width="3" height="3"/></svg>
+                      <div class="font-black text-sm" :class="currentUiMode === 'modern' ? 'text-emerald-700' : 'text-slate-700'">Nowoczesny (Teren)</div>
                     </div>
                     <div class="text-[11px] text-slate-500 font-medium leading-relaxed relative z-10">Szybki kokpit w stylu Bento, optymalny na tablety i telefony, z szybkim dostępem do map.</div>
                   </div>
@@ -111,54 +110,146 @@
 
             <hr class="border-slate-100">
 
-            <!-- SEKCJA: UKŁADY MODUŁÓW -->
-            <div>
-              <h3 class="text-[11px] font-black uppercase tracking-widest text-slate-400 mb-4">Wersje widoków modułów</h3>
-              
-              <!-- Magazyn -->
-              <div class="mb-5">
-                <label class="block text-sm font-bold text-slate-700 mb-2">Moduł: Magazyn i Flota</label>
-                <div class="flex gap-4">
-                  <label class="cursor-pointer flex-1">
-                    <input type="radio" v-model="store.warehouseViewMode" value="v1" class="peer sr-only" @change="save" />
-                    <div class="p-4 border-2 border-slate-200 rounded-xl peer-checked:border-[#58b347] peer-checked:bg-[#58b347]/5 transition-all text-center">
-                      <div class="font-black text-slate-700 peer-checked:text-[#499b3a]">Wersja 1 (Aktualna)</div>
-                      <div class="text-xs text-slate-500 mt-1 font-medium">Klasyczna tabela i logi operacji</div>
+            <!-- SEKCJA: UKŁADY WSZYSTKICH MODUŁÓW (PANELI) -->
+            <div class="space-y-6">
+              <div>
+                <h3 class="text-[11px] font-black uppercase tracking-widest text-slate-400">Wersje widoków modułów</h3>
+                <p class="text-xs text-slate-400 font-medium mt-0.5">Wybierz preferowany układ pracy osobno dla każdego panelu systemu.</p>
+              </div>
+
+              <!-- 1. Dashboard -->
+              <div>
+                <label class="block text-sm font-bold text-slate-700 mb-2">Moduł: Dashboard (Statystyki)</label>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <label class="cursor-pointer">
+                    <input type="radio" name="view_dashboard" :checked="panelViews.dashboard === 'v1'" @change="savePanelView('dashboard', 'v1')" class="sr-only" />
+                    <div class="p-4 border-2 rounded-xl transition-all text-center h-full" :class="panelViews.dashboard === 'v1' ? 'border-[#58b347] bg-[#58b347]/5' : 'border-slate-200 hover:border-slate-300'">
+                      <div class="font-black text-sm" :class="panelViews.dashboard === 'v1' ? 'text-[#499b3a]' : 'text-slate-700'">Wersja 1 (Aktualna)</div>
+                      <div class="text-xs text-slate-500 mt-1 font-medium">Karty KPI, wykresy SLA i podsumowanie floty</div>
                     </div>
                   </label>
-                  <label class="cursor-pointer flex-1">
-                    <input type="radio" v-model="store.warehouseViewMode" value="v2" class="peer sr-only" @change="save" />
-                    <div class="p-4 border-2 border-slate-200 rounded-xl peer-checked:border-[#58b347] peer-checked:bg-[#58b347]/5 transition-all text-center">
-                      <div class="font-black text-slate-700 peer-checked:text-[#499b3a]">Wersja 2 (Alternatywna)</div>
-                      <div class="text-xs text-slate-500 mt-1 font-medium">Widok kafelkowy i zaawansowane analizy</div>
+                  <label class="cursor-pointer">
+                    <input type="radio" name="view_dashboard" :checked="panelViews.dashboard === 'v2'" @change="savePanelView('dashboard', 'v2')" class="sr-only" />
+                    <div class="p-4 border-2 rounded-xl transition-all text-center h-full" :class="panelViews.dashboard === 'v2' ? 'border-[#58b347] bg-[#58b347]/5' : 'border-slate-200 hover:border-slate-300'">
+                      <div class="font-black text-sm" :class="panelViews.dashboard === 'v2' ? 'text-[#499b3a]' : 'text-slate-700'">Wersja 2 (Alternatywna)</div>
+                      <div class="text-xs text-slate-500 mt-1 font-medium">Kompaktowy przekrój zarządczy i alerty na żywo</div>
                     </div>
                   </label>
                 </div>
               </div>
 
-              <!-- Centrum Zgłoszeń -->
+              <!-- 2. Harmonogram Serwisowy (SPIĘTY NA ŻYWO Z MATRYCĄ) -->
+              <div>
+                <div class="flex items-center justify-between mb-2">
+                  <label class="block text-sm font-bold text-slate-700">Moduł: Harmonogram Serwisowy</label>
+                  <span class="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    Aktywne przełączanie
+                  </span>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <label class="cursor-pointer">
+                    <input type="radio" name="view_schedule" :checked="scheduleLayoutMode === 'standard'" @change="switchScheduleLayout('standard')" class="sr-only" />
+                    <div class="p-4 border-2 rounded-xl transition-all text-center h-full" :class="scheduleLayoutMode === 'standard' ? 'border-[#58b347] bg-[#58b347]/5' : 'border-slate-200 hover:border-slate-300'">
+                      <div class="font-black text-sm" :class="scheduleLayoutMode === 'standard' ? 'text-[#499b3a]' : 'text-slate-700'">Wersja 1 (Oś czasu)</div>
+                      <div class="text-xs text-slate-500 mt-1 font-medium">Kalendarz Miesiąc / Tydzień / Dzień (od 06:00)</div>
+                    </div>
+                  </label>
+                  <label class="cursor-pointer">
+                    <input type="radio" name="view_schedule" :checked="scheduleLayoutMode === 'matrix'" @change="switchScheduleLayout('matrix')" class="sr-only" />
+                    <div class="p-4 border-2 rounded-xl transition-all text-center h-full" :class="scheduleLayoutMode === 'matrix' ? 'border-[#58b347] bg-[#58b347]/5' : 'border-slate-200 hover:border-slate-300'">
+                      <div class="font-black text-sm" :class="scheduleLayoutMode === 'matrix' ? 'text-[#499b3a]' : 'text-slate-700'">Wersja 2 (Matryca)</div>
+                      <div class="text-xs text-slate-500 mt-1 font-medium">Tabela: Technicy w wierszach × Dni w kolumnach</div>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              <!-- 3. Centrum Zgłoszeń (Axon Connect) -->
               <div>
                 <label class="block text-sm font-bold text-slate-700 mb-2">Moduł: Centrum Zgłoszeń (Axon Connect)</label>
-                <div class="flex gap-4">
-                  <label class="cursor-pointer flex-1">
-                    <input type="radio" v-model="store.ticketsViewMode" value="v1" class="peer sr-only" @change="save" />
-                    <div class="p-4 border-2 border-slate-200 rounded-xl peer-checked:border-[#58b347] peer-checked:bg-[#58b347]/5 transition-all text-center h-full">
-                      <div class="font-black text-slate-700 peer-checked:text-[#499b3a] text-sm">Wersja 1 (Aktualna)</div>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <label class="cursor-pointer">
+                    <input type="radio" v-model="store.ticketsViewMode" value="v1" class="sr-only" @change="save" />
+                    <div class="p-4 border-2 rounded-xl transition-all text-center h-full" :class="store.ticketsViewMode === 'v1' ? 'border-[#58b347] bg-[#58b347]/5' : 'border-slate-200 hover:border-slate-300'">
+                      <div class="font-black text-sm" :class="store.ticketsViewMode === 'v1' ? 'text-[#499b3a]' : 'text-slate-700'">Wersja 1 (Aktualna)</div>
                       <div class="text-xs text-slate-500 mt-1 font-medium">Kompaktowa lista i KPI</div>
                     </div>
                   </label>
-                  <label class="cursor-pointer flex-1">
-                    <input type="radio" v-model="store.ticketsViewMode" value="v2" class="peer sr-only" @change="save" />
-                    <div class="p-4 border-2 border-slate-200 rounded-xl peer-checked:border-[#58b347] peer-checked:bg-[#58b347]/5 transition-all text-center h-full">
-                      <div class="font-black text-slate-700 peer-checked:text-[#499b3a] text-sm">Wersja 2 (Detale)</div>
+                  <label class="cursor-pointer">
+                    <input type="radio" v-model="store.ticketsViewMode" value="v2" class="sr-only" @change="save" />
+                    <div class="p-4 border-2 rounded-xl transition-all text-center h-full" :class="store.ticketsViewMode === 'v2' ? 'border-[#58b347] bg-[#58b347]/5' : 'border-slate-200 hover:border-slate-300'">
+                      <div class="font-black text-sm" :class="store.ticketsViewMode === 'v2' ? 'text-[#499b3a]' : 'text-slate-700'">Wersja 2 (Detale)</div>
                       <div class="text-xs text-slate-500 mt-1 font-medium">Zwarta lista + osobny ekran szczegółów</div>
                     </div>
                   </label>
-                  <label class="cursor-pointer flex-1">
-                    <input type="radio" v-model="store.ticketsViewMode" value="v3" class="peer sr-only" @change="save" />
-                    <div class="p-4 border-2 border-slate-200 rounded-xl peer-checked:border-[#58b347] peer-checked:bg-[#58b347]/5 transition-all text-center h-full">
-                      <div class="font-black text-slate-700 peer-checked:text-[#499b3a] text-sm">Wersja 3 (Arkusz)</div>
+                  <label class="cursor-pointer">
+                    <input type="radio" v-model="store.ticketsViewMode" value="v3" class="sr-only" @change="save" />
+                    <div class="p-4 border-2 rounded-xl transition-all text-center h-full" :class="store.ticketsViewMode === 'v3' ? 'border-[#58b347] bg-[#58b347]/5' : 'border-slate-200 hover:border-slate-300'">
+                      <div class="font-black text-sm" :class="store.ticketsViewMode === 'v3' ? 'text-[#499b3a]' : 'text-slate-700'">Wersja 3 (Arkusz)</div>
                       <div class="text-xs text-slate-500 mt-1 font-medium">Gęsta tabela z akcjami w wierszach (1 ekran)</div>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              <!-- 4. Zgłoszenia Ekoen -->
+              <div>
+                <label class="block text-sm font-bold text-slate-700 mb-2">Moduł: Zgłoszenia Serwisowe (Ekoen)</label>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <label class="cursor-pointer">
+                    <input type="radio" name="view_ekoen" :checked="panelViews.ekoen === 'v1'" @change="savePanelView('ekoen', 'v1')" class="sr-only" />
+                    <div class="p-4 border-2 rounded-xl transition-all text-center h-full" :class="panelViews.ekoen === 'v1' ? 'border-[#58b347] bg-[#58b347]/5' : 'border-slate-200 hover:border-slate-300'">
+                      <div class="font-black text-sm" :class="panelViews.ekoen === 'v1' ? 'text-[#499b3a]' : 'text-slate-700'">Wersja 1 (Aktualna)</div>
+                      <div class="text-xs text-slate-500 mt-1 font-medium">Tabela operacyjna z Teczką Sprawy i filtrami KPI</div>
+                    </div>
+                  </label>
+                  <label class="cursor-pointer">
+                    <input type="radio" name="view_ekoen" :checked="panelViews.ekoen === 'v2'" @change="savePanelView('ekoen', 'v2')" class="sr-only" />
+                    <div class="p-4 border-2 rounded-xl transition-all text-center h-full" :class="panelViews.ekoen === 'v2' ? 'border-[#58b347] bg-[#58b347]/5' : 'border-slate-200 hover:border-slate-300'">
+                      <div class="font-black text-sm" :class="panelViews.ekoen === 'v2' ? 'text-[#499b3a]' : 'text-slate-700'">Wersja 2 (Alternatywna)</div>
+                      <div class="text-xs text-slate-500 mt-1 font-medium">Widok tablicowy (Kanban wg statusów realizacji)</div>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              <!-- 5. Baza Stacji -->
+              <div>
+                <label class="block text-sm font-bold text-slate-700 mb-2">Moduł: Baza Stacji (Infrastruktura QP)</label>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <label class="cursor-pointer">
+                    <input type="radio" name="view_stations" :checked="panelViews.stations === 'v1'" @change="savePanelView('stations', 'v1')" class="sr-only" />
+                    <div class="p-4 border-2 rounded-xl transition-all text-center h-full" :class="panelViews.stations === 'v1' ? 'border-[#58b347] bg-[#58b347]/5' : 'border-slate-200 hover:border-slate-300'">
+                      <div class="font-black text-sm" :class="panelViews.stations === 'v1' ? 'text-[#499b3a]' : 'text-slate-700'">Wersja 1 (Aktualna)</div>
+                      <div class="text-xs text-slate-500 mt-1 font-medium">Tabela stacji z historią awarii i analityką</div>
+                    </div>
+                  </label>
+                  <label class="cursor-pointer">
+                    <input type="radio" name="view_stations" :checked="panelViews.stations === 'v2'" @change="savePanelView('stations', 'v2')" class="sr-only" />
+                    <div class="p-4 border-2 rounded-xl transition-all text-center h-full" :class="panelViews.stations === 'v2' ? 'border-[#58b347] bg-[#58b347]/5' : 'border-slate-200 hover:border-slate-300'">
+                      <div class="font-black text-sm" :class="panelViews.stations === 'v2' ? 'text-[#499b3a]' : 'text-slate-700'">Wersja 2 (Alternatywna)</div>
+                      <div class="text-xs text-slate-500 mt-1 font-medium">Kafelki lokalizacji ze statusem zdrowia stacji</div>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              <!-- 6. Magazyn i Flota -->
+              <div>
+                <label class="block text-sm font-bold text-slate-700 mb-2">Moduł: Magazyn i Flota</label>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <label class="cursor-pointer">
+                    <input type="radio" v-model="store.warehouseViewMode" value="v1" class="sr-only" @change="save" />
+                    <div class="p-4 border-2 rounded-xl transition-all text-center h-full" :class="store.warehouseViewMode === 'v1' ? 'border-[#58b347] bg-[#58b347]/5' : 'border-slate-200 hover:border-slate-300'">
+                      <div class="font-black text-sm" :class="store.warehouseViewMode === 'v1' ? 'text-[#499b3a]' : 'text-slate-700'">Wersja 1 (Aktualna)</div>
+                      <div class="text-xs text-slate-500 mt-1 font-medium">Klasyczna tabela i logi operacji</div>
+                    </div>
+                  </label>
+                  <label class="cursor-pointer">
+                    <input type="radio" v-model="store.warehouseViewMode" value="v2" class="sr-only" @change="save" />
+                    <div class="p-4 border-2 rounded-xl transition-all text-center h-full" :class="store.warehouseViewMode === 'v2' ? 'border-[#58b347] bg-[#58b347]/5' : 'border-slate-200 hover:border-slate-300'">
+                      <div class="font-black text-sm" :class="store.warehouseViewMode === 'v2' ? 'text-[#499b3a]' : 'text-slate-700'">Wersja 2 (Alternatywna)</div>
+                      <div class="text-xs text-slate-500 mt-1 font-medium">Widok kafelkowy i zaawansowane analizy</div>
                     </div>
                   </label>
                 </div>
@@ -179,6 +270,8 @@
               <option value="dashboard">Dashboard (Statystyki)</option>
               <option value="schedule">Kalendarz / Harmonogram</option>
               <option value="tickets">Centrum Zgłoszeń</option>
+              <option value="stations">Baza Stacji</option>
+              <option value="warehouse">Magazyn i Flota</option>
             </select>
           </div>
         </div>
@@ -213,7 +306,7 @@
               <input type="password" placeholder="Obecne hasło" class="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:border-blue-500 outline-none" />
               <input type="password" placeholder="Nowe hasło" class="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:border-blue-500 outline-none" />
               <input type="password" placeholder="Powtórz nowe hasło" class="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:border-blue-500 outline-none" />
-              <button class="w-full bg-blue-500 text-white font-bold py-2.5 rounded-lg mt-2 hover:bg-blue-600 transition-colors">Zmień hasło</button>
+              <button class="w-full bg-blue-500 text-white font-bold py-2.5 rounded-lg mt-2 hover:bg-blue-600 transition-colors cursor-pointer">Zmień hasło</button>
             </div>
           </div>
         </div>
@@ -226,35 +319,64 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useSettingsStore } from '../../stores/useSettingsStore'
+import { useScheduleLayout } from '../../composables/useCalendar'
 
-// Definiujemy emit na zewnątrz, żeby App.vue mogło zareagować na przełączenie "Motywu głównego"
+const PANEL_VIEWS_STORAGE_KEY = 'ekoen_panel_views'
+
 const emit = defineEmits(['toggle-ui'])
 
 const store = useSettingsStore()
+const { scheduleLayoutMode, setScheduleLayoutMode } = useScheduleLayout()
 
-// Lokalna zmienna do kontrolowania przełącznika głównego interfejsu
 const currentUiMode = ref('classic')
+
+// Przełączniki wersji widoków dla pozostałych paneli
+const panelViews = ref({
+  dashboard: 'v1',
+  ekoen: 'v1',
+  stations: 'v1'
+})
 
 const save = () => {
   store.saveSettings()
 }
 
-// Funkcja przechwytująca kliknięcie w główny tryb pulpitu
 const switchGlobalUi = (mode) => {
   currentUiMode.value = mode
   emit('toggle-ui', mode)
 }
 
+const switchScheduleLayout = (mode) => {
+  setScheduleLayoutMode(mode)
+  store.scheduleViewMode = mode
+  save()
+}
+
+const savePanelView = (panelKey, mode) => {
+  panelViews.value[panelKey] = mode
+  try {
+    localStorage.setItem(PANEL_VIEWS_STORAGE_KEY, JSON.stringify(panelViews.value))
+  } catch (_) {}
+  store[`${panelKey}ViewMode`] = mode
+  save()
+}
+
 onMounted(() => {
   store.loadSettings()
-  // Odczyt zapamiętanego trybu w przeglądarce, żeby kafelki "radio" miały właściwy kolor od razu po wejściu w ustawienia
+
   const savedMode = localStorage.getItem('ekoen_ui_mode')
   if (savedMode) {
     currentUiMode.value = savedMode
   }
+
+  try {
+    const savedPanels = localStorage.getItem(PANEL_VIEWS_STORAGE_KEY)
+    if (savedPanels) {
+      panelViews.value = { ...panelViews.value, ...JSON.parse(savedPanels) }
+    }
+  } catch (_) {}
 })
 
-// Zakładki pionowego menu
 const activeTab = ref('appearance')
 
 const tabs = [

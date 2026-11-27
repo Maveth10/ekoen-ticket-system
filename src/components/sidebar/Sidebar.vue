@@ -78,7 +78,7 @@
         <span class="ml-3 text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-75">Rozliczenia</span>
       </button>
 
-      <button @click="$emit('switch-view', 'offers')" :class="getBtnClass('offers')">
+      <button v-if="auth.offerPermissions.canViewPanel" @click="$emit('switch-view', 'offers')" :class="getBtnClass('offers')">
         <div :class="getIndicatorClass('offers')"></div>
         <div class="w-8 flex justify-center shrink-0">
           <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -119,6 +119,8 @@
 </template>
 
 <script setup>
+import { useAuthStore } from '../../stores/useAuthStore'
+const auth = useAuthStore()
 const props = defineProps({
   currentView: String
 })

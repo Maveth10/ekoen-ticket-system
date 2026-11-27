@@ -146,7 +146,7 @@
               <TechniciansView v-else-if="currentActiveView === 'technicians'" />
               <StationsView v-else-if="currentActiveView === 'stations'" />
               <MapView v-else-if="currentActiveView === 'map'" />
-              <OffersView v-else-if="currentActiveView === 'offers'" />
+              <OffersView v-else-if="currentActiveView === 'offers' && authStore.offerPermissions.canViewPanel" />
               <!-- Settings View z przekazywaniem toggle-ui -->
               <SettingsView v-else-if="currentActiveView === 'settings'" @toggle-ui="setUiMode" />
               
@@ -170,7 +170,9 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
+import { useAuthStore } from './stores/useAuthStore'
+import { useOffersStore } from './stores/useOffersStore'
 
 // Importy komponentów pracownika
 import Sidebar from './components/sidebar/Sidebar.vue'
@@ -253,10 +255,24 @@ const onTabPointerUp = () => {
 const isSidebarHovered = ref(false)
 const currentActiveView = ref(uiMode.value === 'modern' ? 'dashboard' : 'map')
 
+const authStore = useAuthStore()
+const offersStore = useOffersStore()
+
 const changeView = (viewName) => {
+  if (viewName === 'offers' && !authStore.offerPermissions.canViewPanel) return
   currentActiveView.value = viewName
-  isMobileMenuOpen.value = false // Gdy klikniesz panel z menu wysuwanego, ono z automatu się schowa
+  isMobileMenuOpen.value = false
 }
+
+// Automatyczne przełączenie na panel Ofert po kliknięciu skrótu ze Zgłoszeń
+watch(
+  () => [offersStore.pendingOpenOfferId, offersStore.pendingDraftFromTicket],
+  ([openId, draftData]) => {
+    if ((openId || draftData) && authStore.offerPermissions.canViewPanel) {
+      currentActiveView.value = 'offers'
+    }
+  }
+)
 
 // --- STANY AUTORYZACJI ---
 const isAuthenticated = ref(false)
@@ -317,28 +333,47 @@ function handleFormLogin() {
 }
 
 function grantAccess(userData) {
-  userRole.value = (userData.role || 'EMPLOYEE').toUpperCase()
-  userEmail.value = userData.email || userData.username || ''
+  const normalizedRole = (userData.role || 'EMPLOYEE').toUpperCase()
+  const resolvedEmail = userData.email || userData.username || ''
+
+  let parsedSettings = {}
+  if (typeof userData.settings === 'string') {
+    try { parsedSettings = JSON.parse(userData.settings) } catch (_) {}
+  } else if (userData.settings && typeof userData.settings === 'object') {
+    parsedSettings = userData.settings
+  }
+
+  userRole.value = normalizedRole
+  userEmail.value = resolvedEmail
   isGuest.value = false
 
-  localStorage.setItem('ekoen_user_session', JSON.stringify(userData))
-  sessionStorage.setItem('user_panels', userData.panels || '*')
-  
+  // Synchronizacja ze store'em auth (uprawnienia dla Sidebar, Ofert itd.)
+  authStore.user = {
+    username: resolvedEmail,
+    email: resolvedEmail,
+    role: normalizedRole,
+    panels: userData.panels || '*',
+    settings: parsedSettings
+  }
+
+  localStorage.setItem('ekoen_user_session', JSON.stringify(authStore.user))
+  sessionStorage.setItem('user_panels', authStore.user.panels)
+
   isAuthenticated.value = true
 }
 
 function handleLogout() {
+  authStore.logout()
   localStorage.removeItem('ekoen_user_session')
   sessionStorage.removeItem('user_panels')
-  
+
   userRole.value = ''
   userEmail.value = ''
   isGuest.value = false
   isAuthenticated.value = false
   formPassword.value = ''
-  
-  // Wylogowanie cofa do domyślnych ekranów
-  if(uiMode.value === 'modern') currentActiveView.value = 'dashboard'
+
+  if (uiMode.value === 'modern') currentActiveView.value = 'dashboard'
 }
 </script>
 

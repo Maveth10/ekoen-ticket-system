@@ -4,13 +4,9 @@
     <UniversalKpi 
       title="Harmonogram Serwisowy"
       subtitle="Zarządzanie widokiem, filtrami oraz przypisywanie zgłoszeń do techników."
-      :views="[
-        { label: 'Miesiąc', value: 'month' },
-        { label: 'Tydzień', value: 'week' },
-        { label: 'Dzień', value: 'day' }
-      ]"
-      :activeView="store.currentView"
-      @switch-view="v => { store.currentView = v; focusToday() }"
+      :views="headerViews"
+      :activeView="activeHeaderView"
+      @switch-view="handleSwitchHeaderView"
       :activeTabs="store.activeTabs"
       :tabs="store.kpiTabs"
       :tabCounts="tabCounts"
@@ -37,21 +33,63 @@
         <template #actions>
           <div class="flex items-center gap-2">
             
-            <!-- DROPDOWN TECHNIKA -->
-            <div ref="techDropdownRef" class="relative w-[240px] shrink-0" @click.self="isTechDropdownOpen = false">
-              <button @click.stop="isTechDropdownOpen = !isTechDropdownOpen" class="w-full bg-white border border-slate-200 text-slate-700 font-extrabold px-5 py-2.5 rounded-xl text-[12px] hover:border-[#58b347] transition-all flex items-center justify-between gap-2 h-[42px] shadow-sm">
-                <div class="flex items-center gap-2 truncate">
-                  <span class="w-2 h-2 rounded-full shrink-0" :style="`background-color: ${currentTechColor};`"></span>
+            <!-- DROPDOWN TECHNIKA Z OBŁOŻENIEM TYGODNIOWYM -->
+            <div ref="techDropdownRef" class="relative w-[300px] shrink-0" @click.self="isTechDropdownOpen = false">
+              <button @click.stop="isTechDropdownOpen = !isTechDropdownOpen" class="w-full bg-white border border-slate-200 text-slate-700 font-extrabold px-4 py-2.5 rounded-xl text-[12px] hover:border-[#58b347] transition-all flex items-center justify-between gap-2 h-[42px] shadow-sm cursor-pointer">
+                <div class="flex items-center gap-2 min-w-0">
+                  <span class="w-2.5 h-2.5 rounded-full shrink-0" :style="`background-color: ${currentTechColor};`"></span>
                   <span class="truncate uppercase tracking-widest text-[11px]">{{ currentTechName }}</span>
                 </div>
-                <svg class="w-4 h-4 text-slate-400 transition-transform duration-200" :class="isTechDropdownOpen ? 'rotate-180 text-[#58b347]' : ''" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg>
+                <div class="flex items-center gap-1.5 shrink-0">
+                  <span
+                    class="text-[9px] font-black px-2 py-0.5 rounded-full border tracking-wider"
+                    :class="currentTechWorkload.badgeClass"
+                  >
+                    {{ currentTechWorkload.label }}
+                  </span>
+                  <svg class="w-4 h-4 text-slate-400 transition-transform duration-200" :class="isTechDropdownOpen ? 'rotate-180 text-[#58b347]' : ''" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg>
+                </div>
               </button>
               
               <transition enter-active-class="transition duration-200 ease-out" enter-from-class="opacity-0 -translate-y-2" enter-to-class="opacity-100 translate-y-0" leave-active-class="transition duration-150 ease-in" leave-from-class="opacity-100 translate-y-0" leave-to-class="opacity-0 -translate-y-2">
-                <div v-show="isTechDropdownOpen" class="absolute top-full right-0 mt-2 w-full bg-white border border-slate-200 rounded-2xl shadow-xl z-[100] overflow-hidden flex flex-col max-h-64 overflow-y-auto schedule-custom-scrollbar">
-                  <div @click="selectTech('ALL')" class="px-5 py-3 text-[11px] font-black uppercase tracking-widest cursor-pointer hover:bg-slate-50 border-b border-slate-100" :class="store.selectedTechId === 'ALL' ? 'text-[#58b347] bg-[#f2fcf2]' : 'text-slate-600'">CAŁA FLOTA (WSZYSCY)</div>
-                  <div v-for="tech in store.techList" :key="tech.id" @click="selectTech(tech.id)" class="px-5 py-3 text-[11px] font-black uppercase tracking-widest cursor-pointer hover:bg-slate-50 border-b border-slate-100 flex items-center gap-2" :class="store.selectedTechId === tech.id ? 'text-[#58b347] bg-[#f2fcf2]' : 'text-slate-600'">
-                    <span class="w-2 h-2 rounded-full shrink-0" :style="`background-color: ${tech.zone_color || tech.color || '#cbd5e1'};`"></span> {{ tech.name }}
+                <div v-show="isTechDropdownOpen" class="absolute top-full right-0 mt-2 w-[340px] bg-white border border-slate-200 rounded-2xl shadow-2xl z-[100] overflow-hidden flex flex-col max-h-80 overflow-y-auto schedule-custom-scrollbar">
+                  <div class="px-4 py-2 bg-slate-50 border-b border-slate-100 text-[9px] font-black uppercase tracking-widest text-slate-400 flex justify-between">
+                    <span>Serwisant</span>
+                    <span>Obłożenie (wybrany tydzień)</span>
+                  </div>
+
+                  <div @click="selectTech('ALL')" class="px-4 py-3 text-[11px] font-black uppercase tracking-widest cursor-pointer hover:bg-slate-50 border-b border-slate-100 flex items-center justify-between gap-2" :class="store.selectedTechId === 'ALL' ? 'text-[#58b347] bg-[#f2fcf2]' : 'text-slate-600'">
+                    <span>CAŁA FLOTA (WSZYSCY)</span>
+                    <span class="text-[9px] font-black px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+                      {{ fleetWeekWorkload.label }}
+                    </span>
+                  </div>
+
+                  <div
+                    v-for="tech in store.techList"
+                    :key="tech.id"
+                    @click="selectTech(tech.id)"
+                    class="px-4 py-2.5 text-[11px] font-black uppercase tracking-widest cursor-pointer hover:bg-slate-50 border-b border-slate-100 last:border-none flex items-center justify-between gap-2"
+                    :class="store.selectedTechId === tech.id ? 'text-[#58b347] bg-[#f2fcf2]' : 'text-slate-700'"
+                  >
+                    <div class="flex items-center gap-2 min-w-0">
+                      <span class="w-2.5 h-2.5 rounded-full shrink-0" :style="`background-color: ${tech.zone_color || tech.color || '#cbd5e1'};`"></span>
+                      <span class="truncate">{{ tech.name }}</span>
+                    </div>
+                    <div class="flex items-center gap-1 shrink-0">
+                      <span
+                        v-if="getTechWeekWorkload(tech).hasAbsence"
+                        class="text-[8.5px] font-black px-1.5 py-0.5 rounded bg-red-50 text-red-600 border border-red-200"
+                      >
+                        Urlop
+                      </span>
+                      <span
+                        class="text-[9px] font-black px-2 py-0.5 rounded-full border tracking-wider"
+                        :class="getTechWeekWorkload(tech).badgeClass"
+                      >
+                        {{ getTechWeekWorkload(tech).label }}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </transition>
@@ -160,8 +198,11 @@
       ref="scheduleListRef"
       :filteredTickets="filteredTickets"
       :totalBacklogCount="totalBacklogCount"
+      :isMatrixLayout="isMatrixLayout"
+      :matrixShowWeekend="matrixShowWeekend"
       @rotate-view="rotateView"
       @confirm-delete-event="confirmDeleteEvent"
+      @quick-search-qp="handleQuickSearchQp"
     />
 
     <!-- MODALE -->
@@ -180,6 +221,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useScheduleStore } from '../../stores/useScheduleStore'
+import { useScheduleLayout } from '../../composables/useCalendar'
 import { useSearchFilters } from '../../composables/useSearchFilters'
 import { useSmartKpiFilters } from '../../composables/useSmartKpiFilters'
 
@@ -190,6 +232,36 @@ import ConfirmModal from '../../common/ConfirmModal.vue'
 import ScheduleList from './ScheduleList.vue'
 
 const store = useScheduleStore()
+const { isMatrixLayout } = useScheduleLayout()
+const matrixShowWeekend = ref(false)
+
+const headerViews = computed(() => {
+  if (isMatrixLayout.value) {
+    return [
+      { label: 'Roboczy (Pon–Pt)', value: '5d' },
+      { label: 'Pełny tydzień (7d)', value: '7d' }
+    ]
+  }
+  return [
+    { label: 'Miesiąc', value: 'month' },
+    { label: 'Tydzień', value: 'week' },
+    { label: 'Dzień', value: 'day' }
+  ]
+})
+
+const activeHeaderView = computed(() => {
+  if (isMatrixLayout.value) return matrixShowWeekend.value ? '7d' : '5d'
+  return store.currentView
+})
+
+const handleSwitchHeaderView = (v) => {
+  if (isMatrixLayout.value) {
+    matrixShowWeekend.value = (v === '7d')
+    return
+  }
+  store.currentView = v
+  focusToday()
+}
 const { checkTicketSearch } = useSearchFilters()
 
 const scheduleListRef = ref(null)
@@ -250,10 +322,17 @@ const openEventModalFromView = () => {
 }
 
 const rotateView = () => {
+  if (isMatrixLayout.value) return
   if (store.currentView === 'month') store.currentView = 'week'
   else if (store.currentView === 'week') store.currentView = 'day'
   else store.currentView = 'month'
   focusToday()
+}
+
+const handleQuickSearchQp = (qp) => {
+  if (!qp) return
+  store.searchQueriesMain = [{ id: 'm_' + Date.now(), logic: 'AND', text: String(qp).trim() }]
+  isSearchDropdownDismissed.value = false
 }
 
 // LOGIKA MODALU FILTRÓW
@@ -352,6 +431,105 @@ const selectTech = (id) => {
   store.selectedTechId = id
   isTechDropdownOpen.value = false
 }
+
+const activeCalendarDate = computed(() => {
+  const raw = scheduleListRef.value?.currentDate
+  const d = raw?.value || raw
+  return d instanceof Date && !isNaN(d.getTime()) ? d : new Date()
+})
+
+const viewedWeekBounds = computed(() => {
+  const base = new Date(activeCalendarDate.value)
+  const day = base.getDay()
+  const diffToMon = day === 0 ? -6 : 1 - day
+  const mon = new Date(base.getFullYear(), base.getMonth(), base.getDate() + diffToMon, 0, 0, 0, 0)
+  const sun = new Date(mon.getFullYear(), mon.getMonth(), mon.getDate() + 6, 23, 59, 59, 999)
+  return { startMs: mon.getTime(), endMs: sun.getTime() }
+})
+
+const computeEventDurationHours = (ev) => {
+  if (ev.all_day === 'TAK' || ev.extendedProps?.all_day) return 8
+  const s = parseSafeScheduleDate(ev.start_time)
+  const e = parseSafeScheduleDate(ev.end_time)
+  if (s && e && e.getTime() > s.getTime()) {
+    return Math.min(12, (e.getTime() - s.getTime()) / 3600000)
+  }
+  return 2
+}
+
+const getTechWeekWorkload = (tech) => {
+  if (!tech) return { visitCount: 0, totalHours: 0, hasAbsence: false, label: '0 wiz.', badgeClass: 'bg-slate-100 text-slate-500 border-slate-200' }
+  const { startMs, endMs } = viewedWeekBounds.value
+  const tId = String(tech.id || '').trim()
+  const tNameLow = String(tech.name || '').toLowerCase().trim()
+
+  let visitCount = 0
+  let totalHours = 0
+  let hasAbsence = false
+
+  ;(store.events || []).forEach(ev => {
+    const sDate = parseSafeScheduleDate(ev.start_time)
+    if (!sDate) return
+    const sMs = sDate.getTime()
+    if (sMs < startMs || sMs > endMs) return
+
+    const evTechId = String(ev.technician_id || '').trim()
+    const evTechNameLow = String(ev.extendedProps?.technicianName || '').toLowerCase().trim()
+    const isMatch = (tId && evTechId === tId) || (tNameLow && (evTechId.toLowerCase() === tNameLow || evTechNameLow === tNameLow))
+    if (!isMatch) return
+
+    const evType = ev.event_type || ev.extendedProps?.event_type
+    if (evType === 'absence') {
+      hasAbsence = true
+    } else {
+      visitCount++
+      totalHours += computeEventDurationHours(ev)
+    }
+  })
+
+  if (visitCount === 0) {
+    return {
+      visitCount: 0,
+      totalHours: 0,
+      hasAbsence,
+      label: hasAbsence ? 'Nieobecny' : 'Wolny (0)',
+      badgeClass: hasAbsence
+        ? 'bg-red-50 text-red-600 border-red-200'
+        : 'bg-slate-100 text-slate-500 border-slate-200'
+    }
+  }
+
+  const label = `${visitCount} wiz. • ${Math.round(totalHours)}h`
+  const badgeClass = visitCount >= 5
+    ? 'bg-amber-50 text-amber-800 border-amber-200'
+    : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+
+  return { visitCount, totalHours, hasAbsence, label, badgeClass }
+}
+
+const fleetWeekWorkload = computed(() => {
+  const { startMs, endMs } = viewedWeekBounds.value
+  let visitCount = 0
+  ;(store.events || []).forEach(ev => {
+    const evType = ev.event_type || ev.extendedProps?.event_type
+    if (evType === 'absence') return
+    const sDate = parseSafeScheduleDate(ev.start_time)
+    if (!sDate) return
+    const sMs = sDate.getTime()
+    if (sMs >= startMs && sMs <= endMs) visitCount++
+  })
+  return {
+    visitCount,
+    label: `${visitCount} wiz. / tydz.`,
+    badgeClass: 'bg-slate-100 text-slate-600 border-slate-200'
+  }
+})
+
+const currentTechWorkload = computed(() => {
+  if (store.selectedTechId === 'ALL') return fleetWeekWorkload.value
+  const tech = (store.techList || []).find(t => t.id === store.selectedTechId)
+  return getTechWeekWorkload(tech)
+})
 
 // === OBSŁUGA PONOWNYCH WIZYT (WIZYTA I, II, III...) ===
 const ROMAN_NUMERALS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X']
@@ -753,7 +931,7 @@ const jumpToSearchResult = (item) => {
   if (!item || !scheduleListRef.value) return
   isSearchDropdownDismissed.value = true
   const parsed = parseSafeScheduleDate(item.dateRaw) || new Date()
-  scheduleListRef.value.jumpToDate(parsed.toISOString(), 'day')
+  scheduleListRef.value.jumpToDate(parsed.toISOString(), isMatrixLayout.value ? null : 'day')
 }
 
 const confirmDeleteEvent = (id) => {
@@ -769,6 +947,9 @@ const executeConfirm = () => {
 }
 
 onMounted(() => {
+  if (!['month', 'week', 'day'].includes(store.currentView)) {
+    store.currentView = 'week'
+  }
   if (store.kpiTabs && store.kpiTabs.length > 0) {
     let changed = false
     

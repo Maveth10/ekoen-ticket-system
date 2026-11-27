@@ -410,203 +410,13 @@
                   </button>
                 </div>
 
-                <!-- 2. OFERTA (ZALEŻNA OD ROLI) -->
-                <div class="relative w-full">
-                  <!-- Gdy oferta jest aktywna (Prośba / W toku / Wysłana / Zaakceptowana / Odrzucona) -->
-                  <button
-                    v-if="getOfferState(t)"
-                    type="button"
-                    @click.stop="openOfferPopover(t)"
-                    class="w-full rounded-xl px-2.5 py-1 text-left border transition-all cursor-pointer flex flex-col"
-                    :class="getOfferBadgeInfo(t).badgeClass"
-                    :title="t.offer_note ? `${getOfferBadgeInfo(t).label} — ${t.offer_note}` : getOfferBadgeInfo(t).label"
-                  >
-                    <div class="flex items-center justify-between gap-1 text-[9px] font-black uppercase tracking-wider w-full">
-                      <span class="flex items-center gap-1.5 truncate">
-                        <span v-if="getOfferState(t) === 'REQUESTED'" class="w-1.5 h-1.5 rounded-full bg-violet-600 animate-ping shrink-0"></span>
-                        <span class="truncate">{{ getOfferBadgeInfo(t).label }}</span>
-                      </span>
-                    </div>
-                  </button>
-
-                  <!-- Gdy BRAK oferty: rola powyżej Technika -> Przygotuj ofertę -->
-                  <button
-                    v-else-if="canPrepareOffer"
-                    type="button"
-                    @click.stop="openOfferPopover(t)"
-                    class="w-full rounded-xl px-2.5 py-1 text-[9px] font-extrabold uppercase tracking-widest border border-dashed border-slate-300 text-slate-400 bg-white/70 hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50/50 transition-colors cursor-pointer text-center truncate"
-                  >
-                    + Przygotuj ofertę
-                  </button>
-
-                  <!-- Gdy BRAK oferty: Technik i niżej -> Poproś o ofertę -->
-                  <button
-                    v-else
-                    type="button"
-                    @click.stop="openOfferPopover(t)"
-                    class="w-full rounded-xl px-2.5 py-1 text-[9px] font-extrabold uppercase tracking-widest border border-dashed border-slate-300 text-slate-500 bg-white/70 hover:border-violet-400 hover:text-violet-700 hover:bg-violet-50/50 transition-colors cursor-pointer text-center truncate"
-                  >
-                    + Poproś o ofertę
-                  </button>
-
-                  <!-- POPOVER OFERTY -->
-                  <div
-                    v-if="activeOfferTicketId === t.id"
-                    @click.stop
-                    class="absolute right-0 top-full mt-1.5 w-68 bg-white border border-slate-200 rounded-2xl shadow-2xl z-[235] p-3.5 flex flex-col gap-2.5 animate-fadeIn text-left"
-                  >
-                    <!-- WIDOK A: KONTA POWYŻEJ TECHNIKA (Przygotowanie / edycja oferty) -->
-                    <template v-if="canPrepareOffer">
-                      <div class="flex items-center justify-between border-b border-slate-100 pb-1.5">
-                        <span class="text-[9px] font-black uppercase tracking-widest text-indigo-700">Oferta handlowa (OES)</span>
-                        <button type="button" @click="activeOfferTicketId = null" class="text-slate-400 hover:text-slate-600 text-xs font-black cursor-pointer">✕</button>
-                      </div>
-
-                      <div v-if="getOfferState(t) === 'REQUESTED' && t.offer_by" class="text-[9px] font-bold text-violet-700 bg-violet-50 border border-violet-200 rounded-lg px-2 py-1">
-                        Prośba od: {{ t.offer_by }}
-                      </div>
-
-                      <div>
-                        <label class="block text-[9px] font-black uppercase tracking-wider text-slate-400 mb-1">Status oferty</label>
-                        <select
-                          v-model="offerForm.status"
-                          class="w-full text-[11px] font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 outline-none focus:border-indigo-500"
-                        >
-                          <option value="REQUESTED">Do wyceny (Prośba)</option>
-                          <option value="IN_PROGRESS">W przygotowaniu</option>
-                          <option value="SENT">Wysłana do klienta</option>
-                          <option value="ACCEPTED">Zaakceptowana</option>
-                          <option value="REJECTED">Odrzucona</option>
-                        </select>
-                      </div>
-
-                      <div>
-                        <label class="block text-[9px] font-black uppercase tracking-wider text-slate-400 mb-1">Numer oferty</label>
-                        <input
-                          type="text"
-                          v-model="offerForm.number"
-                          placeholder="np. OES/045/2026"
-                          class="w-full text-[11px] font-mono font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 outline-none focus:border-indigo-500"
-                        />
-                      </div>
-
-                      <div>
-                        <label class="block text-[9px] font-black uppercase tracking-wider text-slate-400 mb-1">Zakres / notatka</label>
-                        <textarea
-                          v-model="offerForm.note"
-                          rows="2"
-                          placeholder="Co obejmuje wycena..."
-                          class="w-full text-[11px] font-medium text-slate-700 bg-slate-50 border border-slate-200 rounded-xl p-2 outline-none focus:border-indigo-500 resize-none"
-                        ></textarea>
-                      </div>
-
-                      <button
-                        type="button"
-                        @click="activeOfferTicketId = null; $emit('open-attachments', t)"
-                        class="w-full py-1.5 px-2.5 rounded-xl text-[9px] font-black uppercase tracking-wider bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 transition-colors text-center cursor-pointer"
-                      >
-                        Wgraj plik oferty w Teczce ↗
-                      </button>
-
-                      <div class="flex gap-1.5 pt-0.5">
-                        <button
-                          v-if="getOfferState(t)"
-                          type="button"
-                          @click="clearOfferData(t)"
-                          class="px-2.5 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer"
-                        >
-                          Usuń
-                        </button>
-                        <button
-                          type="button"
-                          @click="activeOfferTicketId = null"
-                          class="px-2.5 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider text-slate-400 hover:text-slate-600 transition-colors ml-auto cursor-pointer"
-                        >
-                          Anuluj
-                        </button>
-                        <button
-                          type="button"
-                          @click="savePreparedOffer(t)"
-                          class="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider text-white bg-indigo-600 hover:bg-indigo-700 transition-colors shadow-sm cursor-pointer"
-                        >
-                          Zapisz
-                        </button>
-                      </div>
-                    </template>
-
-                    <!-- WIDOK B: TECHNIK I NIŻEJ (Prośba o ofertę lub podgląd gotowej oferty) -->
-                    <template v-else>
-                      <div class="flex items-center justify-between border-b border-slate-100 pb-1.5">
-                        <span class="text-[9px] font-black uppercase tracking-widest text-violet-700">
-                          {{ (!getOfferState(t) || getOfferState(t) === 'REQUESTED') ? 'Poproś o ofertę' : 'Szczegóły oferty' }}
-                        </span>
-                        <button type="button" @click="activeOfferTicketId = null" class="text-slate-400 hover:text-slate-600 text-xs font-black cursor-pointer">✕</button>
-                      </div>
-
-                      <!-- Formularz prośby, gdy oferty jeszcze nie wystawiono -->
-                      <template v-if="!getOfferState(t) || getOfferState(t) === 'REQUESTED'">
-                        <div class="flex flex-wrap gap-1">
-                          <button
-                            v-for="tag in quickOfferReasons"
-                            :key="tag"
-                            type="button"
-                            @click="offerForm.note = tag"
-                            class="text-[9px] font-bold px-2 py-0.5 rounded-md bg-slate-100 hover:bg-violet-50 hover:text-violet-700 text-slate-600 transition-colors cursor-pointer"
-                          >
-                            {{ tag }}
-                          </button>
-                        </div>
-
-                        <textarea
-                          v-model="offerForm.note"
-                          rows="3"
-                          placeholder="Opisz zakres do wyceny (części, uszkodzenie mechaniczne itp.)..."
-                          class="w-full text-[11px] font-medium text-slate-700 bg-slate-50 border border-slate-200 rounded-xl p-2 outline-none focus:border-violet-400 resize-none"
-                        ></textarea>
-
-                        <div class="flex gap-1.5 pt-0.5">
-                          <button
-                            v-if="getOfferState(t) === 'REQUESTED'"
-                            type="button"
-                            @click="clearOfferData(t)"
-                            class="px-2.5 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer"
-                          >
-                            Wycofaj
-                          </button>
-                          <button
-                            type="button"
-                            @click="activeOfferTicketId = null"
-                            class="px-2.5 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider text-slate-400 hover:text-slate-600 transition-colors ml-auto cursor-pointer"
-                          >
-                            Anuluj
-                          </button>
-                          <button
-                            type="button"
-                            @click="submitOfferRequest(t)"
-                            class="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider text-white bg-violet-600 hover:bg-violet-700 transition-colors shadow-sm cursor-pointer"
-                          >
-                            Wyślij prośbę
-                          </button>
-                        </div>
-                      </template>
-
-                      <!-- Podgląd dla technika, gdy biuro przygotowało już ofertę -->
-                      <template v-else>
-                        <div class="bg-slate-50 border border-slate-200 rounded-xl p-2.5 flex flex-col gap-1 text-[11px]">
-                          <div class="font-black text-slate-800">{{ getOfferBadgeInfo(t).label }}</div>
-                          <div v-if="t.offer_note" class="text-slate-600 whitespace-pre-wrap">{{ t.offer_note }}</div>
-                        </div>
-                        <button
-                          type="button"
-                          @click="activeOfferTicketId = null; $emit('open-attachments', t)"
-                          class="w-full py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider bg-slate-800 hover:bg-slate-900 text-white transition-colors cursor-pointer"
-                        >
-                          Otwórz Teczkę Sprawy
-                        </button>
-                      </template>
-                    </template>
-                  </div>
-                </div>
+                <!-- 2. OFERTA (SPIĘTA Z sys_offers) -->
+                <TicketOfferAction
+                  :ticket="t"
+                  :module="resolveRowModule(t)"
+                  :displayCode="getTicketIdDisplay(t, idx)"
+                  fullWidth
+                />
 
                 <!-- 3. ROZLICZENIE -->
                 <div
@@ -775,6 +585,7 @@ import { useTicketsStore } from '../../stores/useTicketsStore'
 import { useScheduleStore } from '../../stores/useScheduleStore'
 import { useAuthStore } from '../../stores/useAuthStore'
 import SkeletonCard from '../../common/SkeletonCard.vue'
+import TicketOfferAction from '../offers/TicketOfferAction.vue'
 
 const props = defineProps({
   tickets: Array,
@@ -786,16 +597,14 @@ const props = defineProps({
 })
 
 const emit = defineEmits([
-  'sort', 'toggle-select-all', 'toggle-select', 'copy', 
-  'open-attachments', 'open-diagnose', 'open-analytics', 
+  'sort', 'toggle-select-all', 'toggle-select', 'copy',
+  'open-attachments', 'open-diagnose', 'open-analytics',
   'toggle-drop', 'change-status', 'drag-start', 'drop-col',
   'update-attention', 'change-tech', 'update-axon-transfer', 'update-offer'
 ])
 
 const store = useTicketsStore()
-
 const scheduleStore = useScheduleStore()
-
 const authStore = useAuthStore()
 
 // Role powyżej Dispatchera mogące nadawać i usuwać flagę "Wymaga uwagi"
@@ -805,119 +614,14 @@ const canManageAttention = computed(() => {
   return ELEVATED_ROLES.includes(role)
 })
 
-// Role powyżej Technika (widzą "Przygotuj ofertę"; Technik i niżej widzą "Poproś o ofertę")
-const OFFER_CREATOR_ROLES = ['ADMIN', 'SUPERADMIN', 'ZARZAD', 'MANAGER', 'KOORDYNATOR', 'DISPATCHER', 'HANDLOWIEC', '*']
-const canPrepareOffer = computed(() => {
-  const role = String(authStore.user?.role || '').toUpperCase().trim()
-  return OFFER_CREATOR_ROLES.includes(role)
-})
-
-const activeOfferTicketId = ref(null)
-const offerForm = ref({ status: 'IN_PROGRESS', number: '', note: '' })
-const quickOfferReasons = ['Uszkodzenie mech.', 'Kabel / wtyczka', 'Pogwarancyjne', 'Modernizacja']
-
-const getOfferState = (t) => {
-  const st = String(t.offer_status || '').toUpperCase().trim()
-  if (['REQUESTED', 'IN_PROGRESS', 'SENT', 'ACCEPTED', 'REJECTED'].includes(st)) return st
-  if (t.offer_number && String(t.offer_number).trim()) return 'SENT'
-  return ''
-}
-
-const getOfferBadgeInfo = (t) => {
-  const st = getOfferState(t)
-  const num = String(t.offer_number || '').trim()
-
-  if (st === 'REQUESTED') {
-    return {
-      label: 'Prośba o ofertę!',
-      badgeClass: 'bg-violet-50 text-violet-800 border-violet-300 hover:bg-violet-100 shadow-sm'
-    }
-  }
-  if (st === 'ACCEPTED') {
-    return {
-      label: num ? `✓ ${num}` : 'Oferta zaakcept.',
-      badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100'
-    }
-  }
-  if (st === 'SENT') {
-    return {
-      label: num ? `Oferta: ${num}` : 'Oferta wysłana',
-      badgeClass: 'bg-indigo-50 text-indigo-700 border-indigo-300 hover:bg-indigo-100'
-    }
-  }
-  if (st === 'REJECTED') {
-    return {
-      label: num ? `✕ ${num}` : 'Oferta odrzucona',
-      badgeClass: 'bg-slate-100 text-slate-500 border-slate-300 hover:bg-slate-200'
-    }
-  }
-  return {
-    label: num ? `Wycena: ${num}` : 'Oferta w toku',
-    badgeClass: 'bg-sky-50 text-sky-700 border-sky-300 hover:bg-sky-100'
-  }
-}
-
-const openOfferPopover = (t) => {
-  activeScheduleTicketId.value = null
-  activeAttentionTicketId.value = null
-  activeTechDropId.value = null
-  emit('toggle-drop', null)
-
-  if (activeOfferTicketId.value === t.id) {
-    activeOfferTicketId.value = null
-    return
-  }
-
-  const curState = getOfferState(t)
-  offerForm.value = {
-    status: curState || (canPrepareOffer.value ? 'IN_PROGRESS' : 'REQUESTED'),
-    number: t.offer_number || '',
-    note: t.offer_note || ''
-  }
-  activeOfferTicketId.value = t.id
-}
-
-const persistOffer = (t, status, number, note) => {
-  t.offer_status = status
-  t.offer_number = number
-  t.offer_note = note
-  if (status === 'REQUESTED' || (!t.offer_by && status)) {
-    t.offer_by = authStore.user?.username || ''
-  }
-  if (!status) t.offer_by = ''
-
-  const payload = {
-    ticketId: t.id || t.ticket_code || t.ticket_number,
-    offer_status: status,
-    offer_number: number,
-    offer_note: note,
-    offer_by: t.offer_by || '',
-    module: store.activeModule
-  }
-
-  if (typeof store.updateTicketOffer === 'function') {
-    store.updateTicketOffer(payload)
-  }
-  emit('update-offer', payload)
-  activeOfferTicketId.value = null
-}
-
-const submitOfferRequest = (t) => {
-  const cleanNote = offerForm.value.note.trim() || 'Prośba o przygotowanie oferty'
-  persistOffer(t, 'REQUESTED', '', cleanNote)
-}
-
-const savePreparedOffer = (t) => {
-  const cleanNum = offerForm.value.number.trim()
-  let nextStatus = offerForm.value.status || 'IN_PROGRESS'
-  if (nextStatus === 'REQUESTED' && cleanNum) {
-    nextStatus = 'IN_PROGRESS'
-  }
-  persistOffer(t, nextStatus, cleanNum, offerForm.value.note.trim())
-}
-
-const clearOfferData = (t) => {
-  persistOffer(t, '', '', '')
+const resolveRowModule = (t) => {
+  if (store.activeModule === 'ekoen') return 'ekoen'
+  if (store.activeModule === 'axon') return 'axon'
+  const isEko = Boolean(t.ekoen_code) ||
+    String(t.ticket_number || '').includes('EKOEN') ||
+    String(t.ticket_number || '').startsWith('EE_') ||
+    !t.ticket_code
+  return isEko ? 'ekoen' : 'axon'
 }
 
 const RAPORT_GENERATOR_URL = 'https://script.google.com/a/macros/ekoen.pl/s/AKfycbyutQBrnhgc86izuiNHx1OSJqJMevrPrDd-IVs36IRZ_PsIMnuxggiAcsVvdi09Rv8/exec'
@@ -976,7 +680,6 @@ const getAttentionState = (t) => {
 }
 
 const openAttentionPopover = (t) => {
-  activeOfferTicketId.value = null
   activeTechDropId.value = null
   activeScheduleTicketId.value = null
   if (activeAttentionTicketId.value === t.id) {
@@ -1117,7 +820,6 @@ const switchScheduleMode = (t, mode) => {
 }
 
 const openQuickSchedule = (t) => {
-  activeOfferTicketId.value = null
   activeAttentionTicketId.value = null
   activeTechDropId.value = null
   emit('toggle-drop', null)
@@ -1168,8 +870,6 @@ const saveQuickSchedule = (t) => {
 const activeTechDropId = ref(null)
 
 const closeLocalPopovers = () => {
-  activeOfferTicketId.value = null
-  activeOfferTicketId.value = null
   activeScheduleTicketId.value = null
   activeAttentionTicketId.value = null
   activeTechDropId.value = null
@@ -1261,7 +961,6 @@ const getTechPillStyle = (techId) => {
 }
 
 const toggleTechDrop = (ticketId) => {
-  activeOfferTicketId.value = null
   activeScheduleTicketId.value = null
   activeAttentionTicketId.value = null
   emit('toggle-drop', null)
