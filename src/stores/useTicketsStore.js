@@ -188,7 +188,7 @@ export const useTicketsStore = defineStore('tickets', {
         this.setupTechTabs()
 
         const processed = this.processPingPongStatuses(parsedTickets.filter(Boolean))
-        this.tickets = this.applySessionLinks(this.applyCachedAttentions(processed))
+        this.tickets = this.applySessionLinks(this.applyCachedOffers(this.applyCachedAttentions(processed)))
         this.isLoading = false
       }
 
@@ -315,6 +315,65 @@ export const useTicketsStore = defineStore('tickets', {
       }
     })
     return list
+  },
+
+  applyCachedOffers(list) {
+    try {
+      const cache = JSON.parse(localStorage.getItem('EKOEN_TICKETS_OFFERS') || '{}')
+      list.forEach(t => {
+        const key = String(t.id || t.ticket_code || t.ticket_number || '').trim()
+        if (key && !t.offer_status && cache[key]) {
+          t.offer_status = cache[key].offer_status
+          t.offer_number = cache[key].offer_number
+          t.offer_note = cache[key].offer_note
+          t.offer_by = cache[key].offer_by
+        }
+      })
+    } catch (e) {}
+    return list
+  },
+
+  updateTicketOffer(payload) {
+    const key = String(payload.ticketId || '').trim()
+    if (!key) return
+
+    const idx = this.tickets.findIndex(t =>
+      String(t.id || '').trim() === key ||
+      String(t.ticket_code || '').trim() === key ||
+      String(t.ticket_number || '').trim() === key
+    )
+    if (idx > -1) {
+      this.tickets[idx].offer_status = payload.offer_status
+      this.tickets[idx].offer_number = payload.offer_number
+      this.tickets[idx].offer_note = payload.offer_note
+      this.tickets[idx].offer_by = payload.offer_by
+    }
+
+    // Tymczasowy zapis lokalny (zanim powstanie osobna zakładka ofert w Arkuszu)
+    try {
+      const cache = JSON.parse(localStorage.getItem('EKOEN_TICKETS_OFFERS') || '{}')
+      if (!payload.offer_status) {
+        delete cache[key]
+      } else {
+        cache[key] = {
+          offer_status: payload.offer_status,
+          offer_number: payload.offer_number,
+          offer_note: payload.offer_note,
+          offer_by: payload.offer_by
+        }
+      }
+      localStorage.setItem('EKOEN_TICKETS_OFFERS', JSON.stringify(cache))
+    } catch (e) {}
+
+    // Wywoła backend dopiero wtedy, gdy dodamy saveTicketOffer w Code.gs
+    if (typeof google !== 'undefined' && google.script && google.script.run && typeof google.script.run.saveTicketOffer === 'function') {
+      google.script.run
+        .withFailureHandler(() => alert('Błąd zapisu oferty w bazie'))
+        .saveTicketOffer({
+          ...payload,
+          module: payload.module || this.activeModule
+        })
+    }
   },
 
   updateTicketTechnician(payload) {

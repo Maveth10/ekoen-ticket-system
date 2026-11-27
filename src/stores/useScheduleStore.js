@@ -264,54 +264,90 @@ export const useScheduleStore = defineStore('schedule', {
     },
     
     saveEventToCloud(evData) {
-      // ZABEZPIECZENIE: Wymuszamy, by do bazy trafiało UUID, a nie imię!
-      const activeTechId = evData.technician_id || evData.tech_id || evData.techName || '';
-      const techObj = this.techList.find(t => t.id === activeTechId || t.name === activeTechId);
-      const finalTechId = techObj ? techObj.id : activeTechId; 
+      const activeTechRaw = String(evData.technician_id || evData.tech_id || evData.techName || '').trim();
+      const activeTechLow = activeTechRaw.toLowerCase();
+      const techObj = this.techList.find(t =>
+        String(t.id || '').trim() === activeTechRaw ||
+        String(t.name || '').toLowerCase().trim() === activeTechLow
+      );
+      const finalTechId = techObj ? techObj.id : activeTechRaw;
+      const tempOrRealId = evData.id || ('temp_' + Date.now());
 
-      const fullEvData = { 
-         ...evData, 
-         technician_id: finalTechId, // <--- Czyste ID
-         extendedProps: {
-           ...(evData.extendedProps || {}),
-           technicianName: techObj ? techObj.name : (finalTechId || 'BRAK'),
-           techColor: techObj ? (techObj.zone_color || techObj.color) : '#cbd5e1',
-           event_type: evData.event_type || 'service',
-           event_subtype: evData.event_subtype || 'Awaria',
-           all_day: evData.all_day === 'TAK' || evData.is_all_day === true
-         }
+      const fullEvData = {
+        ...evData,
+        id: tempOrRealId,
+        technician_id: finalTechId,
+        created_at: evData.created_at || new Date().toISOString(),
+        extendedProps: {
+          ...(evData.extendedProps || {}),
+          technicianName: techObj ? techObj.name : (activeTechRaw || 'BRAK'),
+          techColor: techObj ? (techObj.zone_color || techObj.color) : '#cbd5e1',
+          event_type: evData.event_type || 'service',
+          event_subtype: evData.event_subtype || 'Awaria',
+          all_day: evData.all_day === 'TAK' || evData.is_all_day === true
+        }
       };
 
-      const existingIdx = this.events.findIndex(e => String(e.id) === String(evData.id));
+      const existingIdx = this.events.findIndex(e => String(e.id) === String(tempOrRealId));
       if (existingIdx !== -1) {
         this.events[existingIdx] = { ...this.events[existingIdx], ...fullEvData };
       } else {
         this.events.push(fullEvData);
       }
 
-      if(typeof google === 'undefined') return;
-      
+      const syncLocalCache = () => {
+        try {
+          localStorage.setItem('CACHE_SCHEDULE_DATA', JSON.stringify({
+            events: this.events,
+            techList: this.techList,
+            tickets: this.tickets
+          }));
+        } catch (e) {}
+      };
+      syncLocalCache();
+
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        console.warn('Brak google.script.run (tryb localhost) — wizyta dodana tylko lokalnie w przeglądarce.');
+        return;
+      }
+
       const payload = {
-        id: fullEvData.id,
-        ticket_id: fullEvData.ticket_id || '',
-        technician_id: fullEvData.technician_id,
-        title: fullEvData.title || '',
-        description: fullEvData.description || '',
-        start_time: fullEvData.start_time,
-        end_time: fullEvData.end_time || fullEvData.start_time,
-        event_type: fullEvData.extendedProps.event_type,
-        event_subtype: fullEvData.extendedProps.event_subtype,
+        id: String(fullEvData.id || ''),
+        ticket_id: String(fullEvData.ticket_id || ''),
+        technician_id: String(fullEvData.technician_id || ''),
+        title: String(fullEvData.title || ''),
+        description: String(fullEvData.description || ''),
+        start_time: String(fullEvData.start_time || ''),
+        end_time: String(fullEvData.end_time || fullEvData.start_time || ''),
+        event_type: String(fullEvData.extendedProps.event_type || 'service'),
+        event_subtype: String(fullEvData.extendedProps.event_subtype || 'Awaria'),
         all_day: fullEvData.extendedProps.all_day ? 'TAK' : 'NIE',
         created_by: window.CURRENT_USERNAME || ''
       };
-      
+
       google.script.run
-        .withSuccessHandler((res) => {
-          // res.newId pochodzi z naszej wczorajszej funkcji w backendzie
-          if (res && res.newId && (String(payload.id).includes('temp_') || String(payload.id).includes('EV_'))) {
-            const idx = this.events.findIndex(x => x.id === payload.id);
-            if(idx > -1) this.events[idx].id = res.newId;
+        .withSuccessHandler((rawRes) => {
+          try {
+            const res = typeof rawRes === 'string' ? JSON.parse(rawRes) : rawRes;
+            if (res && res.success === false) {
+              console.error('Błąd saveCalendarEvent:', res.error);
+              alert('Błąd zapisu wizyty w Arkuszu: ' + (res.error || 'Nieznany błąd'));
+              return;
+            }
+            if (res && res.newId) {
+              const idx = this.events.findIndex(x => String(x.id) === String(payload.id));
+              if (idx > -1) {
+                this.events[idx].id = res.newId;
+                syncLocalCache();
+              }
+            }
+          } catch (e) {
+            console.error('Błąd parsowania odpowiedzi saveCalendarEvent:', e);
           }
+        })
+        .withFailureHandler((err) => {
+          console.error('Wywołanie saveCalendarEvent nie powiodło się:', err);
+          alert('Nie udało się zapisać wizyty w Arkuszu Google: ' + err);
         })
         .saveCalendarEvent(payload);
     },

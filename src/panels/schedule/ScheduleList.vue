@@ -3,33 +3,53 @@
     
     <!-- BACKLOG -->
     <div class="w-[340px] bg-slate-50 border border-slate-200/80 rounded-2xl shadow-sm flex flex-col shrink-0 h-full overflow-hidden">
-      <div class="p-4 border-b border-slate-200 bg-white flex justify-between items-center z-10 shrink-0">
-        <h3 class="text-[11px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
-          <svg class="w-4 h-4 text-[#58b347]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-          Backlog Zgłoszeń
+      <div class="p-4 border-b border-slate-200 bg-white flex justify-between items-center gap-2 z-10 shrink-0">
+        <h3 class="text-[11px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2 truncate">
+          <svg class="w-4 h-4 text-[#58b347] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          <span class="truncate">Backlog Zgłoszeń</span>
         </h3>
-        <span v-if="filteredTickets.length !== totalBacklogCount" class="text-[10px] font-black bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full border border-slate-200">
-          {{ filteredTickets.length }} / {{ totalBacklogCount }}
-        </span>
-        <span v-else class="text-[10px] font-black bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full border border-slate-200">
-          {{ totalBacklogCount }}
-        </span>
+        <div class="flex items-center gap-1.5 shrink-0">
+          <button
+            v-if="repeatBacklogCount > 0"
+            type="button"
+            @click="showOnlyRepeatVisits = !showOnlyRepeatVisits"
+            class="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border transition-all cursor-pointer"
+            :class="showOnlyRepeatVisits
+              ? 'bg-violet-600 text-white border-violet-600 shadow-sm'
+              : 'bg-violet-50 text-violet-700 border-violet-200 hover:bg-violet-100'"
+            title="Pokaż tylko zlecenia wymagające kolejnej wizyty (Wizyta II+)"
+          >
+            Wizyta II+: {{ repeatBacklogCount }}
+          </button>
+          <span v-if="displayedBacklogTickets.length !== totalBacklogCount" class="text-[10px] font-black bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full border border-slate-200">
+            {{ displayedBacklogTickets.length }} / {{ totalBacklogCount }}
+          </span>
+          <span v-else class="text-[10px] font-black bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full border border-slate-200">
+            {{ totalBacklogCount }}
+          </span>
+        </div>
       </div>
       
       <div class="flex-1 overflow-y-auto schedule-custom-scrollbar p-4 bg-slate-100/30 flex flex-col">
         <div v-if="store.isLoading" class="text-center text-xs font-bold text-slate-400 py-10 animate-pulse">Ładowanie...</div>
-        <div v-else-if="filteredTickets.length === 0" class="text-center text-xs font-bold text-slate-400 py-10">Brak zgłoszeń.</div>
+        <div v-else-if="displayedBacklogTickets.length === 0" class="text-center text-xs font-bold text-slate-400 py-10">Brak zgłoszeń.</div>
         
-        <div v-for="ticket in filteredTickets" :key="ticket.t_id"
+        <div v-for="ticket in displayedBacklogTickets" :key="ticket.t_id"
              draggable="true" @dragstart="onDragStartBacklog($event, ticket)" @dragend="onGlobalDragEnd"
-             class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all cursor-grab mb-4 flex flex-col group shrink-0"
-             :class="{'opacity-40': isDragging && dragPayload?.data?.t_id === ticket.t_id}"
+             class="bg-white p-4 rounded-xl border shadow-sm hover:shadow-md transition-all cursor-grab mb-4 flex flex-col group shrink-0"
+             :class="[
+               ticket.is_repeat_visit ? 'border-violet-200 ring-1 ring-violet-100' : 'border-slate-200',
+               {'opacity-40': isDragging && dragPayload?.data?.t_id === ticket.t_id}
+             ]"
              :style="`border-left: 6px solid ${ticket.techColor && ticket.techColor !== '#cbd5e1' ? ticket.techColor : '#fcd34d'}`">
           
           <div class="flex justify-between items-start mb-2 pointer-events-none gap-2">
             <div class="flex flex-wrap items-center gap-1.5">
               <span v-if="ticket.t_code" class="text-[10px] font-black text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">{{ ticket.t_code }}</span>
               <span v-if="ticket.t_qp" class="text-[10px] font-black text-[#58b347] bg-[#58b347]/10 px-2 py-0.5 rounded border border-[#58b347]/20">{{ ticket.t_qp }}</span>
+              <span v-if="ticket.is_repeat_visit" class="text-[9px] font-black uppercase tracking-wider text-violet-700 bg-violet-50 px-2 py-0.5 rounded border border-violet-200">
+                Wizyta {{ ticket.next_visit_roman }}
+              </span>
             </div>
             <span class="text-[9px] font-black px-2 py-0.5 rounded border uppercase tracking-widest shrink-0" :class="ticket.slaLeft < 24 ? 'bg-red-50 text-red-500 border-red-100' : 'bg-green-50 text-green-600 border-green-100'">SLA: {{ ticket.slaLeft }}H</span>
           </div>
@@ -45,6 +65,25 @@
           <p v-if="ticket.t_desc" class="text-[10px] text-slate-500 italic mt-2 leading-relaxed line-clamp-2 pointer-events-none">
             {{ ticket.t_desc }}
           </p>
+
+          <!-- PASEK HISTORII POPRZEDNICH WIZYT (DLA ZLECEŃ WRACAJĄCYCH) -->
+          <div
+            v-if="ticket.is_repeat_visit && ticket.past_visits && ticket.past_visits.length > 0"
+            @click.stop="jumpToDate(ticket.past_visits[0].start_time, 'day')"
+            class="mt-2.5 px-2.5 py-1.5 rounded-lg bg-violet-50/70 hover:bg-violet-100/80 border border-violet-200/80 flex items-center justify-between gap-2 cursor-pointer transition-colors"
+            :title="formatAllPastVisitsTooltip(ticket.past_visits)"
+          >
+            <div class="flex items-center gap-1.5 min-w-0 text-[9.5px] font-bold text-violet-800 truncate">
+              <span class="uppercase font-black text-[8.5px] tracking-wider text-violet-600 shrink-0">Poprz.:</span>
+              <span class="font-mono font-black shrink-0">{{ formatPastVisitShort(ticket.past_visits[0].start_time) }}</span>
+              <span class="truncate">• {{ getPastVisitTechName(ticket.past_visits[0]) }}</span>
+              <span v-if="ticket.past_visits.length > 1" class="px-1 py-0.2 rounded bg-violet-200/70 text-violet-900 text-[8px] font-black shrink-0">
+                +{{ ticket.past_visits.length - 1 }}
+              </span>
+            </div>
+            <svg class="w-3 h-3 text-violet-500 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+          </div>
+
           <div class="flex justify-between items-center mt-3 pt-3 border-t border-slate-100 pointer-events-none">
             <span class="text-[11px] font-black uppercase tracking-widest text-slate-700 truncate mr-2">{{ ticket.techName || 'BRAK PRZYPISANIA' }}</span>
             <span class="text-[10px] font-black uppercase tracking-widest text-slate-400 shrink-0">{{ ticket.t_status || 'NOWE' }}</span>
@@ -136,6 +175,7 @@
                        <template v-if="ev.extendedProps.event_type === 'service'">
                          <span class="text-slate-500 bg-slate-100 rounded px-1 text-[8px] border border-slate-200 truncate">{{ ev.extendedProps.ticketCode }}</span>
                          <span v-if="ev.extendedProps.qpCode" class="text-[#58b347] bg-[#58b347]/10 rounded px-1 text-[8px] border border-[#58b347]/20 truncate">{{ ev.extendedProps.qpCode }}</span>
+                         <span v-if="getEventVisitBadge(ev)" class="text-violet-700 bg-violet-50 rounded px-1 text-[8px] border border-violet-200 font-black truncate">{{ getEventVisitBadge(ev) }}</span>
                        </template>
                        <template v-else>
                          <span class="rounded px-1 text-[8px] border font-black uppercase tracking-widest truncate"
@@ -234,6 +274,7 @@
                 <template v-if="ev.extendedProps.event_type === 'service'">
                   <span class="font-black text-[9px] truncate bg-white px-1.5 py-0.5 rounded text-slate-600 border border-slate-200 shadow-sm">{{ ev.extendedProps.ticketCode }}</span>
                   <span v-if="ev.extendedProps.qpCode" class="font-black text-[9px] truncate bg-[#58b347]/10 px-1.5 py-0.5 rounded text-[#58b347] border border-[#58b347]/20">{{ ev.extendedProps.qpCode }}</span>
+                  <span v-if="getEventVisitBadge(ev)" class="font-black text-[9px] truncate bg-violet-50 px-1.5 py-0.5 rounded text-violet-700 border border-violet-200">{{ getEventVisitBadge(ev) }}</span>
                 </template>
                 <template v-else>
                   <span class="font-black text-[9px] uppercase tracking-widest truncate px-1.5 py-0.5 rounded border bg-white"
@@ -304,7 +345,7 @@
 </template>
 
 <script setup>
-import { ref, nextTick } from 'vue'
+import { ref, computed, nextTick } from 'vue'
 import UniversalTabModal from '../../common/UniversalTabModal.vue'
 import { useScheduleStore } from '../../stores/useScheduleStore'
 import { useCalendar } from '../../composables/useCalendar'
@@ -319,6 +360,87 @@ const emit = defineEmits(['confirm-delete-event', 'rotate-view'])
 
 const store = useScheduleStore()
 const cal = useCalendar()
+
+const showOnlyRepeatVisits = ref(false)
+const repeatBacklogCount = computed(() => (props.filteredTickets || []).filter(t => t.is_repeat_visit).length)
+const displayedBacklogTickets = computed(() => {
+  const list = props.filteredTickets || []
+  return showOnlyRepeatVisits.value ? list.filter(t => t.is_repeat_visit) : list
+})
+
+const ROMAN_NUMERALS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X']
+const toRomanVisit = (num) => ROMAN_NUMERALS[num - 1] || String(num)
+
+const parseSafeDate = (raw) => {
+  if (!raw) return null
+  const str = String(raw).trim()
+  const d = new Date(str.replace(/^(\d{4}-\d{2}-\d{2})\s+/, '$1T'))
+  if (!isNaN(d.getTime())) return d
+  const pl = str.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})/)
+  if (pl) return new Date(Number(pl[3]), Number(pl[2]) - 1, Number(pl[1]))
+  return null
+}
+
+const eventVisitBadgeMap = computed(() => {
+  const aliasMap = new Map()
+  ;(store.tickets || []).forEach(t => {
+    const canonical = String(t.t_id || t.t_code || '').toLowerCase().trim()
+    if (!canonical) return
+    if (t.t_id) aliasMap.set(String(t.t_id).toLowerCase().trim(), canonical)
+    if (t.t_code) aliasMap.set(String(t.t_code).toLowerCase().trim(), canonical)
+  })
+
+  const groups = new Map()
+  ;(store.events || []).forEach(ev => {
+    const evType = ev.event_type || ev.extendedProps?.event_type
+    if (evType === 'absence') return
+    const rawTid = String(ev.ticket_id || '').toLowerCase().trim()
+    if (!rawTid || rawTid === 'null' || rawTid === 'undefined') return
+    const canonical = aliasMap.get(rawTid) || rawTid
+    if (!groups.has(canonical)) groups.set(canonical, [])
+    groups.get(canonical).push(ev)
+  })
+
+  const badgeById = new Map()
+  groups.forEach(list => {
+    if (list.length < 2) return
+    const sorted = [...list].sort((a, b) => (parseSafeDate(a.start_time)?.getTime() || 0) - (parseSafeDate(b.start_time)?.getTime() || 0))
+    sorted.forEach((ev, idx) => {
+      badgeById.set(String(ev.id), `WIZYTA ${toRomanVisit(idx + 1)}`)
+    })
+  })
+  return badgeById
+})
+
+const getEventVisitBadge = (ev) => {
+  if (!ev || !ev.id) return ''
+  return eventVisitBadgeMap.value.get(String(ev.id)) || ''
+}
+
+const formatPastVisitShort = (rawDate) => {
+  const d = parseSafeDate(rawDate)
+  if (!d) return '-'
+  return d.toLocaleDateString('pl-PL', { day: '2-digit', month: '2-digit' })
+}
+
+const getPastVisitTechName = (ev) => {
+  if (ev?.extendedProps?.technicianName && ev.extendedProps.technicianName !== 'BRAK') {
+    return ev.extendedProps.technicianName
+  }
+  const tech = (store.techList || []).find(t => t.id === ev?.technician_id || t.name === ev?.technician_id)
+  return tech ? tech.name : (ev?.technician_id || 'Brak technika')
+}
+
+const formatAllPastVisitsTooltip = (pastVisits) => {
+  if (!Array.isArray(pastVisits) || pastVisits.length === 0) return ''
+  const lines = pastVisits.map((ev, idx) => {
+    const visitNo = pastVisits.length - idx
+    const d = parseSafeDate(ev.start_time)
+    const dStr = d ? d.toLocaleDateString('pl-PL', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '-'
+    return `Wizyta ${toRomanVisit(visitNo)}: ${dStr} — ${getPastVisitTechName(ev)}`
+  })
+  return `Historia odbytych wizyt (kliknij, aby przejść do ostatniej):\n${lines.join('\n')}`
+}
 
 // --- NOWE: Funkcja sprawdzająca czy zadanie nakłada się z urlopem ---
 const hasAbsenceConflict = (ev, dateStr) => {
@@ -353,9 +475,12 @@ const onHeaderScroll = (e) => {
   else cal.navigateCalendar(-1)
 }
 
-const goToDay = (dateObj) => {
-  cal.currentDate.value = new Date(dateObj)
-  store.currentView = 'day'
+const jumpToDate = (dateInput, viewMode = 'day') => {
+  if (!dateInput) return
+  const parsed = new Date(String(dateInput).replace(' ', 'T'))
+  if (isNaN(parsed.getTime())) return
+  cal.currentDate.value = new Date(parsed)
+  if (viewMode) store.currentView = viewMode
   focusToday()
 }
 
@@ -385,11 +510,19 @@ const onDragStartEvent = (e, ev) => {
   if (e.dataTransfer) { e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", ev.id) }
 }
 
+const resolveDragTargetTech = (p) => {
+  if (!p || !p.data) return ''
+  let tech = store.selectedTechId
+  if (!tech || tech === 'ALL') {
+    tech = p.data.technician_id || p.data.actualTechId || p.data.past_visits?.[0]?.technician_id || ''
+  }
+  return tech === 'ALL' ? '' : tech
+}
+
 const calculateDropPosition = (clientY, columnRect, dateStr) => {
   const p = dragPayload.value
-  let targetTech = store.selectedTechId
-  if (targetTech === 'ALL') targetTech = p.data.actualTechId || p.data.technician_id
-  if (!targetTech || targetTech === 'ALL') return null
+  const targetTech = resolveDragTargetTech(p)
+  if (!targetTech) return null
 
   // Gwarancja dopasowania technika niezależnie czy to UUID czy Imię
   const techObj = store.techList.find(t => t.id === targetTech || t.name === targetTech)
@@ -409,23 +542,22 @@ const calculateDropPosition = (clientY, columnRect, dateStr) => {
   
   // Pancerne filtrowanie (odporne na formaty dat ze spacją zamiast T)
   const techEventsDay = store.events.filter(x => {
-    // IGNORUJEMY NIEOBECNOŚCI - nie są przeszkodą fizyczną
-    const isAbsence = x.event_type === 'absence' || (x.extendedProps && x.extendedProps.event_type === 'absence');
-    if (isAbsence) return false;
+    const isAbsence = x.event_type === 'absence' || (x.extendedProps && x.extendedProps.event_type === 'absence')
+    if (isAbsence) return false
 
-    const isSameTech = (x.technician_id === finalTechId || x.technician_id === techName || (x.extendedProps && x.extendedProps.technicianName === techName));
-    const evDateStr = String(x.start_time).includes('T') ? String(x.start_time).split('T')[0] : String(x.start_time).split(' ')[0];
-    return isSameTech && evDateStr === dateStr && x.id !== excludeId;
+    const isSameTech = (x.technician_id === finalTechId || x.technician_id === techName || (x.extendedProps && x.extendedProps.technicianName === techName))
+    const evDateStr = String(x.start_time).includes('T') ? String(x.start_time).split('T')[0] : String(x.start_time).split(' ')[0]
+    return isSameTech && evDateStr === dateStr && x.id !== excludeId
   })
 
   // Lekkie przyciąganie (magnetyzm) do krawędzi (15 minut = 900000 ms)
-  const snapThreshold = 900000; 
+  const snapThreshold = 900000
   for (const ev of techEventsDay) {
     const evS = new Date(String(ev.start_time).replace(' ', 'T')).getTime()
     const evE = ev.end_time ? new Date(String(ev.end_time).replace(' ', 'T')).getTime() : evS + 2 * 3600000
     
-    if (Math.abs(startMs - evE) <= snapThreshold) { startMs = evE; endMs = startMs + durationMs; break; }
-    if (Math.abs(endMs - evS) <= snapThreshold) { endMs = evS; startMs = endMs - durationMs; break; }
+    if (Math.abs(startMs - evE) <= snapThreshold) { startMs = evE; endMs = startMs + durationMs; break }
+    if (Math.abs(endMs - evS) <= snapThreshold) { endMs = evS; startMs = endMs - durationMs; break }
   }
 
   // --- INTELIGENTNA RESOLUCJA KOLIZJI DLA WIDOKU DNIA ---
@@ -436,41 +568,39 @@ const calculateDropPosition = (clientY, columnRect, dateStr) => {
   })
 
   if (hasCollision) {
-    // Zbieramy możliwe wolne luki (początek dnia roboczego oraz tuż po / przed każdym zdarzeniem)
-    let candidates = [new Date(`${dateStr}T07:00:00`).getTime()] 
+    let candidates = [new Date(`${dateStr}T07:00:00`).getTime()]
     techEventsDay.forEach(ev => {
-       const evS = new Date(String(ev.start_time).replace(' ', 'T')).getTime()
-       const evE = ev.end_time ? new Date(String(ev.end_time).replace(' ', 'T')).getTime() : evS + 2 * 3600000
-       candidates.push(evE)             // Tuż po evencie
-       candidates.push(evS - durationMs) // Tuż przed eventem
+      const evS = new Date(String(ev.start_time).replace(' ', 'T')).getTime()
+      const evE = ev.end_time ? new Date(String(ev.end_time).replace(' ', 'T')).getTime() : evS + 2 * 3600000
+      candidates.push(evE)
+      candidates.push(evS - durationMs)
     })
     
     let bestCandidate = null
     let minDiff = Infinity
 
     for (let cand of candidates) {
-       if (cand < new Date(`${dateStr}T00:00:00`).getTime()) continue // Zapobiega przeskoczeniu na wczoraj
-       
-       const candEnd = cand + durationMs
-       let collides = techEventsDay.some(ev => {
-          const evS = new Date(String(ev.start_time).replace(' ', 'T')).getTime()
-          const evE = ev.end_time ? new Date(String(ev.end_time).replace(' ', 'T')).getTime() : evS + 2 * 3600000
-          return cand < evE && candEnd > evS
-       })
-       
-       // Wybieramy tę lukę, która jest NAJBLIŻEJ oryginalnego miejsca upuszczenia kursora
-       if (!collides) {
-          let diff = Math.abs(cand - startMs) 
-          if (diff < minDiff) { 
-             minDiff = diff; 
-             bestCandidate = cand 
-          }
-       }
+      if (cand < new Date(`${dateStr}T00:00:00`).getTime()) continue
+      
+      const candEnd = cand + durationMs
+      let collides = techEventsDay.some(ev => {
+        const evS = new Date(String(ev.start_time).replace(' ', 'T')).getTime()
+        const evE = ev.end_time ? new Date(String(ev.end_time).replace(' ', 'T')).getTime() : evS + 2 * 3600000
+        return cand < evE && candEnd > evS
+      })
+      
+      if (!collides) {
+        let diff = Math.abs(cand - startMs)
+        if (diff < minDiff) {
+          minDiff = diff
+          bestCandidate = cand
+        }
+      }
     }
     
-    if (bestCandidate !== null) { 
-        startMs = bestCandidate; 
-        endMs = startMs + durationMs 
+    if (bestCandidate !== null) {
+      startMs = bestCandidate
+      endMs = startMs + durationMs
     }
   }
 
@@ -481,25 +611,23 @@ const onDragOverColumn = (e, dateStr) => {
   if (!dragPayload.value) return
   
   const p = dragPayload.value
-  let targetTech = store.selectedTechId
-  if (targetTech === 'ALL') targetTech = p.data.technician_id || p.data.actualTechId
-  if (!targetTech || targetTech === 'ALL') return
+  const targetTech = resolveDragTargetTech(p)
+  if (!targetTech) return
 
-  // --- NOWE ZABEZPIECZENIE: Ukryj zielony prostokąt, jeśli pracownik jest na urlopie ---
+  // Ukryj zielony prostokąt, jeśli pracownik jest na urlopie
   const techObj = store.techList.find(t => t.id === targetTech || t.name === targetTech)
   const techName = techObj ? techObj.name : targetTech
   const hasAbsence = (cal.absencesByDate.value[dateStr] || []).some(a => 
-     a.extendedProps.technicianName === techName || a.technician_id === targetTech
+    a.extendedProps.technicianName === techName || a.technician_id === targetTech
   )
   if (hasAbsence) {
-     dragHoverSlot.value.active = false
-     return
+    dragHoverSlot.value.active = false
+    return
   }
-  // -----------------------------------------------------------------------------------
 
   if (store.currentView === 'month') {
-     dragHoverSlot.value = { active: true, dateStr: dateStr }
-     return
+    dragHoverSlot.value = { active: true, dateStr: dateStr }
+    return
   }
 
   const durHours = p.durationMs / 3600000
@@ -507,13 +635,14 @@ const onDragOverColumn = (e, dateStr) => {
   if (store.currentView === 'day') {
     const res = calculateDropPosition(e.clientY, e.currentTarget.getBoundingClientRect(), dateStr)
     if (res) {
-       const d0 = new Date(`${dateStr}T00:00:00`).getTime()
-       dragHoverSlot.value = {
-          active: true, dateStr: dateStr,
-          top: ((res.startMs - d0) / 3600000) * 120,
-          height: durHours * 120,
-          text: 'ZAPISZ TUTAJ'
-       }
+      const d0 = new Date(`${dateStr}T00:00:00`).getTime()
+      dragHoverSlot.value = {
+        active: true,
+        dateStr: dateStr,
+        top: ((res.startMs - d0) / 3600000) * 120,
+        height: durHours * 120,
+        text: 'ZAPISZ TUTAJ'
+      }
     }
   } else {
     const excludeId = p.type === 'event' ? p.data.id : null
@@ -522,10 +651,11 @@ const onDragOverColumn = (e, dateStr) => {
     const d0 = new Date(`${dateStr}T00:00:00`).getTime()
     
     dragHoverSlot.value = {
-        active: true, dateStr: dateStr,
-        top: ((startMs - d0) / 3600000) * 120,
-        height: durHours * 120,
-        text: `${new Date(startMs).getHours()}:${String(new Date(startMs).getMinutes()).padStart(2,'0')} - AUTO`
+      active: true,
+      dateStr: dateStr,
+      top: ((startMs - d0) / 3600000) * 120,
+      height: durHours * 120,
+      text: `${new Date(startMs).getHours()}:${String(new Date(startMs).getMinutes()).padStart(2, '0')} - AUTO`
     }
   }
 }
@@ -538,22 +668,24 @@ const onDropDayColumn = (e, dateStr) => {
   if (!dragPayload.value) return
   
   const p = dragPayload.value
-  let targetTech = store.selectedTechId
-  if (targetTech === 'ALL') targetTech = p.data.technician_id || p.data.actualTechId
-  if (!targetTech || targetTech === 'ALL') { alert("Wybierz technika przed upuszczeniem!"); dragPayload.value = null; return }
+  const targetTech = resolveDragTargetTech(p)
+  if (!targetTech) {
+    alert("Wybierz technika przed upuszczeniem!")
+    dragPayload.value = null
+    return
+  }
 
-  // --- NOWE ZABEZPIECZENIE: Zablokuj fizyczne upuszczenie z Backlogu ---
+  // Zablokuj fizyczne upuszczenie, gdy pracownik ma urlop
   const techObj = store.techList.find(t => t.id === targetTech || t.name === targetTech)
   const techName = techObj ? techObj.name : targetTech
   const hasAbsence = (cal.absencesByDate.value[dateStr] || []).some(a => 
-     a.extendedProps.technicianName === techName || a.technician_id === targetTech
+    a.extendedProps.technicianName === techName || a.technician_id === targetTech
   )
   if (hasAbsence) {
-     alert(`Pracownik ${techName} ma w tym dniu urlop. Zgłoszenie nie może zostać zaplanowane.`);
-     dragPayload.value = null;
-     return;
+    alert(`Pracownik ${techName} ma w tym dniu urlop. Zgłoszenie nie może zostać zaplanowane.`)
+    dragPayload.value = null
+    return
   }
-  // ---------------------------------------------------------------------
 
   let sTime, eTime
 
@@ -570,25 +702,24 @@ const onDropDayColumn = (e, dateStr) => {
   }
 
   if (p.type === 'backlog') {
-    store.saveEventToCloud({ 
-      id: "EV_" + Date.now(), 
-      ticket_id: p.data.ticket_code || p.data.id || p.data.t_code || p.data.t_id || '', 
-      technician_id: targetTech, 
-      // Zabezpieczenie przed pustym tytułem (szuka różnych wersji klucza z backendu):
-      title: p.data.title || p.data.subject || p.data.t_title || 'Awaria z backlogu', 
+    store.saveEventToCloud({
+      id: "EV_" + Date.now(),
+      ticket_id: p.data.ticket_code || p.data.id || p.data.t_code || p.data.t_id || '',
+      technician_id: targetTech,
+      title: p.data.title || p.data.subject || p.data.t_title || 'Awaria z backlogu',
       description: p.data.description || p.data.t_desc || '',
-      start_time: sTime, 
-      end_time: eTime, 
+      start_time: sTime,
+      end_time: eTime,
       event_type: "service",
       event_subtype: "Awaria",
       all_day: "NIE"
     })
   } else {
-    store.saveEventToCloud({ 
-      ...p.data, 
-      start_time: sTime, 
-      end_time: eTime, 
-      technician_id: targetTech 
+    store.saveEventToCloud({
+      ...p.data,
+      start_time: sTime,
+      end_time: eTime,
+      technician_id: targetTech
     })
   }
   dragPayload.value = null
@@ -645,7 +776,7 @@ const saveManualEvent = (payload) => {
 }
 
 // Pozwól widokowi zewnętrznemu korzystać z tych funkcji
-defineExpose({ focusToday, onGlobalDragEnd, openManualEventModal })
+defineExpose({ focusToday, onGlobalDragEnd, openManualEventModal, jumpToDate })
 </script>
 
 <style scoped>

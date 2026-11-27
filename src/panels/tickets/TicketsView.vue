@@ -101,6 +101,7 @@
       @update-attention="handleUpdateAttention"
       @change-tech="changeTechnician"
       @update-axon-transfer="handleUpdateAxonTransfer"
+      @update-offer="handleUpdateOffer"
     />
 
     </div>
@@ -841,13 +842,19 @@ const checkTicketSearchExtended = (t, queryStr) => {
     const hasReport = Boolean(t.report_url || t.raport_url || sysSt.includes('REPORT') || sysSt.includes('CLOSED'))
     return isDone && !hasReport
   }
+  if (upper === 'OFERTA:OTWARTA' || upper === 'OFFER:OPEN') {
+    const ost = String(t.offer_status || '').toUpperCase().trim()
+    return ost === 'REQUESTED' || ost === 'IN_PROGRESS' || ost === 'SENT'
+  }
   if (raw && !upper.includes(':')) {
     const qLow = raw.toLowerCase()
     if (
       (t.attention_note && String(t.attention_note).toLowerCase().includes(qLow)) ||
       (t.ekoen_code && String(t.ekoen_code).toLowerCase().includes(qLow)) ||
       (t.linked_ekoen_id && String(t.linked_ekoen_id).toLowerCase().includes(qLow)) ||
-      (t.axon_ticket_id && String(t.axon_ticket_id).toLowerCase().includes(qLow))
+      (t.axon_ticket_id && String(t.axon_ticket_id).toLowerCase().includes(qLow)) ||
+      (t.offer_number && String(t.offer_number).toLowerCase().includes(qLow)) ||
+      (t.offer_note && String(t.offer_note).toLowerCase().includes(qLow))
     ) {
       return true
     }
@@ -951,7 +958,7 @@ const columns = ref([
   { id: 'tech_parts', label: 'TECHNIK / STATUS', visible: true, sortable: true, width: '180px' },
   { id: 'used_parts', label: 'UŻYTE CZĘŚCI', visible: true, sortable: true, width: '280px' },
   { id: 'diagnoza', label: 'DIAGNOZA EKOEN', visible: true, sortable: true, width: '250px' },
-  { id: 'audit', label: 'RAPORT / UWAGI', visible: true, sortable: true, width: '190px' }
+  { id: 'audit', label: 'RAPORT / OFERTA / UWAGI', visible: true, sortable: true, width: '205px' }
 ])
 
 const visibleColumns = computed(() => columns.value.filter(c => c.visible))
@@ -1256,12 +1263,12 @@ const loadColumnsConfig = () => {
   } catch (e) {}
 }
 
-const handleUpdateAttention = (payload) => {
-  let msg = 'Zaktualizowano uwagę!'
-  if (payload.attention_status === 'ACTIVE') msg = 'Dodano flagę: Wymaga uwagi!'
-  else if (payload.attention_status === 'LATER') msg = 'Odłożono zadanie na później'
-  else if (payload.attention_status === 'DONE') msg = 'Oznaczono uwagę jako wykonaną!'
-  else if (!payload.attention_status) msg = 'Usunięto flagę uwagi'
+const handleUpdateOffer = (payload) => {
+  let msg = 'Zaktualizowano ofertę!'
+  if (payload.offer_status === 'REQUESTED') msg = 'Wysłano prośbę o przygotowanie oferty!'
+  else if (payload.offer_status === 'SENT') msg = `Oznaczono ofertę ${payload.offer_number || ''} jako wysłaną`
+  else if (payload.offer_status === 'ACCEPTED') msg = 'Oferta zaakceptowana!'
+  else if (!payload.offer_status) msg = 'Usunięto wpis oferty'
 
   toast.value = { show: true, msg }
   setTimeout(() => { toast.value.show = false }, 2500)

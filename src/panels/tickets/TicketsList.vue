@@ -34,21 +34,26 @@
             </th>
           </tr>
         </thead>
-        <tbody class="text-xs divide-y divide-slate-100 bg-white">
+        <tbody class="text-xs divide-y divide-slate-200 bg-white">
           <tr v-if="tickets.length === 0">
             <td :colspan="visibleColumns.length" class="p-8 text-center text-slate-400 font-bold">Brak zgłoszeń pasujących do filtrów.</td>
           </tr>
           
-          <tr v-for="(t, idx) in tickets" :key="t.id" class="transition-colors border-b border-slate-100/60 hover:bg-slate-50/80" :class="idx % 2 === 0 ? 'bg-white' : 'bg-[#fafbfc]'">
-            <td v-for="col in visibleColumns" :key="col.id" class="py-3 px-4 border-r border-slate-50 align-top">
+          <tr
+            v-for="(t, idx) in tickets"
+            :key="t.id"
+            class="transition-colors border-b border-slate-200/90 hover:bg-[#eaf5e9]/65"
+            :class="selectedIds.includes(t.id) ? 'bg-[#f0f7f1]' : (idx % 2 === 0 ? 'bg-white' : 'bg-slate-100/90')"
+          >
+            <td v-for="col in visibleColumns" :key="col.id" class="py-3 px-4 border-r border-slate-200/70 last:border-r-0 align-top">
               
               <!-- AKCJE -->
-              <div v-if="col.id === 'actions'" class="flex items-center justify-center h-[130px]">
+              <div v-if="col.id === 'actions'" class="flex items-center justify-center h-[48px]">
                 <div @click.stop="$emit('toggle-select', t.id)" class="w-1.5 h-6 rounded-full cursor-pointer transition-all" :class="selectedIds.includes(t.id) ? 'bg-[#58b347] shadow-[0_0_8px_rgba(88,179,71,0.6)] scale-y-110' : 'bg-slate-200 group-hover:bg-slate-300'"></div>
               </div>
 
               <!-- ID I STATUS -->
-              <div v-else-if="col.id === 'code'" class="h-[130px] overflow-hidden flex flex-col pt-1">
+              <div v-else-if="col.id === 'code'" class="h-[148px] overflow-hidden flex flex-col pt-1">
                 <!-- GÓRNA LINIA: ID + POWIĄZANE ZGŁOSZENIE EKOEN (W ZAKŁADCE AXON) -->
                 <div class="flex items-center gap-1.5 flex-wrap mb-1.5">
                   <span @click.stop="$emit('copy', getTicketIdDisplay(t, idx))" class="font-black tracking-wider text-[13px] cursor-pointer hover:opacity-70 transition-opacity text-slate-800" title="Kliknij, aby skopiować ID">{{ getTicketIdDisplay(t, idx) }}</span>
@@ -145,7 +150,7 @@
               </div>
 
               <!-- STACJA -->
-              <div v-else-if="col.id === 'station'" class="h-[130px] overflow-hidden flex flex-col pt-1">
+              <div v-else-if="col.id === 'station'" class="h-[148px] overflow-hidden flex flex-col pt-1">
                 <div @click.stop="$emit('open-analytics', t.qp_id || t.station_id)" class="font-black text-[13px] text-slate-800 cursor-pointer hover:text-[#58b347] transition-colors mb-1.5" :title="`Otwórz analitykę stacji: ${t.qp_id_full || t.station_id || t.qp_id || '-'}`">
                   {{ getShortQp(t.qp_id || t.station_id) }}
                 </div>
@@ -170,7 +175,7 @@
               </div>
 
               <!-- KLIENT -->
-              <div v-else-if="col.id === 'client_contact'" class="h-[130px] overflow-hidden flex flex-col pt-1">
+              <div v-else-if="col.id === 'client_contact'" class="h-[148px] overflow-hidden flex flex-col pt-1">
                 <div @click.stop="$emit('copy', t.client)" class="text-[10px] font-bold text-slate-700 uppercase tracking-wider block mb-1 cursor-pointer hover:text-blue-600 transition-colors w-fit">{{ t.client || 'Brak klienta' }}</div>
                 <div class="text-[10px] text-slate-500 font-medium mt-1.5 leading-relaxed">
                   <span v-if="t.contact_person" @click.stop="$emit('copy', t.contact_person)" class="block cursor-pointer hover:text-blue-600 w-fit"><span class="font-bold">Osoba:</span> {{ t.contact_person }}</span>
@@ -180,7 +185,7 @@
               </div>
 
               <!-- OPIS ZGŁOSZENIA -->
-              <div v-else-if="col.id === 'description'" class="h-[130px] overflow-y-auto ticket-custom-scrollbar pr-1 flex flex-col pt-1">
+              <div v-else-if="col.id === 'description'" class="h-[148px] overflow-y-auto ticket-custom-scrollbar pr-1 flex flex-col pt-1">
                 <div @click.stop="$emit('copy', (t.title || t.subject || '') + '\n' + (t.description || '-'))" class="cursor-pointer hover:text-blue-600 transition-colors">
                   <span v-if="t.title || t.subject" class="block font-black text-[11px] text-slate-800 mb-1.5 uppercase tracking-wider pointer-events-none">{{ t.title || t.subject }}</span>
                   <div class="text-[11px] text-slate-600 font-medium whitespace-pre-wrap break-words leading-relaxed pointer-events-none">{{ t.description || '-' }}</div>
@@ -188,7 +193,7 @@
               </div>
 
               <!-- TECHNIK I STATUS WEW. -->
-              <div v-else-if="col.id === 'tech_parts'" class="h-[130px] overflow-visible flex flex-col items-start gap-1 relative pt-1">
+              <div v-else-if="col.id === 'tech_parts'" class="h-[148px] overflow-visible flex flex-col items-start gap-1 relative pt-1">
                 <!-- PIGUŁKA TECHNIKA (CZARNY TEKST + WYBÓR Z LISTY) -->
                 <div class="relative w-36">
                   <button
@@ -243,7 +248,7 @@
                 </div>
 
                 <!-- TERMIN W HARMONOGRAMIE + SZYBKIE PLANOWANIE -->
-                <div class="relative w-36 mt-1">
+                <div class="relative w-36 mt-0.5 flex flex-col items-center">
                   <button
                     type="button"
                     @click.stop="openQuickSchedule(t)"
@@ -251,19 +256,73 @@
                     :class="getTicketScheduleEvent(t)
                       ? 'bg-sky-50 text-sky-700 border-sky-200 hover:bg-sky-100'
                       : 'bg-white text-slate-400 border-dashed border-slate-300 hover:border-[#58b347] hover:text-[#58b347]'"
-                    :title="getTicketScheduleEvent(t) ? 'Kliknij, aby zmienić termin wizyty' : 'Kliknij, aby zaplanować w harmonogramie'"
+                    :title="getTicketScheduleEvent(t) ? 'Kliknij, aby dodać kolejną wizytę lub zmienić termin' : 'Kliknij, aby zaplanować w harmonogramie'"
                   >
                     <svg class="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                     <span class="truncate">{{ getTicketScheduleEvent(t) ? formatScheduleDate(getTicketScheduleEvent(t).start_time) : 'Zaplanuj' }}</span>
                   </button>
 
+                  <!-- NAPIS "POPRZEDNIE WIZYTY" + TOOLTIP ZE WSZYSTKIMI WIZYTAMI -->
+                  <div
+                    v-if="getTicketScheduleEvents(t).length > 1"
+                    class="relative group/visits w-full text-center mt-1"
+                    @click.stop
+                  >
+                    <span class="inline-block text-[8.5px] leading-none font-extrabold uppercase tracking-wider text-slate-400 group-hover/visits:text-sky-600 border-b border-dashed border-slate-300 group-hover/visits:border-sky-400 pb-0.5 cursor-help transition-colors">
+                      Poprzednie wizyty ({{ getTicketScheduleEvents(t).length - 1 }})
+                    </span>
+
+                    <!-- Dymek (Tooltip) ze wszystkimi wizytami -->
+                    <div class="hidden group-hover/visits:flex flex-col gap-1.5 absolute left-1/2 -translate-x-1/2 top-full mt-1.5 w-60 bg-slate-900 text-white rounded-xl p-3 shadow-2xl z-[240] text-left pointer-events-none">
+                      <div class="text-[8px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-700/80 pb-1 flex justify-between">
+                        <span>Wszystkie wizyty</span>
+                        <span>{{ getTicketScheduleEvents(t).length }}</span>
+                      </div>
+                      <div
+                        v-for="(ev, evIdx) in getTicketScheduleEvents(t)"
+                        :key="ev.id || evIdx"
+                        class="flex items-center justify-between gap-2 text-[10px]"
+                      >
+                        <div class="flex items-center gap-1.5 shrink-0">
+                          <span class="w-1.5 h-1.5 rounded-full" :class="evIdx === 0 ? 'bg-emerald-400' : 'bg-slate-500'"></span>
+                          <span class="font-bold font-mono" :class="evIdx === 0 ? 'text-emerald-300' : 'text-slate-200'">
+                            {{ formatScheduleDateFull(ev.start_time) }}
+                          </span>
+                        </div>
+                        <span class="text-[9px] font-semibold text-slate-300 truncate">
+                          {{ getEventTechName(ev) }}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
                   <!-- POPOVER KALENDARZA -->
                   <div
                     v-if="activeScheduleTicketId === t.id"
                     @click.stop
-                    class="absolute top-full left-0 mt-1.5 w-56 bg-white border border-slate-200 rounded-2xl shadow-2xl z-[220] p-3 flex flex-col gap-2.5 animate-fadeIn"
+                    class="absolute top-full left-0 mt-1.5 w-60 bg-white border border-slate-200 rounded-2xl shadow-2xl z-[235] p-3 flex flex-col gap-2.5 animate-fadeIn text-left"
                   >
                     <div class="text-[9px] font-black uppercase tracking-widest text-slate-400">Termin w harmonogramie</div>
+
+                    <!-- Przełącznik: Nowa wizyta vs Edycja obecnej (gdy zlecenie ma już historię wizyt) -->
+                    <div v-if="getTicketScheduleEvent(t)" class="grid grid-cols-2 gap-1 bg-slate-100 p-1 rounded-xl">
+                      <button
+                        type="button"
+                        @click="switchScheduleMode(t, 'NEW')"
+                        class="py-1 px-1.5 rounded-lg text-[8.5px] font-black uppercase tracking-wider transition-all cursor-pointer"
+                        :class="scheduleForm.mode === 'NEW' ? 'bg-white text-[#58b347] shadow-sm' : 'text-slate-500 hover:text-slate-700'"
+                      >
+                        + Nowa wizyta
+                      </button>
+                      <button
+                        type="button"
+                        @click="switchScheduleMode(t, 'EDIT')"
+                        class="py-1 px-1.5 rounded-lg text-[8.5px] font-black uppercase tracking-wider transition-all cursor-pointer truncate"
+                        :class="scheduleForm.mode === 'EDIT' ? 'bg-white text-sky-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'"
+                      >
+                        Zmień ({{ formatScheduleDate(getTicketScheduleEvent(t).start_time) }})
+                      </button>
+                    </div>
 
                     <input
                       type="date"
@@ -276,8 +335,8 @@
                       class="w-full text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 outline-none focus:border-[#58b347]"
                     >
                       <option value="">-- Wybierz technika --</option>
-                      <option v-for="tech in availableScheduleTechs" :key="tech.id || tech.name" :value="tech.id || tech.name">
-                        {{ tech.name }}
+                      <option v-for="tech in availableScheduleTechs" :key="tech.id || tech.name || tech" :value="tech.id || tech.name || tech">
+                        {{ tech.name || tech }}
                       </option>
                     </select>
 
@@ -285,16 +344,16 @@
                       <button
                         type="button"
                         @click="activeScheduleTicketId = null"
-                        class="flex-1 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider text-slate-500 bg-slate-100 hover:bg-slate-200 transition-colors"
+                        class="flex-1 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider text-slate-500 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer"
                       >
                         Anuluj
                       </button>
                       <button
                         type="button"
                         @click="saveQuickSchedule(t)"
-                        class="flex-1 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider text-white bg-[#58b347] hover:bg-[#499b3a] transition-colors shadow-sm"
+                        class="flex-1 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider text-white bg-[#58b347] hover:bg-[#499b3a] transition-colors shadow-sm cursor-pointer"
                       >
-                        Zapisz
+                        {{ (scheduleForm.mode === 'EDIT' && getTicketScheduleEvent(t)) ? 'Zmień' : 'Dodaj' }}
                       </button>
                     </div>
                   </div>
@@ -302,7 +361,7 @@
               </div>
 
               <!-- ZAPOTRZEBOWANIE I ZUŻYTE CZĘŚCI -->
-              <div v-else-if="col.id === 'used_parts'" class="h-[130px] overflow-y-auto ticket-custom-scrollbar pr-1 flex flex-col gap-2 pt-1 cursor-pointer hover:bg-slate-50 transition-colors" @click.stop="$emit('open-diagnose', t.id || t.ticket_code || t.ticket_number)" title="Kliknij, aby otworzyć Diagnozę i Części">
+              <div v-else-if="col.id === 'used_parts'" class="h-[148px] overflow-y-auto ticket-custom-scrollbar pr-1 flex flex-col gap-2 pt-1 cursor-pointer hover:bg-slate-50 transition-colors" @click.stop="$emit('open-diagnose', t.id || t.ticket_code || t.ticket_number)" title="Kliknij, aby otworzyć Diagnozę i Części">
                  <div v-if="t.parts_str" class="bg-[#f0f7f1] border border-[#58b347]/30 p-2.5 rounded-xl shadow-sm pointer-events-none">
                    <span class="inline-block px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest bg-[#58b347] text-white mb-1.5">Zużyte z magazynu</span>
                    <div class="text-[10px] font-bold text-slate-700 whitespace-pre-wrap leading-relaxed">{{ t.parts_str }}</div>
@@ -312,7 +371,7 @@
               </div>
 
               <!-- DIAGNOZA -->
-              <div v-else-if="col.id === 'diagnoza'" class="h-[130px] overflow-y-auto ticket-custom-scrollbar pr-1 flex flex-col pt-1 cursor-pointer hover:bg-blue-50 transition-colors" @click.stop="$emit('open-diagnose', t.id || t.ticket_code || t.ticket_number)">
+              <div v-else-if="col.id === 'diagnoza'" class="h-[148px] overflow-y-auto ticket-custom-scrollbar pr-1 flex flex-col pt-1 cursor-pointer hover:bg-blue-50 transition-colors" @click.stop="$emit('open-diagnose', t.id || t.ticket_code || t.ticket_number)">
                 <div class="text-[10px] text-slate-600 font-medium whitespace-pre-wrap leading-relaxed mb-2 pointer-events-none">
                   <span class="font-bold text-slate-800 uppercase tracking-widest text-[9px]">Diagnoza:</span><br>{{ t.raw_diagnoza || '-' }}
                 </div>
@@ -322,7 +381,7 @@
               </div>
 
               <!-- RAPORT / ROZLICZENIE / WYMAGA UWAGI -->
-              <div v-else-if="col.id === 'audit'" class="h-[130px] overflow-visible flex flex-col justify-between py-0.5 relative">
+              <div v-else-if="col.id === 'audit'" class="h-[148px] overflow-visible flex flex-col justify-between py-0.5 relative">
                 
                 <!-- 1. RAPORT + SKRÓT DO TECZKI -->
                 <div class="flex items-center gap-1 w-full">
@@ -351,7 +410,205 @@
                   </button>
                 </div>
 
-                <!-- 2. ROZLICZENIE -->
+                <!-- 2. OFERTA (ZALEŻNA OD ROLI) -->
+                <div class="relative w-full">
+                  <!-- Gdy oferta jest aktywna (Prośba / W toku / Wysłana / Zaakceptowana / Odrzucona) -->
+                  <button
+                    v-if="getOfferState(t)"
+                    type="button"
+                    @click.stop="openOfferPopover(t)"
+                    class="w-full rounded-xl px-2.5 py-1 text-left border transition-all cursor-pointer flex flex-col"
+                    :class="getOfferBadgeInfo(t).badgeClass"
+                    :title="t.offer_note ? `${getOfferBadgeInfo(t).label} — ${t.offer_note}` : getOfferBadgeInfo(t).label"
+                  >
+                    <div class="flex items-center justify-between gap-1 text-[9px] font-black uppercase tracking-wider w-full">
+                      <span class="flex items-center gap-1.5 truncate">
+                        <span v-if="getOfferState(t) === 'REQUESTED'" class="w-1.5 h-1.5 rounded-full bg-violet-600 animate-ping shrink-0"></span>
+                        <span class="truncate">{{ getOfferBadgeInfo(t).label }}</span>
+                      </span>
+                    </div>
+                  </button>
+
+                  <!-- Gdy BRAK oferty: rola powyżej Technika -> Przygotuj ofertę -->
+                  <button
+                    v-else-if="canPrepareOffer"
+                    type="button"
+                    @click.stop="openOfferPopover(t)"
+                    class="w-full rounded-xl px-2.5 py-1 text-[9px] font-extrabold uppercase tracking-widest border border-dashed border-slate-300 text-slate-400 bg-white/70 hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50/50 transition-colors cursor-pointer text-center truncate"
+                  >
+                    + Przygotuj ofertę
+                  </button>
+
+                  <!-- Gdy BRAK oferty: Technik i niżej -> Poproś o ofertę -->
+                  <button
+                    v-else
+                    type="button"
+                    @click.stop="openOfferPopover(t)"
+                    class="w-full rounded-xl px-2.5 py-1 text-[9px] font-extrabold uppercase tracking-widest border border-dashed border-slate-300 text-slate-500 bg-white/70 hover:border-violet-400 hover:text-violet-700 hover:bg-violet-50/50 transition-colors cursor-pointer text-center truncate"
+                  >
+                    + Poproś o ofertę
+                  </button>
+
+                  <!-- POPOVER OFERTY -->
+                  <div
+                    v-if="activeOfferTicketId === t.id"
+                    @click.stop
+                    class="absolute right-0 top-full mt-1.5 w-68 bg-white border border-slate-200 rounded-2xl shadow-2xl z-[235] p-3.5 flex flex-col gap-2.5 animate-fadeIn text-left"
+                  >
+                    <!-- WIDOK A: KONTA POWYŻEJ TECHNIKA (Przygotowanie / edycja oferty) -->
+                    <template v-if="canPrepareOffer">
+                      <div class="flex items-center justify-between border-b border-slate-100 pb-1.5">
+                        <span class="text-[9px] font-black uppercase tracking-widest text-indigo-700">Oferta handlowa (OES)</span>
+                        <button type="button" @click="activeOfferTicketId = null" class="text-slate-400 hover:text-slate-600 text-xs font-black cursor-pointer">✕</button>
+                      </div>
+
+                      <div v-if="getOfferState(t) === 'REQUESTED' && t.offer_by" class="text-[9px] font-bold text-violet-700 bg-violet-50 border border-violet-200 rounded-lg px-2 py-1">
+                        Prośba od: {{ t.offer_by }}
+                      </div>
+
+                      <div>
+                        <label class="block text-[9px] font-black uppercase tracking-wider text-slate-400 mb-1">Status oferty</label>
+                        <select
+                          v-model="offerForm.status"
+                          class="w-full text-[11px] font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 outline-none focus:border-indigo-500"
+                        >
+                          <option value="REQUESTED">Do wyceny (Prośba)</option>
+                          <option value="IN_PROGRESS">W przygotowaniu</option>
+                          <option value="SENT">Wysłana do klienta</option>
+                          <option value="ACCEPTED">Zaakceptowana</option>
+                          <option value="REJECTED">Odrzucona</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label class="block text-[9px] font-black uppercase tracking-wider text-slate-400 mb-1">Numer oferty</label>
+                        <input
+                          type="text"
+                          v-model="offerForm.number"
+                          placeholder="np. OES/045/2026"
+                          class="w-full text-[11px] font-mono font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 outline-none focus:border-indigo-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label class="block text-[9px] font-black uppercase tracking-wider text-slate-400 mb-1">Zakres / notatka</label>
+                        <textarea
+                          v-model="offerForm.note"
+                          rows="2"
+                          placeholder="Co obejmuje wycena..."
+                          class="w-full text-[11px] font-medium text-slate-700 bg-slate-50 border border-slate-200 rounded-xl p-2 outline-none focus:border-indigo-500 resize-none"
+                        ></textarea>
+                      </div>
+
+                      <button
+                        type="button"
+                        @click="activeOfferTicketId = null; $emit('open-attachments', t)"
+                        class="w-full py-1.5 px-2.5 rounded-xl text-[9px] font-black uppercase tracking-wider bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 transition-colors text-center cursor-pointer"
+                      >
+                        Wgraj plik oferty w Teczce ↗
+                      </button>
+
+                      <div class="flex gap-1.5 pt-0.5">
+                        <button
+                          v-if="getOfferState(t)"
+                          type="button"
+                          @click="clearOfferData(t)"
+                          class="px-2.5 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer"
+                        >
+                          Usuń
+                        </button>
+                        <button
+                          type="button"
+                          @click="activeOfferTicketId = null"
+                          class="px-2.5 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider text-slate-400 hover:text-slate-600 transition-colors ml-auto cursor-pointer"
+                        >
+                          Anuluj
+                        </button>
+                        <button
+                          type="button"
+                          @click="savePreparedOffer(t)"
+                          class="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider text-white bg-indigo-600 hover:bg-indigo-700 transition-colors shadow-sm cursor-pointer"
+                        >
+                          Zapisz
+                        </button>
+                      </div>
+                    </template>
+
+                    <!-- WIDOK B: TECHNIK I NIŻEJ (Prośba o ofertę lub podgląd gotowej oferty) -->
+                    <template v-else>
+                      <div class="flex items-center justify-between border-b border-slate-100 pb-1.5">
+                        <span class="text-[9px] font-black uppercase tracking-widest text-violet-700">
+                          {{ (!getOfferState(t) || getOfferState(t) === 'REQUESTED') ? 'Poproś o ofertę' : 'Szczegóły oferty' }}
+                        </span>
+                        <button type="button" @click="activeOfferTicketId = null" class="text-slate-400 hover:text-slate-600 text-xs font-black cursor-pointer">✕</button>
+                      </div>
+
+                      <!-- Formularz prośby, gdy oferty jeszcze nie wystawiono -->
+                      <template v-if="!getOfferState(t) || getOfferState(t) === 'REQUESTED'">
+                        <div class="flex flex-wrap gap-1">
+                          <button
+                            v-for="tag in quickOfferReasons"
+                            :key="tag"
+                            type="button"
+                            @click="offerForm.note = tag"
+                            class="text-[9px] font-bold px-2 py-0.5 rounded-md bg-slate-100 hover:bg-violet-50 hover:text-violet-700 text-slate-600 transition-colors cursor-pointer"
+                          >
+                            {{ tag }}
+                          </button>
+                        </div>
+
+                        <textarea
+                          v-model="offerForm.note"
+                          rows="3"
+                          placeholder="Opisz zakres do wyceny (części, uszkodzenie mechaniczne itp.)..."
+                          class="w-full text-[11px] font-medium text-slate-700 bg-slate-50 border border-slate-200 rounded-xl p-2 outline-none focus:border-violet-400 resize-none"
+                        ></textarea>
+
+                        <div class="flex gap-1.5 pt-0.5">
+                          <button
+                            v-if="getOfferState(t) === 'REQUESTED'"
+                            type="button"
+                            @click="clearOfferData(t)"
+                            class="px-2.5 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer"
+                          >
+                            Wycofaj
+                          </button>
+                          <button
+                            type="button"
+                            @click="activeOfferTicketId = null"
+                            class="px-2.5 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider text-slate-400 hover:text-slate-600 transition-colors ml-auto cursor-pointer"
+                          >
+                            Anuluj
+                          </button>
+                          <button
+                            type="button"
+                            @click="submitOfferRequest(t)"
+                            class="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider text-white bg-violet-600 hover:bg-violet-700 transition-colors shadow-sm cursor-pointer"
+                          >
+                            Wyślij prośbę
+                          </button>
+                        </div>
+                      </template>
+
+                      <!-- Podgląd dla technika, gdy biuro przygotowało już ofertę -->
+                      <template v-else>
+                        <div class="bg-slate-50 border border-slate-200 rounded-xl p-2.5 flex flex-col gap-1 text-[11px]">
+                          <div class="font-black text-slate-800">{{ getOfferBadgeInfo(t).label }}</div>
+                          <div v-if="t.offer_note" class="text-slate-600 whitespace-pre-wrap">{{ t.offer_note }}</div>
+                        </div>
+                        <button
+                          type="button"
+                          @click="activeOfferTicketId = null; $emit('open-attachments', t)"
+                          class="w-full py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider bg-slate-800 hover:bg-slate-900 text-white transition-colors cursor-pointer"
+                        >
+                          Otwórz Teczkę Sprawy
+                        </button>
+                      </template>
+                    </template>
+                  </div>
+                </div>
+
+                <!-- 3. ROZLICZENIE -->
                 <div
                   class="w-full rounded-xl px-2.5 py-1 text-[9px] font-extrabold uppercase tracking-wider border text-center truncate"
                   :class="getSettlementInfo(t).badgeClass"
@@ -532,7 +789,7 @@ const emit = defineEmits([
   'sort', 'toggle-select-all', 'toggle-select', 'copy', 
   'open-attachments', 'open-diagnose', 'open-analytics', 
   'toggle-drop', 'change-status', 'drag-start', 'drop-col',
-  'update-attention', 'change-tech', 'update-axon-transfer'
+  'update-attention', 'change-tech', 'update-axon-transfer', 'update-offer'
 ])
 
 const store = useTicketsStore()
@@ -547,6 +804,121 @@ const canManageAttention = computed(() => {
   const role = String(authStore.user?.role || '').toUpperCase().trim()
   return ELEVATED_ROLES.includes(role)
 })
+
+// Role powyżej Technika (widzą "Przygotuj ofertę"; Technik i niżej widzą "Poproś o ofertę")
+const OFFER_CREATOR_ROLES = ['ADMIN', 'SUPERADMIN', 'ZARZAD', 'MANAGER', 'KOORDYNATOR', 'DISPATCHER', 'HANDLOWIEC', '*']
+const canPrepareOffer = computed(() => {
+  const role = String(authStore.user?.role || '').toUpperCase().trim()
+  return OFFER_CREATOR_ROLES.includes(role)
+})
+
+const activeOfferTicketId = ref(null)
+const offerForm = ref({ status: 'IN_PROGRESS', number: '', note: '' })
+const quickOfferReasons = ['Uszkodzenie mech.', 'Kabel / wtyczka', 'Pogwarancyjne', 'Modernizacja']
+
+const getOfferState = (t) => {
+  const st = String(t.offer_status || '').toUpperCase().trim()
+  if (['REQUESTED', 'IN_PROGRESS', 'SENT', 'ACCEPTED', 'REJECTED'].includes(st)) return st
+  if (t.offer_number && String(t.offer_number).trim()) return 'SENT'
+  return ''
+}
+
+const getOfferBadgeInfo = (t) => {
+  const st = getOfferState(t)
+  const num = String(t.offer_number || '').trim()
+
+  if (st === 'REQUESTED') {
+    return {
+      label: 'Prośba o ofertę!',
+      badgeClass: 'bg-violet-50 text-violet-800 border-violet-300 hover:bg-violet-100 shadow-sm'
+    }
+  }
+  if (st === 'ACCEPTED') {
+    return {
+      label: num ? `✓ ${num}` : 'Oferta zaakcept.',
+      badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100'
+    }
+  }
+  if (st === 'SENT') {
+    return {
+      label: num ? `Oferta: ${num}` : 'Oferta wysłana',
+      badgeClass: 'bg-indigo-50 text-indigo-700 border-indigo-300 hover:bg-indigo-100'
+    }
+  }
+  if (st === 'REJECTED') {
+    return {
+      label: num ? `✕ ${num}` : 'Oferta odrzucona',
+      badgeClass: 'bg-slate-100 text-slate-500 border-slate-300 hover:bg-slate-200'
+    }
+  }
+  return {
+    label: num ? `Wycena: ${num}` : 'Oferta w toku',
+    badgeClass: 'bg-sky-50 text-sky-700 border-sky-300 hover:bg-sky-100'
+  }
+}
+
+const openOfferPopover = (t) => {
+  activeScheduleTicketId.value = null
+  activeAttentionTicketId.value = null
+  activeTechDropId.value = null
+  emit('toggle-drop', null)
+
+  if (activeOfferTicketId.value === t.id) {
+    activeOfferTicketId.value = null
+    return
+  }
+
+  const curState = getOfferState(t)
+  offerForm.value = {
+    status: curState || (canPrepareOffer.value ? 'IN_PROGRESS' : 'REQUESTED'),
+    number: t.offer_number || '',
+    note: t.offer_note || ''
+  }
+  activeOfferTicketId.value = t.id
+}
+
+const persistOffer = (t, status, number, note) => {
+  t.offer_status = status
+  t.offer_number = number
+  t.offer_note = note
+  if (status === 'REQUESTED' || (!t.offer_by && status)) {
+    t.offer_by = authStore.user?.username || ''
+  }
+  if (!status) t.offer_by = ''
+
+  const payload = {
+    ticketId: t.id || t.ticket_code || t.ticket_number,
+    offer_status: status,
+    offer_number: number,
+    offer_note: note,
+    offer_by: t.offer_by || '',
+    module: store.activeModule
+  }
+
+  if (typeof store.updateTicketOffer === 'function') {
+    store.updateTicketOffer(payload)
+  }
+  emit('update-offer', payload)
+  activeOfferTicketId.value = null
+}
+
+const submitOfferRequest = (t) => {
+  const cleanNote = offerForm.value.note.trim() || 'Prośba o przygotowanie oferty'
+  persistOffer(t, 'REQUESTED', '', cleanNote)
+}
+
+const savePreparedOffer = (t) => {
+  const cleanNum = offerForm.value.number.trim()
+  let nextStatus = offerForm.value.status || 'IN_PROGRESS'
+  if (nextStatus === 'REQUESTED' && cleanNum) {
+    nextStatus = 'IN_PROGRESS'
+  }
+  persistOffer(t, nextStatus, cleanNum, offerForm.value.note.trim())
+}
+
+const clearOfferData = (t) => {
+  persistOffer(t, '', '', '')
+}
 
 const RAPORT_GENERATOR_URL = 'https://script.google.com/a/macros/ekoen.pl/s/AKfycbyutQBrnhgc86izuiNHx1OSJqJMevrPrDd-IVs36IRZ_PsIMnuxggiAcsVvdi09Rv8/exec'
 
@@ -604,6 +976,8 @@ const getAttentionState = (t) => {
 }
 
 const openAttentionPopover = (t) => {
+  activeOfferTicketId.value = null
+  activeTechDropId.value = null
   activeScheduleTicketId.value = null
   if (activeAttentionTicketId.value === t.id) {
     activeAttentionTicketId.value = null
@@ -648,75 +1022,143 @@ const handleUserAttentionAction = (t, newStatus) => {
 }
 
 const activeScheduleTicketId = ref(null)
-const scheduleForm = ref({ date: '', tech: '' })
+const scheduleForm = ref({ date: '', tech: '', mode: 'NEW' })
 
 const availableScheduleTechs = computed(() => {
   return scheduleStore.techList.length > 0 ? scheduleStore.techList : (store.techList || [])
 })
 
-const getTicketScheduleEvent = (t) => {
-  if (!scheduleStore.events || scheduleStore.events.length === 0) return null
-  const ids = [t.id, t.ticket_code, t.ticket_number]
+const parseScheduleTimestamp = (raw) => {
+  if (!raw) return 0
+  const str = String(raw).trim()
+  const direct = new Date(str).getTime()
+  if (!isNaN(direct)) return direct
+
+  const plMatch = str.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})/)
+  if (plMatch) {
+    return new Date(Number(plMatch[3]), Number(plMatch[2]) - 1, Number(plMatch[1])).getTime()
+  }
+  return 0
+}
+
+// Wszystkie wizyty danego zgłoszenia posortowane od najnowszej do najstarszej
+const getTicketScheduleEvents = (t) => {
+  if (!scheduleStore.events || scheduleStore.events.length === 0) return []
+  const ids = [t.id, t.ticket_code, t.ticket_number, t.ekoen_code]
     .filter(Boolean)
     .map(v => String(v).toLowerCase().trim())
 
-  return scheduleStore.events.find(ev => {
-    const evTid = String(ev.ticket_id || '').toLowerCase().trim()
-    return evTid && ids.includes(evTid)
-  }) || null
+  return scheduleStore.events
+    .filter(ev => {
+      const evTid = String(ev.ticket_id || '').toLowerCase().trim()
+      return evTid && ids.includes(evTid)
+    })
+    .sort((a, b) => {
+      const diff = parseScheduleTimestamp(b.start_time) - parseScheduleTimestamp(a.start_time)
+      if (diff !== 0) return diff
+      return parseScheduleTimestamp(b.created_at) - parseScheduleTimestamp(a.created_at)
+    })
+}
+
+// Najnowsza wizyta wyświetlana na głównej pigułce
+const getTicketScheduleEvent = (t) => {
+  const all = getTicketScheduleEvents(t)
+  return all.length > 0 ? all[0] : null
 }
 
 const formatScheduleDate = (startTime) => {
-  if (!startTime) return ''
-  const d = new Date(startTime)
-  if (isNaN(d.getTime())) return String(startTime).split('T')[0]
-  return d.toLocaleDateString('pl-PL', { day: '2-digit', month: '2-digit' })
+  const ts = parseScheduleTimestamp(startTime)
+  if (!ts) return String(startTime || '').split('T')[0]
+  return new Date(ts).toLocaleDateString('pl-PL', { day: '2-digit', month: '2-digit' })
+}
+
+const formatScheduleDateFull = (startTime) => {
+  const ts = parseScheduleTimestamp(startTime)
+  if (!ts) return String(startTime || '').split('T')[0] || '-'
+  return new Date(ts).toLocaleDateString('pl-PL', { day: '2-digit', month: '2-digit', year: 'numeric' })
+}
+
+const getEventTechName = (ev) => {
+  if (ev?.extendedProps?.technicianName && ev.extendedProps.technicianName !== 'BRAK') {
+    return ev.extendedProps.technicianName
+  }
+  return getTechDisplayName(ev?.technician_id) || 'Brak technika'
+}
+
+const toInputDateStr = (rawDate) => {
+  const ts = parseScheduleTimestamp(rawDate)
+  const d = ts ? new Date(ts) : new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+const resolveTechValue = (techRaw) => {
+  if (!techRaw) return ''
+  const matched = availableScheduleTechs.value.find(
+    x => String(x.id || '') === String(techRaw) || String(x.name || x).toLowerCase().trim() === String(techRaw).toLowerCase().trim()
+  )
+  return matched ? (matched.id || matched.name || matched) : techRaw
+}
+
+const switchScheduleMode = (t, mode) => {
+  const latest = getTicketScheduleEvent(t)
+  if (mode === 'EDIT' && latest) {
+    scheduleForm.value = {
+      mode: 'EDIT',
+      date: toInputDateStr(latest.start_time),
+      tech: resolveTechValue(latest.technician_id || t.technician_id || '')
+    }
+  } else {
+    scheduleForm.value = {
+      mode: 'NEW',
+      date: toInputDateStr(new Date()),
+      tech: resolveTechValue(t.technician_id || latest?.technician_id || '')
+    }
+  }
 }
 
 const openQuickSchedule = (t) => {
+  activeOfferTicketId.value = null
+  activeAttentionTicketId.value = null
+  activeTechDropId.value = null
+  emit('toggle-drop', null)
+
   if (activeScheduleTicketId.value === t.id) {
     activeScheduleTicketId.value = null
     return
   }
 
-  const existing = getTicketScheduleEvent(t)
-  let defaultDate = new Date().toISOString().split('T')[0]
-  if (existing && existing.start_time) {
-    const d = new Date(existing.start_time)
-    if (!isNaN(d.getTime())) {
-      defaultDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-    }
+  const latest = getTicketScheduleEvent(t)
+  if (!latest) {
+    switchScheduleMode(t, 'NEW')
+  } else {
+    // Jeśli ostatnia wizyta była w przeszłości -> domyślnie dodajemy kolejną wizytę; jeśli dziś/w przyszłości -> edytujemy obecną
+    const todayStart = new Date()
+    todayStart.setHours(0, 0, 0, 0)
+    const isPastVisit = parseScheduleTimestamp(latest.start_time) < todayStart.getTime()
+    switchScheduleMode(t, isPastVisit ? 'NEW' : 'EDIT')
   }
 
-  const techRaw = existing?.technician_id || t.technician_id || ''
-  const matchedTech = availableScheduleTechs.value.find(
-    x => String(x.id) === String(techRaw) || String(x.name).toLowerCase() === String(techRaw).toLowerCase().trim()
-  )
-
-  scheduleForm.value = {
-    date: defaultDate,
-    tech: matchedTech ? (matchedTech.id || matchedTech.name) : techRaw
-  }
   activeScheduleTicketId.value = t.id
 }
 
 const saveQuickSchedule = (t) => {
   if (!scheduleForm.value.date) return
 
-  const existing = getTicketScheduleEvent(t)
+  const latest = getTicketScheduleEvent(t)
+  const isEdit = scheduleForm.value.mode === 'EDIT' && latest
   const shortQp = getShortQp(t.qp_id || t.station_id)
   const titleParts = [shortQp !== '-' ? shortQp : '', t.city || '', t.title || t.subject || ''].filter(Boolean)
 
   scheduleStore.saveEventToCloud({
-    id: existing ? existing.id : 'temp_' + Date.now(),
+    id: isEdit ? latest.id : 'temp_' + Date.now(),
     ticket_id: String(t.id || t.ticket_code || t.ticket_number || ''),
     technician_id: scheduleForm.value.tech,
-    title: existing?.title || titleParts.join(' • ') || 'Wizyta serwisowa',
-    description: existing?.description || t.description || '',
+    title: isEdit ? latest.title : (titleParts.join(' • ') || 'Wizyta serwisowa'),
+    description: isEdit ? latest.description : (t.description || ''),
     start_time: `${scheduleForm.value.date}T08:00:00`,
     end_time: `${scheduleForm.value.date}T16:00:00`,
-    event_type: existing?.event_type || 'service',
-    event_subtype: existing?.event_subtype || t.category || 'Awaria',
+    event_type: isEdit ? latest.event_type : 'service',
+    event_subtype: isEdit ? latest.event_subtype : (t.category || 'Awaria'),
     all_day: 'NIE'
   })
 
@@ -726,6 +1168,8 @@ const saveQuickSchedule = (t) => {
 const activeTechDropId = ref(null)
 
 const closeLocalPopovers = () => {
+  activeOfferTicketId.value = null
+  activeOfferTicketId.value = null
   activeScheduleTicketId.value = null
   activeAttentionTicketId.value = null
   activeTechDropId.value = null
@@ -817,6 +1261,7 @@ const getTechPillStyle = (techId) => {
 }
 
 const toggleTechDrop = (ticketId) => {
+  activeOfferTicketId.value = null
   activeScheduleTicketId.value = null
   activeAttentionTicketId.value = null
   emit('toggle-drop', null)
