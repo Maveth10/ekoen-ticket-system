@@ -81,14 +81,30 @@
               </div>
               
               <!-- PRZYCISKI AKCJI -->
-              <div class="flex items-center gap-2">
+              <div class="flex items-center gap-2 flex-wrap justify-end">
+                <button
+                  @click.stop="$emit('create-offer', c)"
+                  class="h-8 px-3 flex items-center gap-1.5 bg-[#eaf5e9] border border-[#58b347]/30 rounded-lg text-[10px] font-black uppercase tracking-wider text-[#499b3a] hover:bg-[#58b347] hover:text-white shadow-2xs transition-all cursor-pointer"
+                  title="Utwórz nową ofertę PDF dla tego klienta"
+                >
+                  <span>+ Oferta PDF</span>
+                </button>
+
+                <button
+                  @click.stop="$emit('merge-client', c)"
+                  class="h-8 px-3 flex items-center gap-1.5 bg-amber-50 border border-amber-200 rounded-lg text-[10px] font-black uppercase tracking-wider text-amber-800 hover:bg-amber-500 hover:text-white shadow-2xs transition-all cursor-pointer"
+                  title="Scal duplikat klienta z inną firmą"
+                >
+                  <span>Scal</span>
+                </button>
+
                 <!-- EDYCJA KLIENTA -->
-                <button @click="$emit('edit-client', c)" class="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 rounded-lg text-slate-400 hover:text-blue-500 hover:border-blue-200 shadow-sm transition-all" title="Edytuj">
+                <button @click.stop="$emit('edit-client', c)" class="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 rounded-lg text-slate-400 hover:text-blue-500 hover:border-blue-200 shadow-sm transition-all cursor-pointer" title="Edytuj">
                   <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 </button>
                 
                 <!-- USUWANIE KLIENTA -->
-                <button @click.stop="$emit('delete-client', c)" class="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 rounded-lg text-slate-400 hover:text-red-500 hover:border-red-200 shadow-sm transition-all" title="Usuń">
+                <button @click.stop="$emit('delete-client', c)" class="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 rounded-lg text-slate-400 hover:text-red-500 hover:border-red-200 shadow-sm transition-all cursor-pointer" title="Usuń">
                   <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
                 </button>
               </div>
@@ -115,7 +131,7 @@
                   </tr>
                   <tr v-for="(st, idx) in getFilteredStations(c)" :key="st.id || idx" class="hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-none" :class="idx % 2 === 0 ? 'bg-white' : 'bg-[#fafbfc]'">
                     <td class="py-3.5 px-4 text-[13px] font-bold text-slate-700">
-                      <span @click="$emit('open-analytics', getShortName(st))" class="truncate block w-full cursor-pointer hover:text-[#58b347] transition-colors">{{ getShortName(st) }}</span>
+                      <span @click="$emit('open-analytics', st)" class="truncate block w-full cursor-pointer hover:text-[#58b347] transition-colors" title="Kliknij, aby zobaczyć analitykę stacji">{{ getShortName(st) }}</span>
                     </td>
                     <td class="py-3.5 px-4 text-[13px] font-bold text-slate-600 flex items-center gap-2">
                       <svg class="w-3.5 h-3.5 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg> 
@@ -177,7 +193,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['toggle', 'load-more', 'open-analytics', 'edit-client', 'delete-client', 'send-alert'])
+const emit = defineEmits(['toggle', 'load-more', 'open-analytics', 'edit-client', 'delete-client', 'merge-client', 'create-offer', 'send-alert'])
 
 const { checkClientSearch } = useSearchFilters()
 

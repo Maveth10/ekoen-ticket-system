@@ -58,9 +58,11 @@
         :searchQueries="store.searchQueriesMain"
         @toggle="toggleAccordion"
         @load-more="currentPage++"
-        @open-analytics="openAnalytics"
+        @open-analytics="openStationAnalyticsModal"
         @edit-client="openEditClientModal"
-        @delete-client="confirmDeleteClient" 
+        @delete-client="confirmDeleteClient"
+        @merge-client="openMergeClientModal"
+        @create-offer="handleCreateOfferForClient"
       />
 
     </div>
@@ -89,6 +91,139 @@
       @confirm="executeConfirm"
     />
 
+    <!-- MODAL SCALANIA DUPLIKATÓW KLIENTÓW -->
+    <Teleport to="body">
+      <div
+        v-if="showMergeModal"
+        @click.self="showMergeModal = false"
+        class="fixed inset-0 z-[2130] bg-slate-900/55 backdrop-blur-xs flex items-center justify-center p-4"
+      >
+        <div class="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden">
+          <div class="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
+            <h3 class="text-xs font-black uppercase tracking-widest">Scalanie duplikatu klienta</h3>
+            <button type="button" @click="showMergeModal = false" class="text-slate-400 hover:text-white cursor-pointer">✕</button>
+          </div>
+
+          <div class="p-6 space-y-4">
+            <div class="p-3.5 rounded-2xl bg-rose-50/70 border border-rose-200 text-xs">
+              <div class="text-[10px] font-black uppercase tracking-wider text-rose-600 mb-0.5">
+                Scalany duplikat (zostanie usunięty po przepisaniu danych):
+              </div>
+              <div class="font-black text-sm text-slate-800">{{ mergeSourceClient?.name || '-' }}</div>
+              <div class="text-[11px] font-semibold text-slate-500 mt-0.5">
+                Przypisane stacje: <span class="font-black text-slate-700">{{ getClientStations(mergeSourceClient || {}, store.stations).length }}</span>
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1.5">
+                Wybierz docelową, poprawną firmę *
+              </label>
+              <input
+                v-model="mergeSearchFilter"
+                type="text"
+                placeholder="Filtruj listę klientów..."
+                class="w-full h-9 px-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-xs font-bold text-slate-800 mb-2 focus:outline-none focus:border-[#58b347]"
+              />
+              <select
+                v-model="mergeTargetClientId"
+                class="w-full h-10 px-3 rounded-xl border border-slate-300 bg-white text-xs font-extrabold text-slate-800 focus:outline-none focus:border-[#58b347]"
+              >
+                <option value="">-- Wybierz firmę docelową --</option>
+                <option v-for="cand in mergeTargetCandidates" :key="cand.id" :value="cand.id">
+                  {{ cand.name }}{{ cand.nip ? ` (NIP: ${cand.nip})` : '' }}
+                </option>
+              </select>
+            </div>
+
+            <div class="p-3 rounded-xl bg-amber-50 border border-amber-200 text-[11px] font-semibold text-amber-900 leading-relaxed">
+              Wszystkie oferty, zgłoszenia i stacje przypisane do <strong>{{ mergeSourceClient?.name }}</strong> zostaną przepisane na wybraną firmę docelową.
+            </div>
+          </div>
+
+          <div class="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-2.5">
+            <button type="button" @click="showMergeModal = false" class="px-4 py-2 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-600 cursor-pointer">
+              Anuluj
+            </button>
+            <button
+              type="button"
+              :disabled="!mergeTargetClientId || isMergingClient"
+              @click="confirmMergeClient"
+              class="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-black uppercase tracking-wider cursor-pointer disabled:opacity-50"
+            >
+              {{ isMergingClient ? 'Scalanie...' : 'Scal klientów' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- MODAL ANALITYKI WYBRANEJ STACJI -->
+    <Teleport to="body">
+      <div
+        v-if="analyticsStation"
+        @click.self="analyticsStation = null"
+        class="fixed inset-0 z-[2130] bg-slate-900/55 backdrop-blur-xs flex items-center justify-center p-4"
+      >
+        <div class="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden flex flex-col max-h-[85vh]">
+          <div class="px-6 py-4 bg-slate-900 text-white flex items-center justify-between gap-3">
+            <div>
+              <h3 class="text-xs font-black uppercase tracking-widest">
+                Analityka stacji: <span class="text-[#7ce368] font-mono">{{ analyticsStation.public_id || analyticsStation.name || analyticsStation.id }}</span>
+              </h3>
+              <div class="text-[11px] text-slate-400 font-semibold mt-0.5">
+                {{ analyticsStation.city || '-' }}{{ analyticsStation.street_number || analyticsStation.street ? `, ${analyticsStation.street_number || analyticsStation.street}` : '' }}
+              </div>
+            </div>
+            <button type="button" @click="analyticsStation = null" class="text-slate-400 hover:text-white cursor-pointer">✕</button>
+          </div>
+
+          <div class="p-6 overflow-y-auto client-custom-scrollbar space-y-4 text-xs">
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div class="p-3 rounded-2xl bg-slate-50 border border-slate-200">
+                <div class="text-[9.5px] font-black uppercase text-slate-400">Status stacji</div>
+                <div class="font-black text-slate-800 mt-1">{{ analyticsStation.status || 'Aktywna' }}</div>
+              </div>
+              <div class="p-3 rounded-2xl bg-slate-50 border border-slate-200">
+                <div class="text-[9.5px] font-black uppercase text-slate-400">Technik rejonu</div>
+                <div class="font-bold text-slate-700 mt-1 truncate">{{ analyticsStation.technician_id || analyticsStation.tech || 'Nieprzypisany' }}</div>
+              </div>
+              <div class="p-3 rounded-2xl bg-slate-50 border border-slate-200">
+                <div class="text-[9.5px] font-black uppercase text-slate-400">Aktywne zgłoszenie</div>
+                <div class="font-mono font-black text-rose-600 mt-1">{{ analyticsStation.active_ticket_id || 'Brak' }}</div>
+              </div>
+              <div class="p-3 rounded-2xl bg-slate-50 border border-slate-200">
+                <div class="text-[9.5px] font-black uppercase text-slate-400">Status zgłoszenia</div>
+                <div class="font-bold text-slate-700 mt-1">{{ analyticsStation.ticket_status || '-' }}</div>
+              </div>
+            </div>
+
+            <div class="p-3.5 rounded-2xl border border-slate-200 bg-white space-y-1.5">
+              <div class="text-[10px] font-black uppercase tracking-widest text-slate-400">Dane techniczne i logistyczne</div>
+              <div v-if="analyticsStation.model || analyticsStation.station_model || analyticsStation.product">
+                <span class="text-slate-400 font-bold">Model:</span>
+                <span class="font-bold text-slate-800 ml-1">{{ analyticsStation.model || analyticsStation.station_model || analyticsStation.product }}</span>
+              </div>
+              <div v-if="analyticsStation.logistics_info">
+                <span class="text-slate-400 font-bold">Logistyka / Dojazd:</span>
+                <span class="font-semibold text-slate-700 ml-1">{{ analyticsStation.logistics_info }}</span>
+              </div>
+              <div v-if="analyticsStation.gps_lat && analyticsStation.gps_lng">
+                <span class="text-slate-400 font-bold">Współrzędne GPS:</span>
+                <span class="font-mono font-bold text-slate-700 ml-1">{{ analyticsStation.gps_lat }}, {{ analyticsStation.gps_lng }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="px-6 py-3.5 bg-slate-50 border-t border-slate-100 flex justify-end">
+            <button type="button" @click="analyticsStation = null" class="px-5 py-2 rounded-xl bg-slate-900 text-white text-xs font-black uppercase tracking-wider cursor-pointer">
+              Zamknij
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
   </div>
 </template>
 
@@ -108,11 +243,13 @@ import ClientFormModal from '../../modals/ClientFormModal.vue'
 
 // 3. IMPORTY LOGIKI BIZNESOWEJ
 import { useClientsStore } from '../../stores/useClientsStore'
+import { useOffersStore } from '../../stores/useOffersStore'
 import { useSearchFilters } from '../../composables/useSearchFilters'
 import { useSmartKpiFilters } from '../../composables/useSmartKpiFilters'
 
 // Inicjalizacja stanu i logiki
 const store = useClientsStore()
+const offersStore = useOffersStore()
 const { checkClientSearch } = useSearchFilters()
 
 // Stany widoku (UI States)
@@ -387,7 +524,77 @@ const handleReorderTabs = ({ sourceId, targetId }) => {
   saveUserConfig()
 }
 
-const openAnalytics = (qp) => alert('Analityka dla: ' + qp)
+const analyticsStation = ref(null)
+
+const openStationAnalyticsModal = (stOrName) => {
+  if (stOrName && typeof stOrName === 'object') {
+    analyticsStation.value = stOrName
+    return
+  }
+  const q = String(stOrName || '').trim().toLowerCase()
+  const found = (store.stations || []).find(s =>
+    String(s.public_id || s.name || s.id || '').toLowerCase().includes(q)
+  )
+  analyticsStation.value = found || { public_id: String(stOrName || 'Stacja'), status: 'Aktywna' }
+}
+
+const handleCreateOfferForClient = (client) => {
+  if (!client) return
+  offersStore.openNewOfferFromTicket({
+    clientName: client.name || '',
+    clientNip: client.nip || '',
+    clientAddress: client.address || '',
+    clientContact: [client.contact_person, client.email, client.phone].filter(Boolean).join(' • ')
+  })
+  const offersNavBtn = document.querySelector('[data-nav="offers"], a[href*="offers"], button[data-module="offers"]')
+  if (offersNavBtn) offersNavBtn.click()
+  else window.location.hash = '#/offers'
+}
+
+const showMergeModal = ref(false)
+const mergeSourceClient = ref(null)
+const mergeSearchFilter = ref('')
+const mergeTargetClientId = ref('')
+const isMergingClient = ref(false)
+
+const openMergeClientModal = (client) => {
+  mergeSourceClient.value = client
+  mergeSearchFilter.value = ''
+  mergeTargetClientId.value = ''
+  showMergeModal.value = true
+}
+
+const mergeTargetCandidates = computed(() => {
+  const srcId = String(mergeSourceClient.value?.id || '')
+  const srcNameLow = String(mergeSourceClient.value?.name || '').trim().toLowerCase()
+  const q = mergeSearchFilter.value.toLowerCase().trim()
+
+  return (store.clients || []).filter(c => {
+    const isSame = String(c.id || '') === srcId || String(c.name || '').trim().toLowerCase() === srcNameLow
+    if (isSame) return false
+    if (!q) return true
+    return `${c.name || ''} ${c.nip || ''} ${c.address || ''}`.toLowerCase().includes(q)
+  })
+})
+
+const confirmMergeClient = async () => {
+  if (!mergeSourceClient.value || !mergeTargetClientId.value) return
+  const target = (store.clients || []).find(c => String(c.id) === String(mergeTargetClientId.value))
+  if (!target) return
+
+  isMergingClient.value = true
+  try {
+    const res = await store.mergeClients(mergeSourceClient.value, target)
+    if (res && res.success) {
+      showMergeModal.value = false
+      mergeSourceClient.value = null
+    } else {
+      alert(res?.error || 'Nie udało się scalić klientów.')
+    }
+  } finally {
+    isMergingClient.value = false
+  }
+}
 
 onMounted(() => {
   store.fetchClientsData()

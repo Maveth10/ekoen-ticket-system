@@ -33,7 +33,39 @@
             </h3>
             <p class="text-[11px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">{{ currentTicketDisplayId }}</p>
           </div>
-          <div class="flex items-center gap-4">
+          <div class="flex items-center gap-3 flex-wrap">
+            <!-- Skrót do wygenerowanego Raportu PDF -->
+            <a
+              v-if="activeReportUrl"
+              :href="activeReportUrl"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 shadow-sm transition-colors"
+              title="Otwórz wygenerowany raport serwisowy PDF w nowej karcie"
+            >
+              <span>Raport PDF ↗</span>
+            </a>
+
+            <!-- Przełącznik trybu rozliczenia: EEP (EUR) vs EKOEN (PLN) -->
+            <div class="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
+              <button
+                type="button"
+                @click="settlementMode = 'EEP'"
+                class="px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer"
+                :class="settlementMode === 'EEP' ? 'bg-[#58b347] text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'"
+              >
+                EEP (EUR)
+              </button>
+              <button
+                type="button"
+                @click="settlementMode = 'EKOEN'"
+                class="px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer"
+                :class="settlementMode === 'EKOEN' ? 'bg-sky-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'"
+              >
+                EKOEN (PLN)
+              </button>
+            </div>
+
             <div class="bg-[#eaf5e9] text-[#499b3a] border border-[#58b347]/30 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 shadow-sm">
               <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10h12"/><path d="M4 14h9"/><path d="M19 6a7.7 7.7 0 0 0-5.2-2A7.9 7.9 0 0 0 6 12c0 4.4 3.5 8 7.8 8 2 0 3.8-.8 5.2-2"/></svg>
               1 EUR = <span>{{ (Number(nbpRate) || 4.30).toFixed(4) }}</span> PLN
@@ -88,7 +120,7 @@
                   <input type="text" v-model="activeVisit.client" placeholder="Wpisz na kogo wystawić rozliczenie..." class="w-full bg-[#eaf5e9] border border-[#58b347]/30 rounded-xl px-3 py-2 text-xs font-bold text-[#499b3a] focus:outline-none focus:ring-2 focus:ring-[#58b347]/30 transition-colors" />
                 </div>
 
-                <div>
+                <div v-if="settlementMode === 'EEP'">
                   <label class="block text-[10px] font-black uppercase tracking-widest text-blue-600 mb-1.5">Region (Wpływa na stawki)</label>
                   <select v-model.number="activeVisit.region" @change="recalculateRegionRates" class="w-full bg-blue-50 border border-blue-200 rounded-xl px-3 py-2 text-xs font-bold text-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition-colors cursor-pointer appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20width%3D%2220%22%20height%3D%2220%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cpath%20d%3D%22M5%208l5%205%205-5%22%20stroke%3D%22%232563eb%22%20stroke-width%3D%222%22%20fill%3D%22none%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[position:right_12px_center] pr-10">
                     <option value="1">Region 1 (m.in. AT, DE, FR, NL)</option>
@@ -96,6 +128,15 @@
                     <option value="3">Region 3 (m.in. CH, LU)</option>
                     <option value="4">Region 4 (m.in. DK, FI, SE, NO)</option>
                   </select>
+                </div>
+                <div v-else>
+                  <label class="block text-[10px] font-black uppercase tracking-widest text-sky-700 mb-1.5">Numer oferty OES / Zlecenia EKOEN</label>
+                  <input
+                    type="text"
+                    v-model="activeVisit.offer_number"
+                    placeholder="np. OES/045/2026 lub EE_014"
+                    class="w-full bg-sky-50 border border-sky-200 rounded-xl px-3 py-2 text-xs font-black font-mono text-sky-900 focus:outline-none focus:border-sky-500 transition-colors"
+                  />
                 </div>
 
                 <div>
@@ -148,7 +189,7 @@
 
             <!-- PRAWA KOLUMNA: Kalkulator Kosztów -->
             <div class="lg:col-span-8 flex flex-col gap-5">
-              
+              <template v-if="settlementMode === 'EEP'">
               <!-- System Usług z Wyszukiwarką i Wielo-Cennikami -->
               <div class="bg-white border border-slate-200/80 rounded-2xl shadow-sm flex flex-col overflow-hidden">
                 <div class="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex flex-col gap-3">
@@ -273,6 +314,116 @@
                 </div>
 
               </div>
+
+              <!-- Dodatkowy koszt własny zlecenia EEP (materiały / podwykonawca) -->
+              <div class="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-sm flex items-center justify-between gap-4">
+                <div>
+                  <h4 class="text-[10px] font-black uppercase tracking-widest text-rose-600">Dodatkowy koszt własny zlecenia (EUR)</h4>
+                  <p class="text-[10px] font-semibold text-slate-400 mt-0.5">Koszt materiałów lub zakupu zewnętrznego na tej wizycie (ewidencja kosztów).</p>
+                </div>
+                <input
+                  type="number"
+                  v-model.number="activeVisit.order_cost_eur"
+                  min="0"
+                  step="0.01"
+                  placeholder="0.00"
+                  class="w-36 bg-rose-50/40 border border-rose-200 rounded-xl px-3 py-2 text-sm font-black font-mono text-right text-rose-700 focus:outline-none focus:border-rose-400"
+                />
+              </div>
+              </template>
+
+              <!-- KALKULATOR ROZLICZENIA WŁASNEGO EKOEN (PLN) -->
+              <div v-else class="flex flex-col gap-5">
+                <div class="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm space-y-5">
+                  <div class="border-b border-slate-100 pb-3 flex items-center justify-between">
+                    <div>
+                      <h4 class="text-xs font-black uppercase tracking-widest text-sky-700">Rozliczenie Komercyjne / Wewnętrzne EKOEN (PLN)</h4>
+                      <p class="text-[10.5px] font-semibold text-slate-400 mt-0.5">Dane finansowe i logistyczne wizyty pod zestawienia dla księgowości.</p>
+                    </div>
+                    <span class="px-3 py-1 rounded-lg bg-sky-50 text-sky-700 border border-sky-200 text-[10px] font-black uppercase">
+                      Wizyta {{ activeVisit.label }}
+                    </span>
+                  </div>
+
+                  <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                      <label class="block text-[10px] font-black uppercase tracking-widest text-emerald-700 mb-1.5">Kwota do FV netto (PLN)</label>
+                      <input
+                        type="number"
+                        v-model.number="activeVisit.total_pln"
+                        step="0.01"
+                        placeholder="0.00"
+                        class="w-full bg-emerald-50/40 border border-emerald-200 rounded-xl px-3.5 py-2.5 text-sm font-black font-mono text-emerald-800 focus:outline-none focus:border-emerald-500"
+                      />
+                    </div>
+                    <div>
+                      <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1.5">Zlecenie wew. bez FV (PLN)</label>
+                      <input
+                        type="number"
+                        v-model.number="activeVisit.internal_cost_pln"
+                        step="0.01"
+                        placeholder="0.00"
+                        class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-black font-mono text-slate-800 focus:outline-none focus:border-sky-500"
+                      />
+                    </div>
+                    <div>
+                      <label class="block text-[10px] font-black uppercase tracking-widest text-rose-600 mb-1.5">Koszt roboczy zlecenia (PLN)</label>
+                      <input
+                        type="number"
+                        v-model.number="activeVisit.labor_cost_pln"
+                        step="0.01"
+                        placeholder="0.00"
+                        class="w-full bg-rose-50/30 border border-rose-200 rounded-xl px-3.5 py-2.5 text-sm font-black font-mono text-rose-700 focus:outline-none focus:border-rose-400"
+                      />
+                    </div>
+                  </div>
+
+                  <div class="grid grid-cols-1 sm:grid-cols-12 gap-4 pt-2 border-t border-slate-100">
+                    <div class="sm:col-span-3">
+                      <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1.5">Wystawiono fakturę</label>
+                      <select
+                        v-model="activeVisit.invoice_issued"
+                        class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-black text-slate-800 focus:outline-none focus:border-sky-500"
+                      >
+                        <option value="NIE">NIE</option>
+                        <option value="TAK">TAK</option>
+                      </select>
+                    </div>
+
+                    <div class="sm:col-span-5">
+                      <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1.5">Trasa przejazdu</label>
+                      <input
+                        type="text"
+                        v-model="activeVisit.route"
+                        placeholder="np. Zielona Góra - Wrocław - ZG"
+                        class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:border-sky-500"
+                      />
+                    </div>
+
+                    <div class="sm:col-span-2">
+                      <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1.5">Liczba km</label>
+                      <input
+                        type="number"
+                        v-model.number="activeVisit.km"
+                        min="0"
+                        placeholder="0"
+                        class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-black font-mono text-center text-slate-800 focus:outline-none focus:border-sky-500"
+                      />
+                    </div>
+
+                    <div class="sm:col-span-2">
+                      <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1.5">Nocleg</label>
+                      <select
+                        v-model="activeVisit.lodging"
+                        class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-black text-slate-800 focus:outline-none focus:border-sky-500"
+                      >
+                        <option value="NIE">NIE</option>
+                        <option value="TAK">TAK</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
 
           </div>
@@ -280,8 +431,7 @@
         
         <!-- Stopka Podsumowująca -->
         <div class="p-6 border-t border-slate-200 bg-white shrink-0 flex items-center justify-between rounded-b-[24px]">
-          <div class="flex items-center gap-8">
-            
+          <div v-if="settlementMode === 'EEP'" class="flex items-center gap-8">
             <div class="flex flex-col border-r border-slate-200 pr-8">
               <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Suma za tę wizytę</span>
               <div class="flex items-end gap-2">
@@ -290,13 +440,31 @@
             </div>
 
             <div class="flex flex-col">
-              <span class="text-[10px] font-black text-[#58b347] uppercase tracking-widest">ŁĄCZNIE (Wszystkie wizyty)</span>
+              <span class="text-[10px] font-black text-[#58b347] uppercase tracking-widest">ŁĄCZNIE EEP (Wszystkie wizyty)</span>
               <div class="flex items-end gap-3">
                 <span class="text-3xl font-black text-[#58b347] tracking-tight">€ {{ (Number(globalTotalEur) || 0).toFixed(2) }}</span>
                 <span class="text-sm font-bold text-slate-400 mb-1.5 tracking-wide">(~ {{ ((Number(globalTotalEur) || 0) * (Number(nbpRate) || 4.3)).toFixed(2) }} PLN)</span>
               </div>
             </div>
-            
+          </div>
+
+          <div v-else class="flex items-center gap-8">
+            <div class="flex flex-col border-r border-slate-200 pr-8">
+              <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Wizyta {{ activeVisit.label }} (Netto FV)</span>
+              <div class="flex items-end gap-2">
+                <span class="text-xl font-black text-slate-700 tracking-tight">{{ (Number(activeVisit.total_pln) || 0).toFixed(2) }} PLN</span>
+              </div>
+            </div>
+
+            <div class="flex flex-col">
+              <span class="text-[10px] font-black text-sky-700 uppercase tracking-widest">ŁĄCZNIE EKOEN DO FV (Wszystkie wizyty)</span>
+              <div class="flex items-end gap-3">
+                <span class="text-3xl font-black text-sky-700 tracking-tight">{{ (Number(globalTotalPln) || 0).toFixed(2) }} PLN</span>
+                <span v-if="globalInternalPln > 0" class="text-xs font-extrabold text-slate-500 mb-1.5">
+                  (+ wew. bez FV: {{ globalInternalPln.toFixed(2) }} PLN)
+                </span>
+              </div>
+            </div>
           </div>
           <div class="flex gap-3">
             <button v-if="canDelete" @click="confirmDeleteSettlement" class="bg-red-50 text-red-600 border border-red-200 font-extrabold py-3.5 px-6 rounded-xl text-xs uppercase tracking-widest hover:bg-red-500 hover:text-white transition-colors shadow-sm flex items-center gap-2">
@@ -335,6 +503,8 @@ const ROMAN_NUMERALS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 
 const nbpRate = computed(() => Number(store.nbpRate) || 4.30)
 const isSaving = ref(false)
 const currentTicket = ref(null)
+const settlementMode = ref('EEP') // 'EEP' | 'EKOEN'
+const parsedSavedRoot = ref(null)
 
 const visits = ref([])
 const activeVisitId = ref(null)
@@ -367,12 +537,25 @@ const handleKeydown = (e) => {
 onMounted(() => { window.addEventListener('keydown', handleKeydown) })
 onUnmounted(() => { window.removeEventListener('keydown', handleKeydown) })
 
+const ensureVisitExtendedFields = (v, fallbackOfferNum = '') => ({
+  order_cost_eur: 0,
+  offer_number: fallbackOfferNum,
+  total_pln: 0,
+  internal_cost_pln: 0,
+  labor_cost_pln: 0,
+  invoice_issued: 'NIE',
+  route: '',
+  km: 0,
+  lodging: 'NIE',
+  report_url: '',
+  ...v
+})
+
 const initData = () => {
   const reqId = String(props.ticketId || '').toLowerCase().trim()
 
-  // Szukamy w bilingach (Obiekt będzie tam z wstrzyknięcia PRE-SEEDING w TicketsView)
-  let t = store.billings.find(x => 
-    String(x.id).toLowerCase().trim() === reqId || 
+  let t = store.billings.find(x =>
+    String(x.id).toLowerCase().trim() === reqId ||
     String(x.ticket_id || '').toLowerCase().trim() === reqId ||
     String(x.ticket_code || '').toLowerCase().trim() === reqId
   )
@@ -390,21 +573,32 @@ const initData = () => {
     currentTicket.value = { id: props.ticketId, ticket_id: props.ticketId, ticket_code: props.ticketId, qp: 'QP-00000', client: 'Nieznany', product: '-' }
   }
 
-  // Odczyt lub generowanie wizyt (Używa surowych danych diagnozy przeniesionych z Centrum Zgłoszeń)
   let sd = currentTicket.value.saved_data
   if (typeof sd === 'string') {
-    try { sd = JSON.parse(sd) } catch(e) {}
+    try { sd = JSON.parse(sd) } catch (e) { sd = null }
+  }
+  parsedSavedRoot.value = sd || null
+
+  const dispCodeUp = String(currentTicket.value.ticket_code || currentTicket.value.ticket_id || currentTicket.value.id || '').toUpperCase()
+  if (sd?.settlement_mode) {
+    settlementMode.value = String(sd.settlement_mode).toUpperCase() === 'EKOEN' ? 'EKOEN' : 'EEP'
+  } else if (dispCodeUp.startsWith('EE_') || dispCodeUp.startsWith('OES/')) {
+    settlementMode.value = 'EKOEN'
+  } else {
+    settlementMode.value = 'EEP'
   }
 
+  const defaultOfferRef = sd?.offer_number || (settlementMode.value === 'EKOEN' ? dispCodeUp : '')
+
   if (sd && sd.visits_array && sd.visits_array.length > 0) {
-    visits.value = JSON.parse(JSON.stringify(sd.visits_array))
+    visits.value = JSON.parse(JSON.stringify(sd.visits_array)).map(v => ensureVisitExtendedFields(v, defaultOfferRef))
   } else {
     let diagnoza = currentTicket.value.raw_diagnoza || sd?.raw_diagnoza || ''
     let notatki = currentTicket.value.notes || sd?.notes || ''
-    visits.value = parseVisitsFromText(diagnoza, notatki)
-    visits.value.forEach(v => {
+    visits.value = parseVisitsFromText(diagnoza, notatki).map(v => {
       v.client = currentTicket.value.client || ''
       v.tech = currentTicket.value.technician || currentTicket.value.technician_id || ''
+      return ensureVisitExtendedFields(v, defaultOfferRef)
     })
   }
 
@@ -413,7 +607,6 @@ const initData = () => {
     expandedPricelist.value = visits.value[visits.value.length - 1].pricelists?.[0] || ''
   }
 
-  // Wymuszenie wczytania cenników w tle DOPIERO GDY MAMY ZGŁOSZENIE (Rozwiązuje konflikt kasowania bazy billings)
   if (!store.pricelists || Object.keys(store.pricelists).length === 0) {
     store.fetchBillingsData()
   }
@@ -429,6 +622,14 @@ const activeVisit = computed({
   }
 })
 
+const activeReportUrl = computed(() => {
+  return activeVisit.value?.report_url ||
+         parsedSavedRoot.value?.report_url ||
+         currentTicket.value?.report_url ||
+         currentTicket.value?.raport_url ||
+         ''
+})
+
 const switchVisit = (id) => {
   activeVisitId.value = id
   expandedPricelist.value = activeVisit.value.pricelists?.[0] || ''
@@ -438,14 +639,29 @@ const addVisit = () => {
   let nextIdx = visits.value.length
   let label = ROMAN_NUMERALS[nextIdx] || (nextIdx + 1).toString()
   let v1 = visits.value[0] || {}
-  
-  let newVisit = { 
-    id: Date.now(), label: label, 
-    client: v1.client || '', tech: v1.tech || '', date: '', type: 'Planowane',
-    status_fixed: 'TAK', status_revisit: false, notes: '',
-    region: v1.region || 2, travel_type: 'ryczalt', travel_flat: 120, travel_km: 0, travel_rate: 0.60,
-    rbg_qty: 0, rbg_rate: 60, checkboxes: [], pricelists: [], selected_services: []
-  }
+
+  let newVisit = ensureVisitExtendedFields({
+    id: Date.now(),
+    label: label,
+    client: v1.client || '',
+    tech: v1.tech || '',
+    date: '',
+    type: 'Planowane',
+    status_fixed: 'TAK',
+    status_revisit: false,
+    notes: '',
+    region: v1.region || 2,
+    travel_type: 'ryczalt',
+    travel_flat: 120,
+    travel_km: 0,
+    travel_rate: 0.60,
+    rbg_qty: 0,
+    rbg_rate: 60,
+    checkboxes: [],
+    pricelists: [],
+    selected_services: []
+  }, v1.offer_number || '')
+
   visits.value.push(newVisit)
   activeVisitId.value = newVisit.id
 }
@@ -632,16 +848,16 @@ const currentVisitTotalEur = computed(() => {
   let eur = 0
   const v = activeVisit.value
   if (!v) return 0
-  
+
   ;(v.selected_services || []).forEach(svc => { eur += (Number(svc.price) || 0) })
   eur += ((Number(v.rbg_qty) || 0) * (Number(v.rbg_rate) || 0))
-  
+
   if (v.travel_type === 'ryczalt') {
     eur += (Number(v.travel_flat) || 0)
   } else {
     eur += ((Number(v.travel_km) || 0) * (Number(v.travel_rate) || 0))
   }
-  
+
   return Number(eur) || 0
 })
 
@@ -650,19 +866,21 @@ const globalTotalEur = computed(() => {
   visits.value.forEach(v => {
     let vEur = 0
     ;(v.selected_services || []).forEach(svc => { vEur += (Number(svc.price) || 0) })
-    
     vEur += ((Number(v.rbg_qty) || 0) * (Number(v.rbg_rate) || 0))
-    
-    if (v.travel_type === 'ryczalt') {
-      vEur += (Number(v.travel_flat) || 0)
-    } else {
-      vEur += ((Number(v.travel_km) || 0) * (Number(v.travel_rate) || 0))
-    }
-    
+    if (v.travel_type === 'ryczalt') vEur += (Number(v.travel_flat) || 0)
+    else vEur += ((Number(v.travel_km) || 0) * (Number(v.travel_rate) || 0))
     total += vEur
   })
   return Number(total) || 0
 })
+
+const globalTotalPln = computed(() =>
+  visits.value.reduce((acc, v) => acc + (Number(v.total_pln) || 0), 0)
+)
+
+const globalInternalPln = computed(() =>
+  visits.value.reduce((acc, v) => acc + (Number(v.internal_cost_pln) || 0), 0)
+)
 
 // --- AKCJE ZAPISU ---
 const bState = computed(() => currentTicket.value?.billing_state || 'NEW')
@@ -680,82 +898,119 @@ const canDelete = computed(() => bState.value === 'PRE_SETTLED' || bState.value 
 
 const saveSettlement = () => {
   isSaving.value = true
-  
+  const mode = settlementMode.value
+
   let combinedItemsParts = []
   let combinedNotesArr = []
   let globalRbh = 0
   let globalTravelEur = 0
-  
-  let mainClient = visits.value[0].client
-  let mainTech = visits.value[0].tech
-  let mainDate = visits.value[0].date
-  let mainType = visits.value[0].type
-  let mainFixed = visits.value[0].status_fixed
-  let mainRevisit = visits.value[visits.value.length - 1].status_revisit ? 'TAK' : 'NIE'
+  let globalOrderCostEur = 0
+  let sumLaborPln = 0
+  let sumKm = 0
+
+  const lastVisit = visits.value[visits.value.length - 1] || visits.value[0] || {}
+  const mainClient = visits.value[0]?.client || ''
+  const mainTech = lastVisit.tech || visits.value[0]?.tech || ''
+  const mainDate = lastVisit.date || visits.value[0]?.date || ''
+  const mainType = lastVisit.type || 'Planowane'
+  const mainFixed = lastVisit.status_fixed || 'TAK'
+  const mainRevisit = lastVisit.status_revisit ? 'TAK' : 'NIE'
 
   visits.value.forEach(v => {
-    let visitEur = 0
-    let vItemsStr = ''
-    let plGroups = {}
-    
-    ;(v.selected_services || []).forEach(svc => {
-      let pl = svc.plname || 'Inne'
-      let lp = svc.lp
-      let itemName = svc.name || 'Usługa'
-      let price = Number(svc.price) || 0
-      
-      visitEur += price
-      if (!plGroups[pl]) plGroups[pl] = []
-      if (lp && lp.trim() !== '') plGroups[pl].push(lp)
-      else plGroups[pl].push(itemName)
-    })
+    v.settlement_mode = mode
 
-    let stringParts = []
-    for (let pl in plGroups) {
-      let shortName = pl.replace('Axon Easy', 'AXE').replace('Axon', 'AX')
-      if (plGroups[pl].length > 0) stringParts.push(`${shortName}: ${plGroups[pl].join(', ')}`)
-      else stringParts.push(`${shortName}`)
-    }
-    vItemsStr = stringParts.join('; ')
-
-    let vRbhQty = Number(v.rbg_qty) || 0
-    let vRbhRate = Number(v.rbg_rate) || 0
-    visitEur += (vRbhQty * vRbhRate)
-    globalRbh += vRbhQty
-    if (vRbhQty > 0) vItemsStr += (vItemsStr ? ' + ' : '') + vRbhQty + ' rbh'
-
-    if (v.travel_type === 'ryczalt') {
-      let f = Number(v.travel_flat) || 0
-      visitEur += f; globalTravelEur += f
+    if (mode === 'EKOEN') {
+      const vPln = Number(v.total_pln) || 0
+      const vInt = Number(v.internal_cost_pln) || 0
+      sumLaborPln += (Number(v.labor_cost_pln) || 0)
+      sumKm += (Number(v.km) || 0)
+      combinedItemsParts.push(
+        `--- WIZYTA ${v.label} (EKOEN PLN) ---\nOferta: ${v.offer_number || '-'} | Netto FV: ${vPln.toFixed(2)} PLN` +
+        (vInt > 0 ? ` | Wew. bez FV: ${vInt.toFixed(2)} PLN` : '') +
+        (v.route ? ` | Trasa: ${v.route}` : '')
+      )
     } else {
-      let d = (Number(v.travel_km)||0) * (Number(v.travel_rate)||0)
-      visitEur += d; globalTravelEur += d
-    }
+      let visitEur = 0
+      let plGroups = {}
 
-    if (vItemsStr && vItemsStr.trim() !== '') combinedItemsParts.push(`--- WIZYTA ${v.label} ---\n${vItemsStr}`)
-    else if (visitEur > 0) combinedItemsParts.push(`--- WIZYTA ${v.label} ---\nRozliczenie dojazdu / Praca serwisanta`)
+      ;(v.selected_services || []).forEach(svc => {
+        let pl = svc.plname || 'Inne'
+        let lp = svc.lp
+        let itemName = svc.name || 'Usługa'
+        let price = Number(svc.price) || 0
+
+        visitEur += price
+        if (!plGroups[pl]) plGroups[pl] = []
+        if (lp && String(lp).trim() !== '') plGroups[pl].push(lp)
+        else plGroups[pl].push(itemName)
+      })
+
+      let stringParts = []
+      for (let pl in plGroups) {
+        let shortName = pl.replace('Axon Easy', 'AXE').replace('Axon', 'AX')
+        if (plGroups[pl].length > 0) stringParts.push(`${shortName}: ${plGroups[pl].join(', ')}`)
+        else stringParts.push(`${shortName}`)
+      }
+      let vItemsStr = stringParts.join('; ')
+
+      let vRbhQty = Number(v.rbg_qty) || 0
+      let vRbhRate = Number(v.rbg_rate) || 0
+      visitEur += (vRbhQty * vRbhRate)
+      globalRbh += vRbhQty
+      if (vRbhQty > 0) vItemsStr += (vItemsStr ? ' + ' : '') + vRbhQty + ' rbh'
+
+      if (v.travel_type === 'ryczalt') {
+        let f = Number(v.travel_flat) || 0
+        visitEur += f
+        globalTravelEur += f
+      } else {
+        let d = (Number(v.travel_km) || 0) * (Number(v.travel_rate) || 0)
+        visitEur += d
+        globalTravelEur += d
+        sumKm += (Number(v.travel_km) || 0)
+      }
+
+      globalOrderCostEur += (Number(v.order_cost_eur) || 0)
+
+      if (vItemsStr && vItemsStr.trim() !== '') combinedItemsParts.push(`--- WIZYTA ${v.label} ---\n${vItemsStr}`)
+      else if (visitEur > 0) combinedItemsParts.push(`--- WIZYTA ${v.label} ---\nRozliczenie dojazdu / Praca serwisanta`)
+    }
 
     if (v.notes && v.notes.trim() !== '') combinedNotesArr.push(`--- WIZYTA ${v.label} ---\n${v.notes}`)
   })
 
-  let finalSaveStatus = isAlreadySettled.value ? 'Poprawione' : 'Rozliczone'
-  let finalBillingState = isAlreadySettled.value ? 'CORRECTED' : 'SETTLED'
-  const finalAmountEuro = Number(globalTotalEur.value).toFixed(2)
+  const finalSaveStatus = isAlreadySettled.value ? 'Poprawione' : 'Rozliczone'
+  const finalBillingState = isAlreadySettled.value ? 'CORRECTED' : 'SETTLED'
+  const finalAmountEuro = mode === 'EEP' ? Number(globalTotalEur.value).toFixed(2) : '0.00'
 
   const payload = {
     ticket_id: currentTicketDisplayId.value,
+    settlement_mode: mode,
+    offer_number: lastVisit.offer_number || parsedSavedRoot.value?.offer_number || '',
     client: mainClient,
     qp: currentTicket.value?.qp || currentTicket.value?.qp_id || currentTicket.value?.station_id || 'Brak stacji',
-    date: mainDate, tech: mainTech, type: mainType,
+    date: mainDate,
+    tech: mainTech,
+    type: mainType,
     items_str: combinedItemsParts.join('\n\n'),
     total_eur: finalAmountEuro,
+    order_cost_eur: mode === 'EEP' ? Number(globalOrderCostEur.toFixed(2)) : 0,
+    total_pln: mode === 'EKOEN' ? Number(globalTotalPln.value.toFixed(2)) : 0,
+    internal_cost_pln: mode === 'EKOEN' ? Number(globalInternalPln.value.toFixed(2)) : 0,
+    labor_cost_pln: mode === 'EKOEN' ? Number(sumLaborPln.toFixed(2)) : 0,
+    invoice_issued: lastVisit.invoice_issued || 'NIE',
+    route: lastVisit.route || '',
+    km: sumKm,
+    lodging: lastVisit.lodging || 'NIE',
+    report_url: activeReportUrl.value || '',
     status_fixed: mainFixed,
     status_revisit: mainRevisit,
     notes: combinedNotesArr.join('\n\n'),
-    rbh: globalRbh, travel: globalTravelEur + ' EUR (Łącznie z wszystkich wizyt)', 
+    rbh: globalRbh,
+    travel: globalTravelEur + ' EUR (Łącznie z wszystkich wizyt)',
     raw_id: props.ticketId,
-    ui_state: null, 
-    visits_array: JSON.parse(JSON.stringify(visits.value)), 
+    ui_state: null,
+    visits_array: JSON.parse(JSON.stringify(visits.value)),
     status_rozliczenia: finalSaveStatus,
     ticket_status: finalSaveStatus,
     billing_state: finalBillingState

@@ -383,20 +383,43 @@
               <!-- RAPORT / ROZLICZENIE / WYMAGA UWAGI -->
               <div v-else-if="col.id === 'audit'" class="h-[148px] overflow-visible flex flex-col justify-between py-0.5 relative">
                 
-                <!-- 1. RAPORT + SKRÓT DO TECZKI -->
+                <!-- 1. RAPORT (NATYWNY KREATOR PDF) + SKRÓT DO TECZKI -->
                 <div class="flex items-center gap-1 w-full">
-                  <a
-                    :href="getReportInfo(t).url"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    @click.stop
-                    class="flex-1 min-w-0 rounded-xl px-2.5 py-1 text-[9px] font-extrabold uppercase tracking-wider border flex items-center justify-between gap-1 transition-all"
+                  <!-- Gdy raport już istnieje -> otwórz plik/AC + mały '+' na kolejny protokół -->
+                  <template v-if="getReportInfo(t).hasExistingReport">
+                    <a
+                      :href="getReportInfo(t).url"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      @click.stop
+                      class="flex-1 min-w-0 rounded-xl px-2.5 py-1 text-[9px] font-extrabold uppercase tracking-wider border flex items-center justify-between gap-1 transition-all"
+                      :class="getReportInfo(t).badgeClass"
+                      :title="getReportInfo(t).title"
+                    >
+                      <span class="truncate">{{ getReportInfo(t).label }}</span>
+                      <svg class="w-2.5 h-2.5 shrink-0 opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M7 17L17 7M17 7H7M17 7v10"/></svg>
+                    </a>
+                    <button
+                      type="button"
+                      @click.stop="openReportGenerator(t, idx)"
+                      class="px-1.5 py-1 rounded-xl border border-slate-200 bg-white hover:border-blue-400 hover:text-blue-600 text-slate-500 text-[10px] font-black transition-colors shrink-0 cursor-pointer"
+                      title="Wygeneruj kolejny raport lub protokół pomiarowy (5.1–5.4)"
+                    >+</button>
+                  </template>
+
+                  <!-- Gdy brak raportu -> otwórz natywny Generator Raportów PDF -->
+                  <button
+                    v-else
+                    type="button"
+                    @click.stop="openReportGenerator(t, idx)"
+                    class="flex-1 min-w-0 rounded-xl px-2.5 py-1 text-[9px] font-extrabold uppercase tracking-wider border flex items-center justify-between gap-1 transition-all cursor-pointer"
                     :class="getReportInfo(t).badgeClass"
                     :title="getReportInfo(t).title"
                   >
                     <span class="truncate">{{ getReportInfo(t).label }}</span>
-                    <svg class="w-2.5 h-2.5 shrink-0 opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M7 17L17 7M17 7H7M17 7v10"/></svg>
-                  </a>
+                    <svg class="w-2.5 h-2.5 shrink-0 opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+                  </button>
+
                   <button
                     type="button"
                     @click.stop="$emit('open-attachments', t)"
@@ -576,6 +599,16 @@
       </table>
 
     </div>
+
+    <!-- NATYWNY GENERATOR RAPORTÓW I PROTOKOŁÓW PDF -->
+    <ReportGeneratorModal
+      :show="showReportModal"
+      :ticket="reportModalTicket"
+      :module="reportModalModule"
+      :displayCode="reportModalCode"
+      @close="showReportModal = false"
+      @saved="onReportGenerated"
+    />
   </div>
 </template>
 
@@ -586,6 +619,7 @@ import { useScheduleStore } from '../../stores/useScheduleStore'
 import { useAuthStore } from '../../stores/useAuthStore'
 import SkeletonCard from '../../common/SkeletonCard.vue'
 import TicketOfferAction from '../offers/TicketOfferAction.vue'
+import ReportGeneratorModal from '../../modals/ReportGeneratorModal.vue'
 
 const props = defineProps({
   tickets: Array,
@@ -624,28 +658,73 @@ const resolveRowModule = (t) => {
   return isEko ? 'ekoen' : 'axon'
 }
 
-const RAPORT_GENERATOR_URL = 'https://script.google.com/a/macros/ekoen.pl/s/AKfycbyutQBrnhgc86izuiNHx1OSJqJMevrPrDd-IVs36IRZ_PsIMnuxggiAcsVvdi09Rv8/exec'
+const showReportModal = ref(false)
+const reportModalTicket = ref(null)
+const reportModalModule = ref('axon')
+const reportModalCode = ref('')
+
+const openReportGenerator = (t, idx) => {
+  closeLocalPopovers()
+  reportModalTicket.value = t
+  reportModalModule.value = resolveRowModule(t)
+  reportModalCode.value = getTicketIdDisplay(t, idx)
+  showReportModal.value = true
+}
+
+const onReportGenerated = (res) => {
+  if (!reportModalTicket.value || !res) return
+  if (res.pdfUrl) {
+    reportModalTicket.value.report_url = res.pdfUrl
+  }
+  if (res.settlementSaved && res.ticket_status) {
+    reportModalTicket.value.ticket_status = res.ticket_status
+    reportModalTicket.value.settlement_status = res.billing_state === 'SETTLED' && res.amountLabel
+      ? `Rozliczone (${res.amountLabel})`
+      : ''
+  }
+}
 
 const getReportInfo = (t) => {
-  const shortQp = getShortQp(t.qp_id || t.station_id)
-  const tId = t.ticket_code || t.ticket_number || t.id || ''
-  const genUrl = `${RAPORT_GENERATOR_URL}?qp=${encodeURIComponent(shortQp !== '-' ? shortQp : '')}&ticketId=${encodeURIComponent(tId)}${t.technician_id ? '&tech=' + encodeURIComponent(t.technician_id) : ''}`
-
   const directUrl = t.report_url || t.raport_url || ''
   const sysStatus = String(t.status || '').toUpperCase()
   const workStatus = String(t.ticket_status || '').toLowerCase()
   const isWorkDone = workStatus.includes('wykonano') || workStatus.includes('rozlicz')
+  const acUrl = getAxonUrl(t)
 
   if (directUrl) {
-    return { label: 'Raport PDF', badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100', url: directUrl, title: 'Otwórz zapisany raport' }
+    return {
+      hasExistingReport: true,
+      label: 'Raport PDF',
+      badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100',
+      url: directUrl,
+      title: 'Otwórz zapisany raport PDF z Teczki Sprawy'
+    }
   }
-  if (sysStatus.includes('REPORT') || sysStatus.includes('CLOSED')) {
-    return { label: 'Raport w AC', badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100', url: getAxonUrl(t) || genUrl, title: 'Raport złożony w Axon Connect' }
+  if ((sysStatus.includes('REPORT') || sysStatus.includes('CLOSED')) && acUrl) {
+    return {
+      hasExistingReport: true,
+      label: 'Raport w AC',
+      badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100',
+      url: acUrl,
+      title: 'Raport złożony w Axon Connect'
+    }
   }
   if (isWorkDone) {
-    return { label: 'Brak raportu!', badgeClass: 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100', url: genUrl, title: 'Zlecenie wykonane bez raportu — kliknij, aby wygenerować PDF' }
+    return {
+      hasExistingReport: false,
+      label: 'Brak raportu!',
+      badgeClass: 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100',
+      url: '',
+      title: 'Zlecenie wykonane bez raportu — kliknij, aby wygenerować PDF'
+    }
   }
-  return { label: 'Generuj raport', badgeClass: 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100 hover:text-slate-700', url: genUrl, title: 'Otwórz generator raportu PDF' }
+  return {
+    hasExistingReport: false,
+    label: 'Generuj raport',
+    badgeClass: 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100 hover:text-slate-700',
+    url: '',
+    title: 'Otwórz generator raportów i protokołów PDF'
+  }
 }
 
 const getSettlementInfo = (t) => {

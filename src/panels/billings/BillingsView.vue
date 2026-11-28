@@ -5,12 +5,17 @@
       <!-- 1. UNIWERSALNE KPI -->
       <UniversalKpi 
         title="Rozliczenia i Biling"
-        subtitle="Kalkulacje usług, roboczogodzin i weryfikacja cenników."
-        :views="[]"
-        activeView=""
+        subtitle="Kalkulacje usług EEP (EUR), zlecenia własne i komercyjne EKOEN (PLN) oraz weryfikacja cenników."
+        :views="[
+          { label: 'Wszystkie', value: 'ALL' },
+          { label: 'EEP (EUR)', value: 'EEP' },
+          { label: 'EKOEN (PLN)', value: 'EKOEN' }
+        ]"
+        :activeView="activeBillingMode"
         :activeTabs="store.activeTabs"
         :tabs="store.kpiTabs"
         :tabCounts="tabCounts"
+        @switch-view="activeBillingMode = $event"
         @select-tab="setActiveTab"
         @edit-tab="editTab"
         @delete-tab="confirmDeleteTab"
@@ -27,9 +32,22 @@
         @remove-row="(id) => store.searchQueriesMain = store.searchQueriesMain.filter(q => q.id !== id)"
       >
         <template #actions>
+          <!-- Szybki filtr kontroli fakturowania i ponownych wizyt -->
+          <select
+            v-model="quickBillingFilter"
+            class="bg-white border rounded-xl px-3.5 text-xs font-extrabold h-[42px] mr-2 shadow-sm focus:outline-none focus:border-[#58b347] cursor-pointer transition-colors"
+            :class="quickBillingFilter !== 'ALL' ? 'border-amber-400 text-amber-800 bg-amber-50' : 'border-slate-200 text-slate-600'"
+          >
+            <option value="ALL">Filtr: Wszystkie pozycje</option>
+            <option value="UNBILLED_PLN">EKOEN bez faktury (FV: NIE)</option>
+            <option value="INVOICED_PLN">EKOEN zafakturowane (FV: TAK)</option>
+            <option value="REVISIT">Wymagana ponowna wizyta</option>
+            <option value="PRELIM">Wstępne (Do weryfikacji)</option>
+          </select>
+
           <div class="bg-slate-50 border border-slate-200/80 rounded-xl px-4 text-[11px] font-black tracking-wider uppercase text-slate-500 shadow-sm flex items-center gap-2 h-[42px] mr-2">
             <svg class="w-4 h-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
-            DO ROZLICZENIA: <span class="text-[#58b347] font-black text-sm ml-1">{{ filteredBillings.length }} / {{ store.billings.length }}</span>
+            WIDOCZNE: <span class="text-[#58b347] font-black text-sm ml-1">{{ filteredBillings.length }} / {{ store.billings.length }}</span>
           </div>
 
           <!-- Przycisk Masowego Usuwania -->
@@ -62,6 +80,49 @@
           </div>
         </template>
       </UniversalSearch>
+
+      <!-- PASEK PODSUMOWANIA FINANSOWEGO (EEP EUR + EKOEN PLN + KOSZTY) -->
+      <div v-if="!store.isLoading && filteredBillings.length > 0" class="px-8 pt-3 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3.5">
+        <div class="bg-white rounded-2xl border border-slate-200/90 border-l-4 border-l-emerald-500 p-4 shadow-2xs">
+          <div class="text-[10px] font-black uppercase tracking-widest text-slate-400">Rozliczone EEP (EUR)</div>
+          <div class="text-xl font-black font-mono text-emerald-700 mt-1">€ {{ financialSummary.eepEurSettled.toFixed(2) }}</div>
+          <div class="text-[11px] font-bold text-slate-400 mt-0.5 flex items-center justify-between">
+            <span>≈ {{ (financialSummary.eepEurSettled * (Number(store.nbpRate) || 4.3)).toFixed(2) }} PLN</span>
+            <span v-if="financialSummary.eepEurPrelim > 0" class="text-blue-600 font-extrabold">+€{{ financialSummary.eepEurPrelim.toFixed(0) }} wstępne</span>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-2xl border border-slate-200/90 border-l-4 border-l-sky-500 p-4 shadow-2xs">
+          <div class="text-[10px] font-black uppercase tracking-widest text-slate-400">Zlecenia EKOEN do FV (PLN)</div>
+          <div class="text-xl font-black font-mono text-sky-700 mt-1">{{ financialSummary.ekoenPlnSettled.toFixed(2) }} PLN</div>
+          <div class="text-[11px] font-bold mt-0.5 flex items-center justify-between">
+            <span class="text-slate-400">Zatwierdzone netto</span>
+            <span
+              v-if="financialSummary.unbilledPlnCount > 0"
+              @click="quickBillingFilter = quickBillingFilter === 'UNBILLED_PLN' ? 'ALL' : 'UNBILLED_PLN'"
+              class="text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded text-[10px] font-black cursor-pointer hover:bg-amber-100"
+            >
+              Brak FV: {{ financialSummary.unbilledPlnCount }}
+            </span>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-2xl border border-slate-200/90 border-l-4 border-l-slate-400 p-4 shadow-2xs">
+          <div class="text-[10px] font-black uppercase tracking-widest text-slate-400">Wewnętrzne bez FV & Koszty</div>
+          <div class="text-xl font-black font-mono text-slate-700 mt-1">{{ financialSummary.internalPlnTotal.toFixed(2) }} PLN</div>
+          <div class="text-[11px] font-bold text-rose-500 mt-0.5 truncate">
+            Koszty: €{{ financialSummary.orderCostEurTotal.toFixed(2) }} • Robocizna: {{ financialSummary.laborPlnTotal.toFixed(2) }} zł
+          </div>
+        </div>
+
+        <div class="bg-white rounded-2xl border border-slate-200/90 border-l-4 border-l-[#58b347] p-4 shadow-2xs">
+          <div class="text-[10px] font-black uppercase tracking-widest text-[#499b3a]">Łączna Wartość Widoku (PLN)</div>
+          <div class="text-xl font-black font-mono text-[#499b3a] mt-1">{{ financialSummary.combinedPlnSettled.toFixed(2) }} PLN</div>
+          <div class="text-[11px] font-bold text-slate-400 mt-0.5">
+            Suma EEP (wg NBP {{ (Number(store.nbpRate) || 4.3).toFixed(4) }}) + EKOEN
+          </div>
+        </div>
+      </div>
 
       <!-- SKELETON LOADER -->
       <div v-if="store.isLoading" class="px-8 pt-6 pb-8 flex-1 flex flex-col gap-3 w-full">
@@ -152,27 +213,83 @@ const confirmModal = ref({ show: false, message: "", onConfirm: null })
 const showSettlementModal = ref(false)
 const selectedTicketIdForSettlement = ref(null)
 
+const activeBillingMode = ref('ALL') // 'ALL' | 'EEP' | 'EKOEN'
+const quickBillingFilter = ref('ALL') // 'ALL' | 'UNBILLED_PLN' | 'INVOICED_PLN' | 'REVISIT' | 'PRELIM'
+
 const columns = ref([
   { id: 'selection', label: '', visible: true, locked: true, sortable: false, width: '50px' },
-  { id: 'status', label: 'STATUS', visible: true, sortable: true, width: '130px' },
-  { id: 'ticket_id', label: 'NR ZGŁOSZENIA', visible: true, sortable: true, width: '160px' },
-  { id: 'station', label: 'STACJA', visible: true, sortable: true, width: '220px' },
-  { id: 'closed_date', label: 'DATA ZAMKNIĘCIA', visible: true, sortable: true, width: '160px' },
-  { id: 'technician', label: 'OSTATNI TECHNIK', visible: true, sortable: true, width: '180px' },
+  { id: 'status', label: 'STATUS', visible: true, sortable: true, width: '145px' },
+  { id: 'ticket_id', label: 'NR ZGŁOSZENIA', visible: true, sortable: true, width: '155px' },
+  { id: 'station', label: 'STACJA / KLIENT', visible: true, sortable: true, width: '210px' },
+  { id: 'closed_date', label: 'DATA ZAMKNIĘCIA', visible: true, sortable: true, width: '155px' },
+  { id: 'technician', label: 'OSTATNI TECHNIK', visible: true, sortable: true, width: '170px' },
+  { id: 'details', label: 'ZAKRES / LOGISTYKA', visible: true, sortable: false, width: '250px' },
+  { id: 'amount', label: 'KWOTA / TRYB', visible: true, sortable: true, width: '185px' },
   { id: 'actions', label: 'AKCJE', visible: true, locked: true, sortable: false, width: '110px' }
 ])
 
 const visibleColumns = computed(() => columns.value.filter(c => c.visible))
 
+const parseBillingMeta = (item) => {
+  let sd = item?.saved_data
+  if (typeof sd === 'string') {
+    try { sd = JSON.parse(sd) } catch (e) { sd = null }
+  }
+  const dispId = String(item?.ticket_id || item?.id || '').toUpperCase()
+  const rawMode = String(sd?.settlement_mode || item?.settlement_mode || '').toUpperCase()
+  const mode = rawMode === 'EKOEN' || (!rawMode && (dispId.startsWith('EE_') || dispId.startsWith('OES/'))) ? 'EKOEN' : 'EEP'
+
+  const isWstepne = item?.billing_state === 'PRE_SETTLED' ||
+    String(item?.billing_status || '').toUpperCase().includes('WSTĘPN') ||
+    String(item?.status || '').toUpperCase().includes('WSTĘPN') ||
+    String(item?.ticket_status || '').toUpperCase().includes('WSTĘPN')
+
+  const isSettled = item?.billing_state === 'SETTLED' ||
+    item?.billing_state === 'CORRECTED' ||
+    (String(item?.status || '').toUpperCase().includes('ROZLICZONE') && !isWstepne)
+
+  const eur = mode === 'EEP' ? (parseFloat(sd?.total_eur ?? item?.total_eur) || 0) : 0
+  const orderCostEur = mode === 'EEP' ? (parseFloat(sd?.order_cost_eur) || 0) : 0
+  const pln = mode === 'EKOEN' ? (parseFloat(sd?.total_pln ?? item?.total_pln) || 0) : 0
+  const internalPln = mode === 'EKOEN' ? (parseFloat(sd?.internal_cost_pln) || 0) : 0
+  const laborPln = mode === 'EKOEN' ? (parseFloat(sd?.labor_cost_pln) || 0) : 0
+  const invoiceIssued = String(sd?.invoice_issued || 'NIE').toUpperCase() === 'TAK'
+  const revisit = String(sd?.status_revisit || '').toUpperCase() === 'TAK' ||
+    (Array.isArray(sd?.visits_array) && sd.visits_array.some(v => Boolean(v.status_revisit)))
+
+  return {
+    sd, mode, isWstepne, isSettled,
+    eur, orderCostEur, pln, internalPln, laborPln,
+    invoiceIssued, revisit
+  }
+}
+
 // --- UŻYCIE NOWEGO, INTELIGENTNEGO COMPOSABLE ---
 store.getBaseList = () => store.billings
-store.duplicateIds = [] // Brak pojęcia duplikatów w bilingach
+store.duplicateIds = []
 
 const { filteredBaseList, tabCounts } = useSmartKpiFilters(store, checkBillingSearch)
 
-
 const filteredBillings = computed(() => {
-  let base = [...filteredBaseList.value]
+  let base = filteredBaseList.value.filter(item => {
+    if (item.billing_state === 'NEW' || item.status === 'Nowe' || item.ticket_status === 'Nowe') return false
+    const meta = parseBillingMeta(item)
+
+    if (activeBillingMode.value === 'EEP' && meta.mode !== 'EEP') return false
+    if (activeBillingMode.value === 'EKOEN' && meta.mode !== 'EKOEN') return false
+
+    if (quickBillingFilter.value === 'UNBILLED_PLN') {
+      if (meta.mode !== 'EKOEN' || meta.invoiceIssued || meta.pln <= 0) return false
+    } else if (quickBillingFilter.value === 'INVOICED_PLN') {
+      if (meta.mode !== 'EKOEN' || !meta.invoiceIssued) return false
+    } else if (quickBillingFilter.value === 'REVISIT') {
+      if (!meta.revisit) return false
+    } else if (quickBillingFilter.value === 'PRELIM') {
+      if (!meta.isWstepne) return false
+    }
+
+    return true
+  })
 
   // Aplikujemy tylko sortowanie (filtry obsługuje już Composable!)
   if (currentSort.value.col) {
@@ -245,18 +362,65 @@ const groupedBillings = computed(() => {
        }
     }
 
-    if (!groups[sortKey]) groups[sortKey] = { key: sortKey, label: label, items: [], settledCount: 0, totalEur: 0 }
-    
+    if (!groups[sortKey]) {
+      groups[sortKey] = { key: sortKey, label: label, items: [], settledCount: 0, totalEur: 0, eepEur: 0, ekoenPln: 0 }
+    }
+
     groups[sortKey].items.push(item)
-    if (item.billing_state === 'SETTLED' || item.billing_state === 'CORRECTED' || String(item.status).toUpperCase().includes('ROZLICZONE')) {
-       groups[sortKey].settledCount++
-       if (item.saved_data && item.saved_data.total_eur) {
-         groups[sortKey].totalEur += parseFloat(item.saved_data.total_eur)
-       }
+    const meta = parseBillingMeta(item)
+    const rate = Number(store.nbpRate) || 4.30
+
+    if (meta.isSettled) {
+      groups[sortKey].settledCount++
+      if (meta.mode === 'EKOEN') {
+        groups[sortKey].ekoenPln += meta.pln
+        groups[sortKey].totalEur += (meta.pln / rate)
+      } else {
+        groups[sortKey].eepEur += meta.eur
+        groups[sortKey].totalEur += meta.eur
+      }
     }
   })
 
   return Object.values(groups).sort((a, b) => b.key.localeCompare(a.key))
+})
+
+const financialSummary = computed(() => {
+  let eepEurSettled = 0
+  let eepEurPrelim = 0
+  let ekoenPlnSettled = 0
+  let unbilledPlnCount = 0
+  let internalPlnTotal = 0
+  let orderCostEurTotal = 0
+  let laborPlnTotal = 0
+
+  filteredBillings.value.forEach(item => {
+    const m = parseBillingMeta(item)
+    if (m.mode === 'EEP') {
+      if (m.isSettled) eepEurSettled += m.eur
+      else if (m.isWstepne) eepEurPrelim += m.eur
+      if (m.isSettled || m.isWstepne) orderCostEurTotal += m.orderCostEur
+    } else {
+      if (m.isSettled) ekoenPlnSettled += m.pln
+      if ((m.isSettled || m.isWstepne) && m.pln > 0 && !m.invoiceIssued) unbilledPlnCount++
+      if (m.isSettled || m.isWstepne) {
+        internalPlnTotal += m.internalPln
+        laborPlnTotal += m.laborPln
+      }
+    }
+  })
+
+  const rate = Number(store.nbpRate) || 4.30
+  return {
+    eepEurSettled,
+    eepEurPrelim,
+    ekoenPlnSettled,
+    unbilledPlnCount,
+    internalPlnTotal,
+    orderCostEurTotal,
+    laborPlnTotal,
+    combinedPlnSettled: (eepEurSettled * rate) + ekoenPlnSettled
+  }
 })
 
 // --- AKCJE INTERFEJSU WIDOKU ---
@@ -330,7 +494,7 @@ const saveSettlement = (payload) => {
         setTimeout(() => { toast.value.show = false }, 3000)
         updateStoreWithPayload(payload)
       })
-      .saveSettlementToSysBillings(payload)
+      .saveUnifiedSettlement(payload)
   } else {
     updateStoreWithPayload(payload)
     toast.value = { show: true, msg: `Zapisano lokalnie (${payload.ticket_status})!` }
@@ -344,9 +508,21 @@ const updateStoreWithPayload = (payload) => {
     if (bIdx > -1) store.billings.splice(bIdx, 1)
   } else {
     const updatedBilling = {
-      id: payload.raw_id, ticket_id: payload.ticket_id, client: payload.client,
-      qp: payload.qp, technician: payload.tech, billing_state: payload.billing_state,
-      ticket_status: payload.ticket_status, total_eur: payload.total_eur, saved_data: JSON.parse(JSON.stringify(payload))
+      id: payload.raw_id,
+      ticket_id: payload.ticket_id,
+      client: payload.client,
+      qp: payload.qp,
+      technician: payload.tech,
+      technician_id: payload.tech,
+      billing_state: payload.billing_state,
+      status: payload.ticket_status,
+      ticket_status: payload.ticket_status,
+      closed_date: payload.date || (bIdx > -1 ? store.billings[bIdx].closed_date : ''),
+      total_eur: payload.total_eur,
+      total_pln: payload.total_pln,
+      settlement_mode: payload.settlement_mode || 'EEP',
+      report_url: payload.report_url || '',
+      saved_data: JSON.parse(JSON.stringify(payload))
     }
     if (bIdx > -1) store.billings[bIdx] = { ...store.billings[bIdx], ...updatedBilling }
     else store.billings.push(updatedBilling)
@@ -362,7 +538,22 @@ const executeConfirm = () => {
 const loadColumnsConfig = () => {
   try {
     const localStore = JSON.parse(localStorage.getItem('EKOEN_BILLINGS_UI')) || {}
-    if (localStore.cols_billings && localStore.cols_billings.length > 0) columns.value = localStore.cols_billings
+    if (localStore.cols_billings && localStore.cols_billings.length > 0) {
+      const savedCols = localStore.cols_billings
+      if (!savedCols.some(c => c.id === 'details')) {
+        const amtIdx = savedCols.findIndex(c => c.id === 'amount' || c.id === 'actions')
+        const detailsCol = { id: 'details', label: 'ZAKRES / LOGISTYKA', visible: true, sortable: false, width: '250px' }
+        if (amtIdx > -1) savedCols.splice(amtIdx, 0, detailsCol)
+        else savedCols.push(detailsCol)
+      }
+      if (!savedCols.some(c => c.id === 'amount')) {
+        const actIdx = savedCols.findIndex(c => c.id === 'actions')
+        const amountCol = { id: 'amount', label: 'KWOTA / TRYB', visible: true, sortable: true, width: '185px' }
+        if (actIdx > -1) savedCols.splice(actIdx, 0, amountCol)
+        else savedCols.push(amountCol)
+      }
+      columns.value = savedCols
+    }
   } catch (e) {}
 }
 

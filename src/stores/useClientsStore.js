@@ -143,10 +143,61 @@ export const useClientsStore = defineStore('clients', () => {
     }
   }
 
+  const mergeClients = async (sourceClient, targetClient) => {
+    if (!sourceClient || !targetClient) {
+      return { success: false, error: 'Brak danych klienta źródłowego lub docelowego.' }
+    }
+    const srcName = String(sourceClient.name || '').trim()
+    const tgtName = String(targetClient.name || '').trim()
+    if (!srcName || !tgtName || srcName.toLowerCase() === tgtName.toLowerCase()) {
+      return { success: false, error: 'Wybierz dwie różne nazwy firmy.' }
+    }
+
+    const applyLocalMerge = () => {
+      const oldId = String(sourceClient.id || '')
+      const tgtId = String(targetClient.id || '')
+
+      stations.value = stations.value.map(st => {
+        const sid = String(st.client_id || st.clientId || '').trim().toLowerCase()
+        if (sid === srcName.toLowerCase() || (oldId && sid === oldId.toLowerCase())) {
+          return { ...st, client_id: tgtId || tgtName }
+        }
+        return st
+      })
+
+      clients.value = clients.value.filter(c => String(c.id) !== oldId && String(c.name || '').trim().toLowerCase() !== srcName.toLowerCase())
+      expandedIds.value = expandedIds.value.filter(eid => String(eid) !== oldId)
+    }
+
+    if (typeof google !== 'undefined' && google.script && google.script.run) {
+      return await new Promise((resolve) => {
+        google.script.run
+          .withSuccessHandler((resStr) => {
+            let res = resStr
+            if (typeof resStr === 'string') {
+              try { res = JSON.parse(resStr) } catch (e) { res = { success: false, error: resStr } }
+            }
+            if (res && res.success) {
+              applyLocalMerge()
+              fetchClientsData()
+            }
+            resolve(res || { success: false, error: 'Brak odpowiedzi serwera.' })
+          })
+          .withFailureHandler((err) => {
+            resolve({ success: false, error: err?.message || String(err) })
+          })
+          .mergeClientsInBase(sourceClient.id || '', srcName, targetClient.id || '', tgtName)
+      })
+    }
+
+    applyLocalMerge()
+    return { success: true, message: `Scalono "${srcName}" → "${tgtName}" (tryb lokalny).` }
+  }
+
   return {
     clients, stations, isLoading, error,
     activeTabs, kpiTabs, expandedIds, searchQueriesMain,
     fetchClientsData, saveClientToBase, deleteClientFromBase,
-    saveTabsConfiguration
+    mergeClients, saveTabsConfiguration
   }
 })

@@ -91,7 +91,7 @@
                   </tr>
                 </thead>
                 <tbody class="text-xs divide-y divide-slate-100 bg-white">
-                  <tr v-for="(item, idx) in group.items" :key="item.id" class="hover:bg-slate-50/80 transition-colors group/row" :class="idx % 2 === 0 ? 'bg-white' : 'bg-[#fafbfc]'">
+                  <tr v-for="(item, idx) in group.items" :key="item.id" class="hover:bg-slate-50/80 transition-colors group/row" :class="getRowHighlightClass(item, idx)">
                     <td v-for="col in visibleColumns" :key="col.id" class="py-4 px-4 border-r border-slate-50 align-middle">
                       
                       <!-- Checkbox -->
@@ -101,7 +101,7 @@
 
                       <!-- Akcje / Weryfikuj -->
                       <div v-else-if="col.id === 'actions'" class="flex items-center justify-center w-full">
-                        <button @click.stop="$emit('open-settlement', item.id)" class="bg-white border font-extrabold px-3 py-1.5 rounded-lg text-[10px] uppercase tracking-widest transition-all shadow-sm w-full flex items-center justify-center gap-1.5" :class="getActionBtnClass(item)">
+                        <button @click.stop="$emit('open-settlement', item.id)" class="bg-white border font-extrabold px-3 py-1.5 rounded-lg text-[10px] uppercase tracking-widest transition-all shadow-sm w-full flex items-center justify-center gap-1.5 cursor-pointer" :class="getActionBtnClass(item)">
                           {{ getActionBtnText(item) }}
                           <svg v-if="item.billing_state === 'SETTLED'" class="w-3.5 h-3.5 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>
                           <svg v-else-if="item.billing_state === 'CORRECTED'" class="w-3.5 h-3.5 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22h6a2 2 0 0 0 2-2V7l-5-5H6a2 2 0 0 0-2 2v10"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10.4 12.6a2 2 0 1 1 3 3L8 21l-4 1 1-4Z"/></svg>
@@ -109,11 +109,17 @@
                         </button>
                       </div>
 
-                      <!-- Status -->
-                      <div v-else-if="col.id === 'status'">
-                        <span v-if="isPrelim(item)" class="bg-blue-50 text-blue-600 border-blue-200 px-3 py-1 rounded-md text-[10px] font-black uppercase tracking-wider inline-flex items-center gap-1.5 border shadow-sm"><span class="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span> WSTĘPNE</span>
-                        <span v-else class="px-3 py-1 rounded-md text-[10px] font-black uppercase tracking-wider inline-flex items-center gap-1.5 border shadow-sm" :class="item.status === 'Anulowane' ? 'bg-red-50 text-red-600 border-red-200' : 'bg-amber-50 text-amber-600 border-amber-200'">
-                          <span class="w-1.5 h-1.5 rounded-full" :class="item.status === 'Anulowane' ? 'bg-red-500' : 'bg-amber-500 animate-pulse'"></span> {{ item.status || 'Brak' }}
+                      <!-- Status + Ponowna wizyta -->
+                      <div v-else-if="col.id === 'status'" class="flex flex-col items-start gap-1">
+                        <span class="px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wider inline-flex items-center gap-1.5 border shadow-2xs" :class="getStatusBadgeMeta(item).boxClass">
+                          <span class="w-1.5 h-1.5 rounded-full" :class="getStatusBadgeMeta(item).dotClass"></span>
+                          {{ getStatusBadgeMeta(item).label }}
+                        </span>
+                        <span
+                          v-if="getBillingSummary(item).revisit"
+                          class="px-2 py-0.5 rounded bg-rose-100 text-rose-700 border border-rose-200 text-[8.5px] font-black uppercase tracking-wider"
+                        >
+                          Ponowna wizyta!
                         </span>
                       </div>
 
@@ -139,6 +145,61 @@
                               :title="item.technician">
                           {{ item.technician || 'Brak technika' }}
                         </span>
+                      </div>
+
+                      <!-- ZAKRES / LOGISTYKA (pozycje cennika, oferta OES, trasa, km, nocleg) -->
+                      <div v-else-if="col.id === 'details'" class="flex flex-col gap-0.5 min-w-0">
+                        <div class="text-[11px] font-bold text-slate-700 truncate" :title="getBillingSummary(item).detailsPrimary">
+                          {{ getBillingSummary(item).detailsPrimary || '-' }}
+                        </div>
+                        <div v-if="getBillingSummary(item).detailsSecondary" class="text-[10px] font-semibold text-slate-400 truncate" :title="getBillingSummary(item).detailsSecondary">
+                          {{ getBillingSummary(item).detailsSecondary }}
+                        </div>
+                      </div>
+
+                      <!-- KWOTA / TRYB (EEP EUR lub EKOEN PLN + kontrola FV + skrót do Raportu PDF) -->
+                      <div v-else-if="col.id === 'amount'" class="flex items-center justify-between gap-1.5">
+                        <div class="flex flex-col min-w-0">
+                          <div class="flex items-center gap-1.5">
+                            <span
+                              class="px-1.5 py-0.5 rounded text-[8.5px] font-black uppercase tracking-wider border shrink-0"
+                              :class="getBillingSummary(item).mode === 'EKOEN'
+                                ? 'bg-sky-50 text-sky-700 border-sky-200'
+                                : 'bg-emerald-50 text-emerald-700 border-emerald-200'"
+                            >
+                              {{ getBillingSummary(item).mode }}
+                            </span>
+                            <span class="font-black font-mono text-xs text-slate-800 truncate">
+                              {{ getBillingSummary(item).amountText }}
+                            </span>
+                          </div>
+                          <div class="flex items-center gap-1.5 mt-0.5">
+                            <span
+                              v-if="getBillingSummary(item).fvBadge"
+                              class="px-1.5 py-0.2 rounded text-[8.5px] font-black uppercase border shrink-0"
+                              :class="getBillingSummary(item).fvIssued
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                : 'bg-amber-100 text-amber-800 border-amber-300'"
+                            >
+                              {{ getBillingSummary(item).fvBadge }}
+                            </span>
+                            <span v-if="getBillingSummary(item).subText" class="text-[9.5px] font-bold text-slate-400 truncate">
+                              {{ getBillingSummary(item).subText }}
+                            </span>
+                          </div>
+                        </div>
+
+                        <a
+                          v-if="getBillingSummary(item).reportUrl"
+                          :href="getBillingSummary(item).reportUrl"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          @click.stop
+                          class="px-1.5 py-1 rounded-md bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-[9px] font-black uppercase shrink-0 transition-colors"
+                          title="Otwórz podpisany Raport PDF"
+                        >
+                          PDF
+                        </a>
                       </div>
 
                     </td>
@@ -223,6 +284,85 @@ const getTechPillStyle = (techId) => {
   }
 }
 
+const getBillingSummary = (item) => {
+  let sd = item?.saved_data
+  if (typeof sd === 'string') {
+    try { sd = JSON.parse(sd) } catch (e) { sd = null }
+  }
+
+  const dispId = String(item?.ticket_id || item?.id || '').toUpperCase()
+  const rawMode = String(sd?.settlement_mode || item?.settlement_mode || '').toUpperCase()
+  const mode = rawMode === 'EKOEN' || (!rawMode && (dispId.startsWith('EE_') || dispId.startsWith('OES/'))) ? 'EKOEN' : 'EEP'
+  const reportUrl = sd?.report_url || item?.report_url || item?.raport_url || ''
+  const revisit = String(sd?.status_revisit || '').toUpperCase() === 'TAK' ||
+    (Array.isArray(sd?.visits_array) && sd.visits_array.some(v => Boolean(v.status_revisit)))
+
+  if (mode === 'EKOEN') {
+    const pln = parseFloat(sd?.total_pln ?? item?.total_pln) || 0
+    const intPln = parseFloat(sd?.internal_cost_pln) || 0
+    const fvIssued = String(sd?.invoice_issued || '').toUpperCase() === 'TAK'
+    const amountText = pln > 0 ? `${pln.toFixed(2)} PLN` : (intPln > 0 ? `Wew: ${intPln.toFixed(2)} zł` : '0.00 PLN')
+    const fvBadge = pln > 0 ? (fvIssued ? 'FV: TAK' : 'FV: NIE') : ''
+
+    const logParts = []
+    if (sd?.route) logParts.push(sd.route)
+    if (parseFloat(sd?.km) > 0) logParts.push(`${sd.km} km`)
+    if (String(sd?.lodging || '').toUpperCase() === 'TAK') logParts.push('Nocleg')
+
+    return {
+      mode,
+      amountText,
+      fvBadge,
+      fvIssued,
+      revisit,
+      subText: sd?.offer_number || '',
+      detailsPrimary: sd?.offer_number ? `Oferta: ${sd.offer_number}` : (sd?.notes || 'Zlecenie własne EKOEN'),
+      detailsSecondary: logParts.join(' • ') || (sd?.notes || ''),
+      reportUrl
+    }
+  }
+
+  const eur = parseFloat(sd?.total_eur ?? item?.total_eur) || 0
+  const visitsCount = Array.isArray(sd?.visits_array) ? sd.visits_array.length : 0
+  const cleanItems = String(sd?.items_str || '').replace(/---\s*WIZYTA[^-]+---\n?/gi, '').replace(/\n+/g, ' | ').trim()
+
+  return {
+    mode: 'EEP',
+    amountText: eur > 0 ? `€ ${eur.toFixed(2)}` : '-',
+    fvBadge: '',
+    fvIssued: false,
+    revisit,
+    subText: visitsCount > 1 ? `Wizyty: ${visitsCount}` : '',
+    detailsPrimary: cleanItems || 'Do weryfikacji cennikowej',
+    detailsSecondary: String(sd?.notes || '').replace(/---\s*WIZYTA[^-]+---\n?/gi, '').replace(/\n+/g, ' ').trim(),
+    reportUrl
+  }
+}
+
+const getStatusBadgeMeta = (item) => {
+  if (isPrelim(item)) {
+    return { label: 'WSTĘPNE', boxClass: 'bg-blue-50 text-blue-600 border-blue-200', dotClass: 'bg-blue-500 animate-pulse' }
+  }
+  const stUp = String(item?.status || item?.ticket_status || '').toUpperCase()
+  if (item?.billing_state === 'CORRECTED' || stUp.includes('POPRAWION')) {
+    return { label: 'POPRAWIONE', boxClass: 'bg-indigo-50 text-indigo-700 border-indigo-200', dotClass: 'bg-indigo-500' }
+  }
+  if (item?.billing_state === 'SETTLED' || stUp.includes('ROZLICZON')) {
+    return { label: 'ROZLICZONE', boxClass: 'bg-emerald-50 text-emerald-700 border-emerald-200', dotClass: 'bg-emerald-500' }
+  }
+  if (stUp.includes('ANULOW')) {
+    return { label: 'ANULOWANE', boxClass: 'bg-red-50 text-red-600 border-red-200', dotClass: 'bg-red-500' }
+  }
+  return { label: item?.status || 'DO ROZLICZENIA', boxClass: 'bg-amber-50 text-amber-700 border-amber-200', dotClass: 'bg-amber-500 animate-pulse' }
+}
+
+const getRowHighlightClass = (item, idx) => {
+  const sum = getBillingSummary(item)
+  if (sum.revisit) return 'bg-rose-50/40'
+  if (sum.mode === 'EKOEN' && sum.fvBadge === 'FV: NIE') return 'bg-amber-50/35'
+  return idx % 2 === 0 ? 'bg-white' : 'bg-[#fafbfc]'
+}
+
 const getActionBtnText = (item) => {
   if (item.billing_state === 'CORRECTED') return 'Poprawione'
   if (item.billing_state === 'SETTLED') return 'Rozliczone'
@@ -245,6 +385,12 @@ const getCurrencyBtnClass = (key) => {
 
 const getGroupTotal = (group) => {
   const curr = getCurrencyCode(group.key)
+  if (curr === 'EUR' && group.eepEur > 0 && group.ekoenPln > 0) {
+    return `€ ${group.eepEur.toFixed(2)} + ${group.ekoenPln.toFixed(0)} zł`
+  }
+  if (curr === 'EUR' && group.eepEur === 0 && group.ekoenPln > 0) {
+    return `${group.ekoenPln.toFixed(2)} PLN`
+  }
   return curr === 'EUR' ? `€ ${group.totalEur.toFixed(2)}` : `${(group.totalEur * store.nbpRate).toFixed(2)} PLN`
 }
 
