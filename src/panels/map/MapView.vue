@@ -51,29 +51,32 @@
           {{ showSectors ? 'Ukryj strefy' : 'Pokaż strefy' }}
         </button>
 
-        <!-- FILTRY MAPY (Standardowe) -->
+        <!-- FILTRY MAPY + WIDOCZNOŚĆ ETYKIET QP -->
         <div class="relative flex items-center shrink-0 box-border h-[42px]">
           <button @click="toggleMenu('filter')" class="bg-white/90 backdrop-blur-xl border shadow-lg px-4 rounded-xl font-bold transition-all flex items-center gap-2 text-[13px] h-[42px] whitespace-nowrap cursor-pointer shrink-0 box-border" :class="filterStatus !== '' || filterTech !== '' ? 'border-red-200 text-red-600 bg-red-50' : 'border-slate-200/80 text-slate-700 hover:bg-slate-50'">
             <svg class="w-4 h-4" :class="filterStatus !== '' || filterTech !== '' ? 'text-red-500' : 'text-slate-400'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg> 
-            {{ filterStatus !== '' ? 'Zgłoszenia / Status' : filterTech !== '' ? 'Wybrany Technik' : 'Filtry mapy' }}
+            <span>{{ filterStatus !== '' ? getStatusLabel(filterStatus) : filterTech !== '' ? 'Wybrany Technik' : 'Filtry mapy' }}</span>
+            <span class="px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[10px] font-black font-mono">{{ visibleStationsCount }}</span>
           </button>
           
-          <div v-show="activeMenu === 'filter'" class="absolute top-[48px] left-0 w-80 bg-white/95 backdrop-blur-2xl rounded-2xl shadow-[0_15px_40px_-10px_rgba(0,0,0,0.1)] border border-slate-200 p-5 z-[100] flex flex-col gap-4 animate-fadeIn">
+          <div v-show="activeMenu === 'filter'" class="absolute top-[48px] left-0 w-84 bg-white/95 backdrop-blur-2xl rounded-2xl shadow-[0_15px_40px_-10px_rgba(0,0,0,0.1)] border border-slate-200 p-5 z-[100] flex flex-col gap-4 animate-fadeIn">
             <div class="border-b border-slate-100/60 pb-2 flex justify-between items-center">
               <h3 class="font-bold text-slate-800 text-sm">Filtruj stacje i zgłoszenia</h3>
-              <button v-if="filterStatus !== '' || filterTech !== ''" @click="setFilterStatus(''); setFilterTech('')" class="text-xs text-red-500 hover:text-red-700 font-bold uppercase tracking-widest">Wyczyść</button>
+              <button v-if="filterStatus !== '' || filterTech !== ''" @click="setFilterStatus(''); setFilterTech('')" class="text-xs text-red-500 hover:text-red-700 font-bold uppercase tracking-widest cursor-pointer">Wyczyść</button>
             </div>
             <div class="space-y-4">
               <div>
-                <label class="block text-xs font-bold text-slate-500 mb-1.5">Typ / Status / Kategoria</label>
+                <label class="block text-xs font-bold text-slate-500 mb-1.5">Typ / Status / Harmonogram</label>
                 <div class="relative">
                     <div @click="toggleDropdown('status')" :class="activeDropdown === 'status' ? 'border-[#58b347] ring-2 ring-[#58b347]/20' : 'border-slate-200'" class="bg-slate-50 border rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-700 flex justify-between items-center cursor-pointer hover:border-[#58b347]/50 transition-colors shadow-inner">
                       <span :class="filterStatus === '' ? 'text-slate-400' : 'text-slate-800'">{{ getStatusLabel(filterStatus) }}</span>
                       <svg class="w-4 h-4 text-slate-400 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
                     </div>
-                    <ul v-show="activeDropdown === 'status'" class="absolute left-0 right-0 top-full mt-1 bg-white/95 backdrop-blur-xl border border-slate-200 rounded-xl shadow-xl z-50 p-1.5 custom-scrollbar max-h-56 overflow-y-auto">
+                    <ul v-show="activeDropdown === 'status'" class="absolute left-0 right-0 top-full mt-1 bg-white/95 backdrop-blur-xl border border-slate-200 rounded-xl shadow-xl z-50 p-1.5 custom-scrollbar max-h-64 overflow-y-auto">
                       <li @click="setFilterStatus('')" class="px-3 py-2 text-sm font-bold text-slate-500 hover:bg-slate-100 rounded-lg cursor-pointer transition-colors">Wszystkie stacje</li>
                       <li @click="setFilterStatus('HAS_TICKET')" class="px-3 py-2 text-sm font-bold text-red-500 hover:bg-red-50 rounded-lg cursor-pointer transition-colors">Aktywne zgłoszenia</li>
+                      <li @click="setFilterStatus('SCHED_PLANNED')" class="px-3 py-2 text-sm font-bold text-emerald-600 hover:bg-emerald-50 rounded-lg cursor-pointer transition-colors">Zaplanowane w Harmonogramie</li>
+                      <li @click="setFilterStatus('SCHED_UNPLANNED')" class="px-3 py-2 text-sm font-bold text-rose-600 hover:bg-rose-50 rounded-lg cursor-pointer transition-colors">Zgłoszenia bez wizyty w grafiku</li>
                       <div class="px-3 py-1.5 mt-1 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">Status stacji w bazie</div>
                       <li @click="setFilterStatus('CAT_REPAIR')" class="px-3 py-2 text-sm font-bold text-red-600 hover:bg-red-50 rounded-lg cursor-pointer transition-colors">Naprawa</li>
                       <li @click="setFilterStatus('CAT_INSPECTION')" class="px-3 py-2 text-sm font-bold text-blue-600 hover:bg-blue-50 rounded-lg cursor-pointer transition-colors">Przegląd</li>
@@ -85,8 +88,9 @@
                     </ul>
                 </div>
               </div>
+
               <div>
-                <label class="block text-xs font-bold text-slate-500 mb-1.5">Przypisany Technik (Grep)</label>
+                <label class="block text-xs font-bold text-slate-500 mb-1.5">Przypisany Technik</label>
                  <div class="relative">
                     <div @click="toggleDropdown('tech')" :class="activeDropdown === 'tech' ? 'border-[#58b347] ring-2 ring-[#58b347]/20' : 'border-slate-200'" class="bg-slate-50 border rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-700 flex justify-between items-center cursor-pointer hover:border-[#58b347]/50 transition-colors shadow-inner">
                       <span :class="filterTech === '' ? 'text-slate-400' : 'text-slate-800'">{{ filterTech === '' ? 'Wszyscy technicy' : getTechLabel(filterTech) }}</span>
@@ -98,12 +102,108 @@
                     </ul>
                 </div>
               </div>
+
+              <!-- Przełącznik widoczności etykiet QP -->
+              <div class="pt-2 border-t border-slate-100">
+                <label class="block text-xs font-bold text-slate-500 mb-1.5">Etykiety QP na mapie</label>
+                <div class="grid grid-cols-3 gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
+                  <button
+                    type="button"
+                    @click="setLabelMode('AUTO')"
+                    class="py-1.5 rounded-lg text-[10px] font-black uppercase transition-all cursor-pointer"
+                    :class="labelVisibilityMode === 'AUTO' ? 'bg-white text-slate-800 shadow-xs' : 'text-slate-500 hover:text-slate-700'"
+                  >
+                    Od zoomu
+                  </button>
+                  <button
+                    type="button"
+                    @click="setLabelMode('TICKETS')"
+                    class="py-1.5 rounded-lg text-[10px] font-black uppercase transition-all cursor-pointer"
+                    :class="labelVisibilityMode === 'TICKETS' ? 'bg-white text-red-600 shadow-xs' : 'text-slate-500 hover:text-slate-700'"
+                    title="Pokazuj numery QP wszystkich aktywnych zgłoszeń nawet przy oddalonej mapie"
+                  >
+                    Zgłoszenia
+                  </button>
+                  <button
+                    type="button"
+                    @click="setLabelMode('NONE')"
+                    class="py-1.5 rounded-lg text-[10px] font-black uppercase transition-all cursor-pointer"
+                    :class="labelVisibilityMode === 'NONE' ? 'bg-white text-slate-800 shadow-xs' : 'text-slate-500 hover:text-slate-700'"
+                  >
+                    Ukryte
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- WYSZUKIWARKA STACJI QP / MIASTA / ZGŁOSZEŃ Z NALOTEM FLY-TO -->
+        <div class="relative flex items-center shrink-0 h-[42px]" @click.stop>
+          <div class="relative flex items-center h-[42px] bg-white/90 backdrop-blur-xl border border-slate-200/80 shadow-lg rounded-xl px-3 w-56 focus-within:border-[#58b347] focus-within:bg-white transition-all">
+            <svg class="w-4 h-4 text-slate-400 shrink-0 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input
+              v-model="mapSearchQuery"
+              @focus="isSearchDropdownOpen = true; activeMenu = null"
+              @input="onMapSearchInput"
+              @keydown.enter.prevent="onMapSearchEnter"
+              @keydown.esc="isSearchDropdownOpen = false"
+              type="text"
+              placeholder="Szukaj QP, miasta..."
+              class="w-full bg-transparent text-[12.5px] font-bold text-slate-800 placeholder:text-slate-400 focus:outline-none"
+            />
+            <button
+              v-if="mapSearchQuery"
+              type="button"
+              @click="clearMapSearch"
+              class="ml-1 text-slate-400 hover:text-slate-700 text-xs font-black cursor-pointer"
+              title="Wyczyść wyszukiwanie"
+            >✕</button>
+          </div>
+
+          <!-- Lista podpowiedzi Fly-To -->
+          <div
+            v-show="isSearchDropdownOpen && searchSuggestions.length > 0"
+            class="absolute top-[48px] left-0 w-84 max-h-80 overflow-y-auto custom-scrollbar bg-white/98 backdrop-blur-2xl border border-slate-200 rounded-2xl shadow-2xl z-[110] divide-y divide-slate-100 animate-fadeIn"
+          >
+            <div class="px-3.5 py-2 bg-slate-50/80 text-[9.5px] font-black uppercase tracking-widest text-slate-400 flex justify-between">
+              <span>{{ mapSearchQuery ? 'Wyniki wyszukiwania' : 'Aktywne zgłoszenia na mapie' }}</span>
+              <span>Kliknij = Leć do stacji</span>
+            </div>
+            <div
+              v-for="item in searchSuggestions"
+              :key="item.id"
+              @click="flyToStation(item)"
+              class="px-3.5 py-2.5 hover:bg-[#f0f7f1] cursor-pointer transition-colors flex items-start justify-between gap-2"
+            >
+              <div class="min-w-0">
+                <div class="flex items-center gap-1.5 flex-wrap">
+                  <span class="text-xs font-black font-mono text-slate-800">{{ item.shortQp }}</span>
+                  <span
+                    v-if="item.hasOpenTicket"
+                    class="px-1.5 py-0.2 rounded text-[8.5px] font-black uppercase text-white"
+                    :style="{ backgroundColor: item.pinColor }"
+                  >
+                    {{ item.ticketCode ? `#${item.ticketCode}` : 'Zgłoszenie' }}
+                  </span>
+                  <span
+                    v-if="item.isScheduled"
+                    class="px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 border border-emerald-300 text-[8.5px] font-black uppercase"
+                  >
+                    Grafik {{ item.visitDateShort }}
+                  </span>
+                </div>
+                <div class="text-[11px] font-semibold text-slate-500 truncate mt-0.5">
+                  {{ item.city }}{{ item.address && item.address !== 'Brak adresu' ? `, ${item.address}` : '' }}
+                </div>
+              </div>
+              <svg class="w-4 h-4 text-slate-300 shrink-0 mt-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
             </div>
           </div>
         </div>
 
         <!-- Przycisk przejścia do tras logistycznych -->
-        <button @click="mapMode = 'logistics'" class="shrink-0 box-border bg-white/90 backdrop-blur-xl border border-blue-200 shadow-lg px-4 rounded-xl text-blue-600 font-bold hover:bg-blue-50 transition-all flex items-center gap-2 text-[13px] h-[42px] whitespace-nowrap ml-2">
+        <button @click="mapMode = 'logistics'" class="shrink-0 box-border bg-white/90 backdrop-blur-xl border border-blue-200 shadow-lg px-4 rounded-xl text-blue-600 font-bold hover:bg-blue-50 transition-all flex items-center gap-2 text-[13px] h-[42px] whitespace-nowrap ml-1 cursor-pointer">
           <svg class="w-4 h-4 text-blue-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="6" cy="19" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/><circle cx="18" cy="5" r="3"/></svg> Trasy logistyczne
         </button>
       </template>
@@ -140,10 +240,23 @@
            </select>
 
            <!-- Ukryte pole na własny adres -->
-           <input id="route-custom-address" v-show="routeStartType === 'CUSTOM'" type="text" placeholder="Wpisz np. Poznań, Główna 1" class="text-xs font-bold text-slate-700 bg-white border border-blue-300 rounded-lg px-3 py-1.5 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 w-48 shadow-inner transition-all" />
+           <input
+             id="route-custom-address"
+             v-show="routeStartType === 'CUSTOM'"
+             v-model="routeCustomAddress"
+             @keydown.enter.prevent="triggerRouteCalculation"
+             type="text"
+             placeholder="Wpisz np. Poznań, Główna 1"
+             class="text-xs font-bold text-slate-700 bg-white border border-blue-300 rounded-lg px-3 py-1.5 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 w-48 shadow-inner transition-all"
+           />
 
-           <!-- Przycisk Oblicz (Tylko ID, nasłuchuje go panel Google) -->
-           <button id="route-calc-btn" class="bg-blue-600 text-white font-black text-[11px] uppercase tracking-widest px-4 py-2 rounded-lg transition-all shadow-sm hover:bg-blue-700 whitespace-nowrap ml-1">
+           <!-- Przycisk Oblicz spięty bezpośrednio przez Vue ref -->
+           <button
+             id="route-calc-btn"
+             type="button"
+             @click="triggerRouteCalculation"
+             class="bg-blue-600 text-white font-black text-[11px] uppercase tracking-widest px-4 py-2 rounded-lg transition-all shadow-sm hover:bg-blue-700 whitespace-nowrap ml-1 cursor-pointer"
+           >
              Wyznacz Trasę
            </button>
         </div>
@@ -195,6 +308,16 @@
           <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>
           Zarządzaj obszarami analitycznymi
        </div>
+       <div class="border-t border-slate-100 mt-1 pt-1">
+         <div @click="handleContextMenuAction('copy_coords')" class="flex items-center justify-between gap-2 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer transition-colors">
+           <span>Kopiuj GPS punktu</span>
+           <span v-if="contextMenu.lat" class="font-mono text-[10px] text-slate-400">{{ contextMenu.lat.toFixed(5) }}, {{ contextMenu.lng.toFixed(5) }}</span>
+         </div>
+         <div @click="handleContextMenuAction('open_gmaps')" class="flex items-center justify-between gap-2 px-3 py-2 text-xs font-bold text-blue-600 hover:bg-blue-50 rounded-lg cursor-pointer transition-colors">
+           <span>Podgląd w Google Maps / Satelita</span>
+           <span>↗</span>
+         </div>
+       </div>
     </div>
 
   <!-- MODE 1: INFO STACJI (TERRITORY) -->
@@ -208,11 +331,16 @@
   <!-- MODE 2: PANEL TRASY (LOGISTICS) -->
   <LogisticsRouteView 
       v-if="mapMode === 'logistics'"
+      ref="logisticsRouteRef"
       class="absolute inset-0 z-10"
       :techs="store.techs"
       :stations="store.stations"
-      :tickets="ticketsStore.tickets"
-      :calendar-events="scheduleStore.events" 
+      :tickets="mergedMapTickets"
+      :calendar-events="scheduleStore.events"
+      :selected-tech-id="routeTech"
+      :selected-date="routeDate"
+      :start-type="routeStartType"
+      :custom-start-address="routeCustomAddress"
   />
     
     <StationFormModal 
@@ -261,6 +389,7 @@ const sectorEditorRef = ref(null)
 // 1. REF-y DO KOMPONENTÓW
 const stationFormModalRef = ref(null)
 const stationInfoPanelRef = ref(null)
+const logisticsRouteRef = ref(null)
 
 const isSavingZone = ref(false)
 const showSectors = ref(true)
@@ -269,6 +398,7 @@ const sectorEditorTab = ref('technicians')
 
 const mapMode = ref('territory')
 const routeStartType = ref('ZG')
+const routeCustomAddress = ref('')
 
 const activeMenu = ref(null)
 const activeDropdown = ref(null)
@@ -285,23 +415,69 @@ const routeDate = ref('ALL')
 const isRoutingInProgress = ref(false)
 const isRoutingActive = ref(false)
 
-// --- DYNAMICZNE DATY DO TRAS LOGISTYCZNYCH ---
+// Połączona pula zgłoszeń (Axon Connect + Ekoen EE_XXX z Harmonogramu)
+const mergedMapTickets = computed(() => {
+  const primary = ticketsStore.tickets || []
+  const secondary = scheduleStore.tickets || []
+  if (secondary.length === 0) return primary
+
+  const mapByKey = new Map()
+  const getKey = (t) => String(t.ticket_code || t.ekoen_code || t.ticket_number || t.t_code || t.id || t.t_id || '').trim().toLowerCase()
+
+  secondary.forEach(t => {
+    const k = getKey(t)
+    if (k) mapByKey.set(k, t)
+  })
+  primary.forEach(t => {
+    const k = getKey(t)
+    if (k) mapByKey.set(k, { ...(mapByKey.get(k) || {}), ...t })
+  })
+
+  return Array.from(mapByKey.values())
+})
+
+// --- DYNAMICZNE DATY DO TRAS LOGISTYCZNYCH (bez urlopów, dopasowane do wybranego technika) ---
 const availableRouteDates = computed(() => {
-  if (!scheduleStore.events || scheduleStore.events.length === 0) return [];
+  if (!scheduleStore.events || scheduleStore.events.length === 0) return []
 
-  const dates = new Set();
+  const selectedObj = store.techs.find(t => String(t.id) === String(routeTech.value))
+  const selIdLow = String(routeTech.value || '').toLowerCase().trim()
+  const selNameLow = String(selectedObj?.name || '').toLowerCase().trim()
+
+  const dates = new Set()
   scheduleStore.events.forEach(ev => {
-    if (ev.start_time) {
-      try {
-        const d = new Date(ev.start_time);
-        const dStr = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-        dates.add(dStr);
-      } catch (e) {}
-    }
-  });
+    if (!ev.start_time) return
+    const evType = String(ev.event_type || ev.extendedProps?.event_type || '').toLowerCase()
+    if (evType === 'absence') return
 
-  return Array.from(dates).sort();
-});
+    if (selIdLow) {
+      const evTech = String(ev.technician_id || '').toLowerCase().trim()
+      const evTechExt = String(ev.extendedProps?.technicianName || '').toLowerCase().trim()
+      const matchesTech = (evTech === selIdLow) || (selNameLow && (evTech === selNameLow || evTechExt === selNameLow))
+      if (!matchesTech) return
+    }
+
+    const d = new Date(String(ev.start_time).replace(' ', 'T'))
+    if (!isNaN(d.getTime())) {
+      const dStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+      dates.add(dStr)
+    }
+  })
+
+  return Array.from(dates).sort()
+})
+
+watch(availableRouteDates, (validDates) => {
+  if (routeDate.value !== 'ALL' && !validDates.includes(routeDate.value)) {
+    routeDate.value = 'ALL'
+  }
+})
+
+function triggerRouteCalculation() {
+  if (logisticsRouteRef.value && typeof logisticsRouteRef.value.calculateOptimalRoute === 'function') {
+    logisticsRouteRef.value.calculateOptimalRoute()
+  }
+}
 
 const contextMenu = ref({ show: false, x: 0, y: 0, lat: null, lng: null })
 
@@ -353,10 +529,16 @@ function closeSectorEditor() {
 }
 
 function handleContextMenuAction(action) {
-  contextMenu.value.show = false;
-  if (action === 'add_station') openAddStation(contextMenu.value.lat, contextMenu.value.lng)
-  else if (action === 'edit_techs') { sectorEditorTab.value = 'technicians'; isSectorEditorOpen.value = true; if(!showSectors.value) toggleSectors(); }
-  else if (action === 'edit_areas') { sectorEditorTab.value = 'regions'; isSectorEditorOpen.value = true; if(!showSectors.value) toggleSectors(); }
+  const { lat, lng } = contextMenu.value
+  contextMenu.value.show = false
+  if (action === 'add_station') openAddStation(lat, lng)
+  else if (action === 'edit_techs') { sectorEditorTab.value = 'technicians'; isSectorEditorOpen.value = true; if (!showSectors.value) toggleSectors() }
+  else if (action === 'edit_areas') { sectorEditorTab.value = 'regions'; isSectorEditorOpen.value = true; if (!showSectors.value) toggleSectors() }
+  else if (action === 'copy_coords' && lat != null && lng != null) {
+    navigator.clipboard?.writeText(`${lat.toFixed(6)}, ${lng.toFixed(6)}`)
+  } else if (action === 'open_gmaps' && lat != null && lng != null) {
+    window.open(`https://www.google.com/maps/search/?api=1&query=${lat.toFixed(6)},${lng.toFixed(6)}`, '_blank')
+  }
 }
 
 // 2. NOWA FUNKCJA OTWIERAJĄCA FORMULARZ
@@ -465,113 +647,327 @@ const uniqueTechNames = computed(() => {
   return Array.from(names).sort();
 });
 
-function getStatusLabel(val) {
-  if (val === 'HAS_TICKET') return 'Aktywne zgłoszenia';
-  if (val === 'CAT_REPAIR') return 'Naprawa';
-  if (val === 'CAT_INSPECTION') return 'Przegląd';
-  if (val === 'CAT_COMMISSIONING') return 'Uruchomienie';
-  if (val === 'TICK_OCZEKUJE_CZESCI') return 'Oczekuje na Części';
-  if (val === 'TICK_OCZEKUJE_REALIZACJA') return 'Do Realizacji';
-  if (val === 'TICK_WYKONANO') return 'Wykonano';
-  return 'Wszystkie stacje';
-}
-function getTechLabel(val) { return val ? (uniqueTechNames.value.find(t => t.toLowerCase() === val.toLowerCase()) || val) : 'Wszyscy technicy'; }
-function getRouteTechLabel(id) { const t = store.techs.find(x => x.id === id); return t ? t.name : 'Wybierz...'; }
+const mapSearchQuery = ref('')
+const isSearchDropdownOpen = ref(false)
+const labelVisibilityMode = ref('AUTO') // 'AUTO' | 'TICKETS' | 'NONE'
+const visibleStationsCount = ref(0)
 
-function setFilterStatus(val) { filterStatus.value = val; activeDropdown.value = null; applyFilters(); }
-function setFilterTech(val) { filterTech.value = val.toLowerCase(); activeDropdown.value = null; applyFilters(); }
-function setRouteTech(id) { routeTech.value = id; activeDropdown.value = null; }
+function getStatusLabel(val) {
+  if (val === 'HAS_TICKET') return 'Aktywne zgłoszenia'
+  if (val === 'SCHED_PLANNED') return 'W Harmonogramie'
+  if (val === 'SCHED_UNPLANNED') return 'Bez wizyty w grafiku'
+  if (val === 'CAT_REPAIR') return 'Naprawa'
+  if (val === 'CAT_INSPECTION') return 'Przegląd'
+  if (val === 'CAT_COMMISSIONING') return 'Uruchomienie'
+  if (val === 'TICK_OCZEKUJE_CZESCI') return 'Oczekuje na Części'
+  if (val === 'TICK_OCZEKUJE_REALIZACJA') return 'Do Realizacji'
+  if (val === 'TICK_WYKONANO') return 'Wykonano'
+  return 'Wszystkie stacje'
+}
+function getTechLabel(val) { return val ? (uniqueTechNames.value.find(t => t.toLowerCase() === val.toLowerCase()) || val) : 'Wszyscy technicy' }
+function getRouteTechLabel(id) { const t = store.techs.find(x => x.id === id); return t ? t.name : 'Wybierz...' }
+
+function setFilterStatus(val) { filterStatus.value = val; activeDropdown.value = null; applyFilters() }
+function setFilterTech(val) { filterTech.value = val.toLowerCase(); activeDropdown.value = null; applyFilters() }
+function setRouteTech(id) { routeTech.value = id; activeDropdown.value = null }
+
+const getShortQpMap = (raw) => {
+  const str = String(raw || '').trim()
+  if (!str) return ''
+  const parts = str.split('-')
+  return parts.length >= 2 ? `${parts[0]}-${parts[1]}`.toUpperCase() : str.toUpperCase()
+}
+
+const isTicketClosedMap = (t) => {
+  const st = String(t?.status || t?.t_status || '').toLowerCase()
+  const intSt = String(t?.ticket_status || '').toLowerCase()
+  if (st.includes('zamknięt') || st.includes('zakończ') || st.includes('closed') || st.includes('anulowan') || st.includes('zrealizowano')) return true
+  if (intSt.includes('wykonano') || (intSt.includes('rozliczone') && !intSt.includes('nierozliczone'))) return true
+  return false
+}
+
+// Zintegrowany indeks stacji z żywymi zgłoszeniami (Axon + Ekoen) oraz wizytami z Harmonogramu
+const enrichedStationsIndex = computed(() => {
+  const todayStr = new Date().toISOString().substring(0, 10)
+  const tickets = mergedMapTickets.value || []
+  const events = scheduleStore.events || []
+
+  const ticketsById = new Map()
+  const openTicketsByQp = new Map()
+
+  tickets.forEach(t => {
+    const keys = [t.id, t.ticket_code, t.ekoen_code, t.ticket_number, t.t_code, t.t_id]
+      .filter(Boolean)
+      .map(k => String(k).replace(/^#/, '').trim().toLowerCase())
+    keys.forEach(k => ticketsById.set(k, t))
+
+    if (!isTicketClosedMap(t)) {
+      const q = getShortQpMap(t.qp_id || t.station_id || t.t_qp)
+      if (q && !openTicketsByQp.has(q)) openTicketsByQp.set(q, t)
+    }
+  })
+
+  const visitByRef = new Map()
+  events.forEach(ev => {
+    const evType = String(ev.event_type || ev.extendedProps?.event_type || '').toLowerCase()
+    if (evType === 'absence') return
+    const dStr = String(ev.start_time || '').substring(0, 10)
+    if (!dStr || dStr < todayStr) return
+
+    const tid = String(ev.ticket_id || '').replace(/^#/, '').trim().toLowerCase()
+    if (tid && (!visitByRef.has(tid) || dStr < visitByRef.get(tid))) {
+      visitByRef.set(tid, dStr)
+    }
+    const qpMatch = (String(ev.title || '').match(/QP-\d+/i) || [])[0]
+    if (qpMatch) {
+      const qKey = qpMatch.toUpperCase()
+      if (!visitByRef.has(qKey) || dStr < visitByRef.get(qKey)) {
+        visitByRef.set(qKey, dStr)
+      }
+    }
+  })
+
+  const list = []
+  ;(store.stations || []).forEach(s => {
+    if (!s.gps_lat || !s.gps_lng) return
+    const lat = parseFloat(String(s.gps_lat).replace(',', '.'))
+    const lng = parseFloat(String(s.gps_lng).replace(',', '.'))
+    if (isNaN(lat) || isNaN(lng)) return
+
+    const shortQp = getShortQpMap(s.public_id || s.name || s.id)
+    const rawTid = String(s.active_ticket_id || '').replace(/^#/, '').trim().toLowerCase()
+
+    let matchedTicket = rawTid ? (ticketsById.get(rawTid) || null) : null
+    if ((!matchedTicket || isTicketClosedMap(matchedTicket)) && openTicketsByQp.has(shortQp)) {
+      matchedTicket = openTicketsByQp.get(shortQp)
+    }
+
+    const hasOpenTicket = matchedTicket
+      ? !isTicketClosedMap(matchedTicket)
+      : Boolean(rawTid && !String(s.ticket_status || '').toLowerCase().includes('wykonano'))
+
+    const realTicketStatus = String(
+      matchedTicket?.ticket_status || matchedTicket?.status || s.ticket_status || ''
+    )
+    const statusLower = realTicketStatus.toLowerCase()
+    const ticketCode = matchedTicket
+      ? String(matchedTicket.ekoen_code || matchedTicket.ticket_code || matchedTicket.ticket_number || matchedTicket.id || '')
+      : String(s.active_ticket_id || '')
+
+    const visitIso =
+      (ticketCode && visitByRef.get(ticketCode.toLowerCase())) ||
+      (rawTid && visitByRef.get(rawTid)) ||
+      visitByRef.get(shortQp) ||
+      ''
+    const isScheduled = Boolean(visitIso)
+    const visitDateShort = visitIso ? `${visitIso.slice(8, 10)}.${visitIso.slice(5, 7)}` : ''
+
+    let address = s.street_number || s.street || 'Brak adresu'
+    let city = s.city || 'Nieznane miasto'
+    let postcode = ''
+    if (matchedTicket) {
+      if (matchedTicket.address && String(matchedTicket.address).trim()) address = matchedTicket.address
+      if (matchedTicket.city && String(matchedTicket.city).trim()) city = matchedTicket.city
+      if (matchedTicket.postcode && String(matchedTicket.postcode).trim()) postcode = matchedTicket.postcode
+    }
+
+    let pinColor = '#64748b'
+    if (hasOpenTicket) {
+      if (statusLower.includes('części') || statusLower.includes('czesci')) pinColor = '#f59e0b'
+      else if (String(s.ticket_category || matchedTicket?.category || '').toUpperCase().includes('INSPECT') || statusLower.includes('przegl')) pinColor = '#0284c7'
+      else pinColor = '#ef4444'
+    }
+
+    const cityShort = city !== 'Nieznane miasto' ? city : ''
+    const baseLabel = cityShort ? `${shortQp} • ${cityShort}` : shortQp
+    const labelText = isScheduled ? `${baseLabel} [${visitDateShort}]` : baseLabel
+
+    const searchBlob = [
+      shortQp,
+      s.public_id,
+      city,
+      address,
+      s.client_name || matchedTicket?.client || '',
+      ticketCode,
+      s.ticket_technician || matchedTicket?.technician_id || ''
+    ].join(' ').toLowerCase()
+
+    list.push({
+      raw: s,
+      id: s.id,
+      shortQp: shortQp || String(s.public_id || s.id),
+      lat,
+      lng,
+      city,
+      address,
+      postcode,
+      ticketCat: s.ticket_category || '',
+      statusLower,
+      hasOpenTicket,
+      ticketCode,
+      isScheduled,
+      visitDateShort,
+      pinColor,
+      labelText,
+      searchBlob,
+      rawJsonLower: JSON.stringify(s).toLowerCase() + ' ' + String(matchedTicket?.technician_id || '').toLowerCase()
+    })
+  })
+
+  return list
+})
+
+const searchSuggestions = computed(() => {
+  const q = mapSearchQuery.value.toLowerCase().trim()
+  const all = enrichedStationsIndex.value
+  if (!q) {
+    return all
+      .filter(it => it.hasOpenTicket)
+      .sort((a, b) => Number(b.isScheduled) - Number(a.isScheduled))
+      .slice(0, 10)
+  }
+
+  return all
+    .filter(it => it.searchBlob.includes(q))
+    .sort((a, b) => {
+      const aStarts = a.shortQp.toLowerCase().includes(q) ? 1 : 0
+      const bStarts = b.shortQp.toLowerCase().includes(q) ? 1 : 0
+      if (aStarts !== bStarts) return bStarts - aStarts
+      return Number(b.hasOpenTicket) - Number(a.hasOpenTicket)
+    })
+    .slice(0, 14)
+})
+
+function onMapSearchInput() {
+  isSearchDropdownOpen.value = true
+  applyFilters()
+}
+
+function clearMapSearch() {
+  mapSearchQuery.value = ''
+  isSearchDropdownOpen.value = false
+  applyFilters()
+}
+
+function flyToStation(item) {
+  if (!item || !map.value) return
+  isSearchDropdownOpen.value = false
+  activeMenu.value = null
+  if (mapSearchQuery.value) {
+    mapSearchQuery.value = ''
+    applyFilters()
+  }
+  map.value.flyTo({
+    center: [item.lng, item.lat],
+    zoom: Math.max(map.value.getZoom(), 14.5),
+    speed: 1.5,
+    essential: true
+  })
+  openStationInfoPanel(item.id)
+}
+
+function onMapSearchEnter() {
+  if (searchSuggestions.value.length > 0) {
+    flyToStation(searchSuggestions.value[0])
+  }
+}
+
+function syncLabelLayerStyle() {
+  if (!map.value || !map.value.getLayer('unclustered-point-label')) return
+  const mode = labelVisibilityMode.value
+
+  if (mode === 'NONE') {
+    map.value.setLayoutProperty('unclustered-point-label', 'visibility', 'none')
+    return
+  }
+
+  map.value.setLayoutProperty('unclustered-point-label', 'visibility', 'visible')
+  if (mode === 'TICKETS') {
+    map.value.setLayerZoomRange('unclustered-point-label', 6, 24)
+    map.value.setFilter('unclustered-point-label', [
+      'all',
+      ['!', ['has', 'point_count']],
+      ['==', ['get', 'has_ticket_count'], 1]
+    ])
+  } else {
+    map.value.setLayerZoomRange('unclustered-point-label', 9.5, 24)
+    map.value.setFilter('unclustered-point-label', ['!', ['has', 'point_count']])
+  }
+}
+
+function setLabelMode(mode) {
+  labelVisibilityMode.value = mode
+  syncLabelLayerStyle()
+}
 
 function applyFilters() {
-  if (!map.value || !map.value.getSource('stations-data')) return;
-  const fStatus = filterStatus.value;
-  const fTech = filterTech.value;
+  if (!map.value || !map.value.getSource('stations-data')) return
+  const fStatus = filterStatus.value
+  const fTech = filterTech.value
+  const q = mapSearchQuery.value.toLowerCase().trim()
 
   const filterColors = {
-    '': '#58b347', 'HAS_TICKET': '#ef4444', 'CAT_REPAIR': '#dc2626', 'CAT_INSPECTION': '#3b82f6', 
-    'CAT_COMMISSIONING': '#f59e0b', 'TICK_OCZEKUJE_CZESCI': '#f97316', 'TICK_OCZEKUJE_REALIZACJA': '#6366f1', 'TICK_WYKONANO': '#10b981'
-  };
+    '': '#58b347',
+    'HAS_TICKET': '#ef4444',
+    'SCHED_PLANNED': '#10b981',
+    'SCHED_UNPLANNED': '#e11d48',
+    'CAT_REPAIR': '#dc2626',
+    'CAT_INSPECTION': '#3b82f6',
+    'CAT_COMMISSIONING': '#f59e0b',
+    'TICK_OCZEKUJE_CZESCI': '#f97316',
+    'TICK_OCZEKUJE_REALIZACJA': '#6366f1',
+    'TICK_WYKONANO': '#10b981'
+  }
 
-  let activeColor = fStatus !== '' ? (filterColors[fStatus] || '#94a3b8') : (fTech !== '' ? '#58b347' : '#94a3b8');
-  if (map.value.getLayer('clusters')) map.value.setPaintProperty('clusters', 'circle-color', activeColor);
-  if (map.value.getLayer('unclustered-point')) map.value.setPaintProperty('unclustered-point', 'circle-color', activeColor);
-  
-  const filtered = store.stations.filter(s => {
-    let tId = s.active_ticket_id || '';
-    let tCat = s.ticket_category || '';
-    
-    // POBIERAMY AKTUALNY STATUS BEZPOŚREDNIO Z TICKETS STORE
-    let realTicketStatus = s.ticket_status || '';
-    
-    if (tId && ticketsStore.tickets.length > 0) {
-      const searchId = String(tId).toLowerCase().trim();
-      const activeTicket = ticketsStore.tickets.find(t => 
-        String(t.id).toLowerCase().trim() === searchId || 
-        String(t.ticket_code || t.t_code || '').toLowerCase().trim() === searchId
-      );
-      if (activeTicket) {
-        // Bierzemy prawdziwy status operacyjny ze zgłoszenia
-        realTicketStatus = activeTicket.ticket_status || activeTicket.status || realTicketStatus;
-      }
+  const activeClusterColor = fStatus !== '' ? (filterColors[fStatus] || '#94a3b8') : '#58b347'
+  if (map.value.getLayer('clusters') && fStatus !== '') {
+    map.value.setPaintProperty('clusters', 'circle-color', activeClusterColor)
+  }
+
+  const filtered = enrichedStationsIndex.value.filter(it => {
+    let mStatus = true
+    if (fStatus === 'HAS_TICKET') mStatus = it.hasOpenTicket
+    else if (fStatus === 'SCHED_PLANNED') mStatus = it.isScheduled
+    else if (fStatus === 'SCHED_UNPLANNED') mStatus = it.hasOpenTicket && !it.isScheduled
+    else if (fStatus === 'CAT_REPAIR') mStatus = it.ticketCat === 'REPAIR'
+    else if (fStatus === 'CAT_INSPECTION') mStatus = it.ticketCat === 'INSPECTION'
+    else if (fStatus === 'CAT_COMMISSIONING') mStatus = it.ticketCat === 'COMMISSIONING'
+    else if (fStatus === 'TICK_OCZEKUJE_CZESCI') mStatus = it.statusLower.includes('części') || it.statusLower.includes('czesci')
+    else if (fStatus === 'TICK_OCZEKUJE_REALIZACJA') mStatus = it.statusLower.includes('realizacj')
+    else if (fStatus === 'TICK_WYKONANO') mStatus = it.statusLower.includes('wykonano')
+
+    const mTech = fTech === '' || it.rawJsonLower.includes(fTech)
+    const mSearch = q === '' || it.searchBlob.includes(q)
+
+    return mStatus && mTech && mSearch
+  })
+
+  visibleStationsCount.value = filtered.length
+
+  const features = filtered.map(it => ({
+    type: 'Feature',
+    geometry: {
+      type: 'Point',
+      coordinates: [it.lng, it.lat]
+    },
+    properties: {
+      id: it.id,
+      name: it.raw.public_id,
+      status: it.raw.status,
+      has_ticket_count: it.hasOpenTicket ? 1 : 0,
+      is_scheduled: it.isScheduled ? 1 : 0,
+      pin_color: it.pinColor,
+      pin_radius: it.hasOpenTicket ? 8.5 : 6.5,
+      stroke_color: it.isScheduled ? '#10b981' : '#ffffff',
+      stroke_width: it.isScheduled ? 3.5 : 2,
+      label_text: it.labelText,
+      dynamic_address: it.address,
+      dynamic_city: it.city,
+      dynamic_postcode: it.postcode
     }
-    
-    let mStatus = true;
-    // Zamieniamy na małe litery, by uodpornić filtry na literówki
-    const statusLower = String(realTicketStatus).toLowerCase();
+  }))
 
-    if (fStatus === 'HAS_TICKET') mStatus = (tId.trim() !== '');
-    else if (fStatus === 'CAT_REPAIR') mStatus = (tCat === 'REPAIR');
-    else if (fStatus === 'CAT_INSPECTION') mStatus = (tCat === 'INSPECTION');
-    else if (fStatus === 'CAT_COMMISSIONING') mStatus = (tCat === 'COMMISSIONING');
-    else if (fStatus === 'TICK_OCZEKUJE_CZESCI') mStatus = statusLower.includes('części') || statusLower.includes('czesci');
-    else if (fStatus === 'TICK_OCZEKUJE_REALIZACJA') mStatus = statusLower.includes('realizacj');
-    else if (fStatus === 'TICK_WYKONANO') mStatus = statusLower.includes('wykonano');
-
-    let mTech = true;
-    if (fTech !== '') mTech = JSON.stringify(s).toLowerCase().includes(fTech);
-    
-    return mStatus && mTech;
-  });
-  
-  // Budowanie "Features" dla mapy (z uwzględnieniem dynamicznego adresu, który dodaliśmy wcześniej)
-  const features = filtered.filter(s => s.gps_lat && s.gps_lng).map(s => {
-    let finalAddress = s.street_number || s.street || 'Brak adresu';
-    let finalCity = s.city || 'Nieznane miasto';
-    let finalPostcode = '';
-
-    if (s.active_ticket_id && ticketsStore.tickets.length > 0) {
-      const searchId = String(s.active_ticket_id).toLowerCase().trim();
-      const activeTicket = ticketsStore.tickets.find(t => 
-        String(t.id).toLowerCase().trim() === searchId || 
-        String(t.ticket_code || t.t_code || '').toLowerCase().trim() === searchId
-      );
-
-      if (activeTicket) {
-        if (activeTicket.address && activeTicket.address.trim() !== '') finalAddress = activeTicket.address;
-        if (activeTicket.city && activeTicket.city.trim() !== '') finalCity = activeTicket.city;
-        if (activeTicket.postcode && activeTicket.postcode.trim() !== '') finalPostcode = activeTicket.postcode;
-      }
-    }
-
-    return {
-      type: 'Feature', 
-      geometry: { 
-        type: 'Point', 
-        coordinates: [parseFloat(s.gps_lng.toString().replace(',','.')), parseFloat(s.gps_lat.toString().replace(',','.'))] 
-      },
-      properties: { 
-        id: s.id, 
-        name: s.public_id, 
-        status: s.status, 
-        has_ticket_count: (s.active_ticket_id && s.active_ticket_id.trim() !== '') ? 1 : 0,
-        dynamic_address: finalAddress,
-        dynamic_city: finalCity,
-        dynamic_postcode: finalPostcode
-      }
-    };
-  });
-  
-  map.value.getSource('stations-data').setData({ type: 'FeatureCollection', features });
+  map.value.getSource('stations-data').setData({ type: 'FeatureCollection', features })
 }
 
 
@@ -711,25 +1107,72 @@ function initMap() {
     });
 
     map.value.addLayer({ id: 'cluster-count', type: 'symbol', source: 'stations-data', filter: ['has', 'point_count'], layout: { 'text-field': '{point_count_abbreviated}', 'text-font': ['Open Sans Regular', 'Arial Unicode MS Regular'], 'text-size': 14 }, paint: { 'text-color': '#ffffff' } });
-    map.value.addLayer({ id: 'unclustered-point', type: 'circle', source: 'stations-data', filter: ['!', ['has', 'point_count']], paint: { 'circle-radius': 7, 'circle-stroke-width': 2, 'circle-stroke-color': '#ffffff', 'circle-color': '#94a3b8' } });
+    map.value.addLayer({
+      id: 'unclustered-point',
+      type: 'circle',
+      source: 'stations-data',
+      filter: ['!', ['has', 'point_count']],
+      paint: {
+        'circle-radius': ['get', 'pin_radius'],
+        'circle-stroke-width': ['get', 'stroke_width'],
+        'circle-stroke-color': ['get', 'stroke_color'],
+        'circle-color': ['get', 'pin_color']
+      }
+    });
+
+    map.value.addLayer({
+      id: 'unclustered-point-label',
+      type: 'symbol',
+      source: 'stations-data',
+      minzoom: 9.5,
+      filter: ['!', ['has', 'point_count']],
+      layout: {
+        'text-field': ['get', 'label_text'],
+        'text-font': ['Open Sans Regular', 'Arial Unicode MS Regular'],
+        'text-size': 11,
+        'text-offset': [0, 1.25],
+        'text-anchor': 'top',
+        'text-max-width': 16,
+        'symbol-sort-key': ['-', 0, ['get', 'has_ticket_count']]
+      },
+      paint: {
+        'text-color': [
+          'case',
+          ['==', ['get', 'is_scheduled'], 1], '#065f46',
+          ['==', ['get', 'has_ticket_count'], 1], '#991b1b',
+          '#1e293b'
+        ],
+        'text-halo-color': '#ffffff',
+        'text-halo-width': 2
+      }
+    });
 
     map.value.on('click', 'clusters', (e) => {
         const clusterId = map.value.queryRenderedFeatures(e.point, { layers: ['clusters'] })[0].properties.cluster_id;
         map.value.getSource('stations-data').getClusterExpansionZoom(clusterId).then(zoom => map.value.easeTo({ center: e.lngLat, zoom: zoom }));
     });
-    map.value.on('mouseenter', 'clusters', () => map.value.getCanvas().style.cursor = 'pointer');
-    map.value.on('mouseleave', 'clusters', () => map.value.getCanvas().style.cursor = '');
-    
+    ['clusters', 'unclustered-point', 'unclustered-point-label'].forEach(layerId => {
+      map.value.on('mouseenter', layerId, () => { map.value.getCanvas().style.cursor = 'pointer' });
+      map.value.on('mouseleave', layerId, () => { map.value.getCanvas().style.cursor = '' });
+    });
+
     map.value.on('click', 'unclustered-point', (e) => {
-        // 4. OTWIERANIE PANELU INFO PO KLIKNIĘCIU W STACJĘ
+        openStationInfoPanel(e.features[0].properties.id);
+    });
+    map.value.on('click', 'unclustered-point-label', (e) => {
         openStationInfoPanel(e.features[0].properties.id);
     });
 
     map.value.on('contextmenu', (e) => {
-        if(e.originalEvent) e.originalEvent.preventDefault();
+        if (e.originalEvent) e.originalEvent.preventDefault();
         contextMenu.value = { show: true, x: e.originalEvent.clientX, y: e.originalEvent.clientY, lat: e.lngLat.lat, lng: e.lngLat.lng };
     });
-    map.value.on('click', () => { contextMenu.value.show = false; });
+    map.value.on('click', () => {
+        contextMenu.value.show = false;
+        isSearchDropdownOpen.value = false;
+    });
+
+    syncLabelLayerStyle();
 
     loadGeoJsonBoundaries();
     updateSectorMap();
@@ -921,9 +1364,9 @@ watch(() => [store.techs, store.areas, store.hiddenTechs, store.hiddenAreas], ()
   updateSectorMap(); 
 }, { deep: true })
 
-// Obserwujemy zmiany na wielkich tablicach stacji i zgłoszeń (TYLKO płytko)
-watch(() => [store.stations, ticketsStore.tickets], () => { 
-  applyFilters(); 
+// Obserwujemy zmiany stacji, połączonych zgłoszeń (Axon + Ekoen) oraz wizyt Harmonogramu
+watch(() => [store.stations, mergedMapTickets.value, scheduleStore.events], () => {
+  applyFilters()
 })
 
 </script>
